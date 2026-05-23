@@ -1,0 +1,786 @@
+/* This file is part of Moodle - http://moodle.org/
+ *
+ * Block Feedback tracker — block content styles.
+ */
+
+.block_feedback_tracker .bft-block-root {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.block_feedback_tracker .bft-block-controls {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    font-size: 0.78rem;
+}
+
+.block_feedback_tracker .bft-sort-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    color: #64748b;
+}
+
+.block_feedback_tracker .bft-sort-label-text {
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 0.7rem;
+}
+
+.block_feedback_tracker .bft-sort-select {
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 0.1rem 0.3rem;
+    background: #fff;
+    color: #0f172a;
+    font-size: 0.78rem;
+}
+
+/* Error banner and empty-state utility classes are global (used by the
+ * block, the pending report page, the dashboard, and the spike harness). */
+
+.bft-error {
+    background: #fee2e2;
+    color: #b91c1c;
+    padding: 0.4rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+
+.block_feedback_tracker .bft-card-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.block_feedback_tracker .bft-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 0.75rem;
+    background: #fff;
+}
+
+.block_feedback_tracker .bft-card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.5rem;
+}
+
+/* Refresh-button rules are global (no `.block_feedback_tracker` ancestor
+ * scope) so the same button styles work in the in-course block, on
+ * pages/pending_report.php, on pages/teacher_dashboard.php, and on the
+ * pages/spike_react.php harness — none of the standalone pages live
+ * inside the block's `.block_feedback_tracker` wrapper. */
+
+.bft-refresh {
+    background: none;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 0 0.4rem;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    cursor: pointer;
+    color: #64748b;
+}
+
+.bft-refresh:hover,
+.bft-refresh:focus-visible {
+    color: #0f172a;
+    background: #f1f3f6;
+    outline: none;
+}
+
+.bft-refresh:disabled {
+    cursor: not-allowed;
+}
+
+.bft-refresh-busy {
+    opacity: 0.6;
+    cursor: progress;
+}
+
+.block_feedback_tracker .bft-card-title {
+    font-size: 0.95rem;
+    color: #0f172a;
+}
+
+.block_feedback_tracker .bft-card-body {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+}
+
+.block_feedback_tracker .bft-card-gauge {
+    flex: 0 0 auto;
+}
+
+.block_feedback_tracker .bft-card-data {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.block_feedback_tracker .bft-counts {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.block_feedback_tracker .bft-count {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.1;
+}
+
+.block_feedback_tracker .bft-count-value {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: #0f172a;
+}
+
+.block_feedback_tracker .bft-count-label {
+    font-size: 0.72rem;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.block_feedback_tracker .bft-metrics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+}
+
+.block_feedback_tracker .bft-metric {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.1;
+}
+
+.block_feedback_tracker .bft-metric-label {
+    font-size: 0.7rem;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.block_feedback_tracker .bft-metric-value {
+    color: #0f172a;
+    font-weight: 500;
+}
+
+.block_feedback_tracker .bft-card-sparkline {
+    margin-top: 0.5rem;
+    line-height: 0;
+}
+
+.block_feedback_tracker .bft-sparkline {
+    width: 100%;
+    height: 30px;
+    max-width: 240px;
+}
+
+.block_feedback_tracker .bft-pause-strip {
+    margin-top: 0.5rem;
+    padding: 0.4rem 0.5rem;
+    background: #f1f3f6;
+    border-radius: 4px;
+    font-size: 0.78rem;
+    color: #475569;
+}
+
+.block_feedback_tracker .bft-card-foot {
+    margin-top: 0.5rem;
+}
+
+.block_feedback_tracker .bft-breakdown {
+    margin-top: 0.5rem;
+    font-size: 0.78rem;
+}
+
+.block_feedback_tracker .bft-breakdown > summary,
+.block_feedback_tracker .bft-breakdown-toggle {
+    cursor: pointer;
+    color: #64748b;
+    font-weight: 500;
+    background: none;
+    border: 0;
+    padding: 0;
+    text-align: left;
+}
+
+.block_feedback_tracker .bft-breakdown-toggle:hover,
+.block_feedback_tracker .bft-breakdown-toggle:focus {
+    color: #0f172a;
+    outline: none;
+}
+
+.block_feedback_tracker .bft-breakdown-table {
+    width: 100%;
+    margin-top: 0.4rem;
+    border-collapse: collapse;
+}
+
+.block_feedback_tracker .bft-breakdown-table th,
+.block_feedback_tracker .bft-breakdown-table td {
+    padding: 0.2rem 0.4rem;
+    border-bottom: 1px solid #eef0f3;
+    text-align: left;
+}
+
+.block_feedback_tracker .bft-breakdown-table .bft-breakdown-num {
+    text-align: right;
+    font-family: ui-monospace, "JetBrains Mono", monospace;
+    font-variant-numeric: tabular-nums;
+}
+
+.block_feedback_tracker .bft-breakdown-table tfoot th {
+    border-top: 2px solid #cbd5e1;
+    border-bottom: none;
+    font-weight: 700;
+}
+
+.block_feedback_tracker .bft-drilldown {
+    font-size: 0.85rem;
+}
+
+.bft-empty {
+    color: #64748b;
+    font-style: italic;
+    font-size: 0.9rem;
+}
+
+/* Band-badge utility class is global — `<Badge>` renders inside the
+ * block, the report table, the dashboard hero, the dashboard courses
+ * table, the Grade Now panel, and the timeline modal. */
+
+.bft-badge {
+    display: inline-block;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.bft-badge-excellent {
+    background: #d1fae5;
+    color: #047857;
+}
+
+.bft-badge-good {
+    background: #fef3c7;
+    color: #b45309;
+}
+
+.bft-badge-regular {
+    background: #ffedd5;
+    color: #c2410c;
+}
+
+.bft-badge-critical {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.bft-badge-pending {
+    background: #e2e8f0;
+    color: #475569;
+}
+
+/* Drilldown / table badges reuse the same palette. */
+.badge.badge-excellent {
+    background: #d1fae5;
+    color: #047857;
+}
+.badge.badge-good {
+    background: #fef3c7;
+    color: #b45309;
+}
+.badge.badge-regular {
+    background: #ffedd5;
+    color: #c2410c;
+}
+.badge.badge-critical {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+.badge.badge-pending {
+    background: #e2e8f0;
+    color: #475569;
+}
+
+/* ------------------------------------------------------------------------
+ * Teacher dashboard (Phase 2D) — pages/teacher_dashboard.php
+ *
+ * Rules are global (no .block_feedback_tracker prefix) because the
+ * dashboard lives at a standalone admin URL, not inside the block's
+ * sidebar wrapper.
+ * ------------------------------------------------------------------------ */
+
+.bft-dashboard {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    font-family: 'Manrope', system-ui, sans-serif;
+}
+
+.bft-dashboard-hero {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.25rem 1.5rem;
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+}
+
+.bft-dashboard-hero-text {
+    flex: 1 1 240px;
+}
+
+.bft-dashboard-hero-greeting {
+    margin: 0 0 0.25rem;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.bft-dashboard-hero-subtitle {
+    margin: 0;
+    color: #64748b;
+    font-size: 0.95rem;
+}
+
+.bft-dashboard-hero-stats {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1.25rem;
+}
+
+.bft-dashboard-kpi {
+    display: flex;
+    flex-direction: column;
+    min-width: 72px;
+    line-height: 1.1;
+}
+
+.bft-dashboard-kpi-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #0f172a;
+    font-variant-numeric: tabular-nums;
+}
+
+.bft-dashboard-kpi-label {
+    font-size: 0.72rem;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 0.15rem;
+}
+
+.bft-dashboard-score {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    padding-left: 1rem;
+    border-left: 1px solid #cbd5e1;
+}
+
+/* Cap the hero gauge so it can't outgrow the KPI row on narrow viewports.
+ * Beyond max-width the SVG scales down; the responsive @media block below
+ * drops the left border + padding when wrapped. */
+
+.bft-dashboard-score .bft-gauge {
+    width: 140px;
+    height: 140px;
+    max-width: 100%;
+}
+
+.bft-dashboard-score-inline {
+    font-weight: 700;
+    margin-right: 0.4rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.bft-dashboard-section {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+}
+
+.bft-dashboard-section-title {
+    margin: 0 0 0.75rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.bft-dashboard-section-subtitle {
+    margin: 0.25rem 0 0.75rem;
+    color: #64748b;
+    font-size: 0.85rem;
+}
+
+/* Grade Now panel (Phase 3A). */
+
+.bft-gradenow-head {
+    margin-bottom: 0.5rem;
+}
+
+.bft-gradenow-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.bft-gradenow-item {
+    padding: 0.55rem 0.75rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    background: #fff;
+}
+
+.bft-gradenow-item:hover {
+    background: #f8fafc;
+}
+
+.bft-gradenow-item-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.5rem;
+}
+
+.bft-gradenow-item-name {
+    font-weight: 600;
+    color: #0f172a;
+    text-decoration: none;
+}
+
+.bft-gradenow-item-name:hover,
+.bft-gradenow-item-name:focus {
+    text-decoration: underline;
+    color: #4338ca;
+}
+
+.bft-gradenow-item-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem 0.75rem;
+    margin-top: 0.2rem;
+    font-size: 0.82rem;
+    color: #64748b;
+}
+
+.bft-gradenow-item-activity {
+    color: #475569;
+}
+
+.bft-gradenow-item-course {
+    font-style: italic;
+}
+
+.bft-gradenow-item-wait {
+    margin-left: auto;
+    font-variant-numeric: tabular-nums;
+    color: #0f172a;
+    font-weight: 500;
+}
+
+/* ------------------------------------------------------------------------
+ * Pending grading report page (Phase 2C) — pages/pending_report.php
+ * ------------------------------------------------------------------------ */
+
+.bft-report {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.bft-report-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 0.75rem;
+    align-items: center;
+}
+
+.bft-search {
+    flex: 1 1 220px;
+    min-width: 160px;
+    padding: 0.3rem 0.5rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.bft-filter-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.78rem;
+    color: #64748b;
+}
+
+.bft-filter-label > span {
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 0.7rem;
+}
+
+.bft-filter-label select {
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 0.2rem 0.4rem;
+    background: #fff;
+    color: #0f172a;
+    font-size: 0.85rem;
+}
+
+.bft-report-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.bft-report-table th,
+.bft-report-table td {
+    padding: 0.4rem 0.6rem;
+    text-align: left;
+    border-bottom: 1px solid #eef0f3;
+}
+
+.bft-report-table thead th {
+    background: #f8fafc;
+    font-weight: 600;
+    color: #475569;
+    border-bottom: 2px solid #cbd5e1;
+}
+
+.bft-th-sortable-btn {
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    text-align: left;
+}
+
+.bft-th-sortable.is-active .bft-th-sortable-btn {
+    color: #0f172a;
+}
+
+.bft-report-row {
+    cursor: pointer;
+}
+
+.bft-report-row:hover,
+.bft-report-row:focus,
+.bft-report-row:focus-within {
+    background: #f1f5f9;
+    outline: none;
+}
+
+.bft-report-row:focus-visible {
+    box-shadow: inset 0 0 0 2px #6366f1;
+}
+
+.bft-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+}
+
+.bft-pagination button {
+    background: #fff;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 0.2rem 0.6rem;
+    color: #0f172a;
+    cursor: pointer;
+}
+
+.bft-pagination button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.bft-pagination-state {
+    color: #64748b;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------------
+ * Mobile responsive — narrow viewports.
+ *
+ * Tables get a horizontal scroll surface (Bootstrap-style) so the columns
+ * keep their width but the table doesn't blow out the layout. Hero KPI
+ * tiles stack via existing flex-wrap; we just remove the score block's
+ * left border when it wraps below the KPI row so it doesn't look orphaned.
+ * ------------------------------------------------------------------------ */
+
+@media (max-width: 640px) {
+    .bft-report-table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+
+    .bft-dashboard-score {
+        border-left: 0;
+        padding-left: 0;
+        align-items: flex-start;
+    }
+
+    .bft-dashboard-hero {
+        padding: 1rem;
+    }
+
+    .bft-dashboard-hero-greeting {
+        font-size: 1.2rem;
+    }
+
+    .bft-dashboard-section {
+        padding: 0.75rem 1rem;
+    }
+
+    .bft-report-controls {
+        gap: 0.4rem;
+    }
+}
+
+/* ------------------------------------------------------------------------
+ * Pause timeline modal (Phase 2C) — components/PauseTimelineModal.js
+ *
+ * Lives inside Moodle's modal chrome (.modal-dialog .modal-body), so these
+ * rules are global (not scoped under .block_feedback_tracker) — the body
+ * isn't a descendant of the block when rendered into a modal.
+ * ------------------------------------------------------------------------ */
+
+.bft-modal-loading,
+.bft-timeline {
+    font-size: 0.9rem;
+    color: #0f172a;
+}
+
+.bft-timeline-summary {
+    background: #f8fafc;
+    border-left: 3px solid #94a3b8;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.75rem;
+    border-radius: 4px;
+}
+
+.bft-timeline-summary-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.75rem;
+    align-items: baseline;
+    margin-bottom: 0.4rem;
+}
+
+.bft-timeline-summary-activity {
+    color: #64748b;
+    font-size: 0.85rem;
+}
+
+.bft-timeline-summary-meta {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.1rem 0.5rem;
+    margin: 0;
+    font-size: 0.85rem;
+}
+
+.bft-timeline-summary-meta dt {
+    color: #64748b;
+    font-weight: 500;
+}
+
+.bft-timeline-summary-meta dd {
+    margin: 0;
+    color: #0f172a;
+    font-variant-numeric: tabular-nums;
+}
+
+.bft-timeline-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.bft-timeline-item {
+    padding: 0.5rem 0.75rem;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+}
+
+.bft-timeline-reason {
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.bft-timeline-range {
+    font-size: 0.82rem;
+    color: #475569;
+    font-variant-numeric: tabular-nums;
+    margin-top: 0.1rem;
+}
+
+.bft-timeline-note {
+    font-size: 0.82rem;
+    color: #64748b;
+    margin-top: 0.2rem;
+}
+
+.bft-timeline-empty {
+    padding: 0.5rem 0.75rem;
+    color: #64748b;
+    font-style: italic;
+}
+
+/* Sortable pending-submissions table (AMD module pending_table.js). */
+table.bft-sortable th[data-sort] {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+table.bft-sortable th[data-sort]::after {
+    content: ' ↕';
+    opacity: 0.3;
+    font-size: 0.8em;
+}
+
+table.bft-sortable th.bft-sort-asc::after {
+    content: ' ▲';
+    opacity: 1;
+}
+
+table.bft-sortable th.bft-sort-desc::after {
+    content: ' ▼';
+    opacity: 1;
+}

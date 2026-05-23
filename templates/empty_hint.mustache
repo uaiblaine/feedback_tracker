@@ -1,0 +1,17 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    @template    block_feedback_tracker/empty_hint
+
+    Single-line empty-state hint inside the block (site / dashboard
+    surfaces, or any "nothing to show here" placeholder).
+
+    Context variables required:
+    * message   Hint text
+
+    Example context (json):
+    {
+        "message": "Add this block to a course page to see data."
+    }
+}}
+<div class="bft-empty">{{message}}</div>

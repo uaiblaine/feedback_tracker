@@ -1,0 +1,104 @@
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * Number / hours / date formatters shared by every component.
+ *
+ * These mirror the PHP-side rendering choices in classes/output/responsiveness_card.php:
+ *   median_eff_h          → "12.3 h"
+ *   compliance_pct        → "78%"
+ *   trend_pct_30d         → "▲ 5%" / "▼ 12%" / "→ 0%"
+ *
+ * @module    block_feedback_tracker/lib/format
+ * @copyright 2026 Anderson Blaine <anderson@blaine.com.br>
+ * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
+/** Em-dash returned for null / undefined / NaN values. */
+const EMPTY = '—';
+
+/**
+ * Round to `digits` decimal places, return as string.
+ *
+ * @param {number|null|undefined} value
+ * @param {number} digits
+ * @returns {string}
+ */
+export const formatNumber = (value, digits = 0) => {
+    if (value === null || value === undefined || Number.isNaN(Number(value))) {
+        return EMPTY;
+    }
+    const n = Number(value);
+    return n.toFixed(digits);
+};
+
+/**
+ * Hours suffix (matches the PHP "12.3 h" shape).
+ *
+ * @param {number|null|undefined} value
+ * @param {number} digits
+ * @returns {string}
+ */
+export const formatHours = (value, digits = 1) => {
+    if (value === null || value === undefined || Number.isNaN(Number(value))) {
+        return EMPTY;
+    }
+    return Number(value).toFixed(digits) + ' h';
+};
+
+/**
+ * Percentage with no decimal places by default.
+ *
+ * @param {number|null|undefined} value
+ * @param {number} digits
+ * @returns {string}
+ */
+export const formatPercent = (value, digits = 0) => {
+    if (value === null || value === undefined || Number.isNaN(Number(value))) {
+        return EMPTY;
+    }
+    return Number(value).toFixed(digits) + '%';
+};
+
+/**
+ * Signed trend value with directional arrow.
+ *
+ * @param {number|null|undefined} value Percentage delta (positive = worse, negative = better).
+ * @param {number} digits
+ * @returns {string} e.g. "▼ 12%", "▲ 5%", "→ 0%", or "—"
+ */
+export const formatTrend = (value, digits = 0) => {
+    if (value === null || value === undefined || Number.isNaN(Number(value))) {
+        return EMPTY;
+    }
+    const n = Number(value);
+    const arrow = n < 0 ? '▼' : (n > 0 ? '▲' : '→');
+    return arrow + ' ' + Math.abs(n).toFixed(digits) + '%';
+};
+
+/**
+ * Unix timestamp (seconds) → locale-formatted short date string. Returns
+ * the em-dash for null / 0.
+ *
+ * @param {number|null|undefined} timestamp Seconds since epoch.
+ * @returns {string}
+ */
+export const formatDate = (timestamp) => {
+    if (!timestamp) {
+        return EMPTY;
+    }
+    const ms = Number(timestamp) * 1000;
+    return new Date(ms).toLocaleDateString();
+};

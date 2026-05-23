@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<libraries>
+    <library>
+        <location>js/vendor/bft-vendor-10.29.2-3.1.1.min.js</location>
+        <name>Preact</name>
+        <description>Fast 3kB React alternative with the same modern API. Provides the vnode + render runtime that the plugin's React-shaped components target.</description>
+        <version>10.29.2</version>
+        <license>MIT</license>
+        <repository>https://github.com/preactjs/preact</repository>
+        <copyrights>
+            <copyright>Jason Miller and Preact contributors</copyright>
+        </copyrights>
+        <customised/>
+    </library>
+    <library>
+        <location>js/vendor/bft-vendor-10.29.2-3.1.1.min.js</location>
+        <name>Preact hooks</name>
+        <description>Hooks add-on for Preact: useState, useEffect, useReducer, useMemo, useRef, useContext, etc. Bundled with the Preact 10.29.2 release.</description>
+        <version>10.29.2</version>
+        <license>MIT</license>
+        <repository>https://github.com/preactjs/preact</repository>
+        <copyrights>
+            <copyright>Jason Miller and Preact contributors</copyright>
+        </copyrights>
+        <customised/>
+    </library>
+    <library>
+        <location>js/vendor/bft-vendor-10.29.2-3.1.1.min.js</location>
+        <name>htm</name>
+        <description>JSX-like tagged-template syntax that compiles to vnodes at runtime. Lets components use familiar markup without a JSX build step.</description>
+        <version>3.1.1</version>
+        <license>Apache</license>
+        <licenseversion>2.0</licenseversion>
+        <repository>https://github.com/developit/htm</repository>
+        <copyrights>
+            <copyright>Jason Miller and htm contributors</copyright>
+        </copyrights>
+        <customised/>
+    </library>
+</libraries>

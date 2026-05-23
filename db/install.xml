@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<XMLDB PATH="blocks/feedback_tracker/db" VERSION="20260523" COMMENT="XMLDB file for blocks/feedback_tracker. Tables track per-submission SLA ledger, materialized rollups, daily trend, site stats, dirty queue, the platform academic calendar (days + weekly business hours + manual pause windows), a recompute audit log, and per-course backfill cursors (renamed cursor → lastsubid because CURSOR is reserved in MariaDB). Pause-window data is derived on demand by the calendar engine — no persisted pause ledger since v2.0.0."
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
+>
+  <TABLES>
+    <TABLE NAME="block_feedback_tracker_sub" COMMENT="Per-submission SLA ledger; one row per (cmid, userid, attemptnumber). Source of truth for all downstream rollups.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="true"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="false"/>
+        <FIELD NAME="groupid" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="cmid" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="false"/>
+        <FIELD NAME="iteminstance" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" COMMENT="assign.id" SEQUENCE="false"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="false"/>
+        <FIELD NAME="attemptnumber" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="submissionstatus" TYPE="char" LENGTH="20" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="timesubmitted" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timegraded" TYPE="int" LENGTH="10" NOTNULL="false" UNSIGNED="true" SEQUENCE="false"/>
+        <FIELD NAME="timeopens" TYPE="int" LENGTH="10" NOTNULL="false" UNSIGNED="true" SEQUENCE="false"/>
+        <FIELD NAME="timecloses" TYPE="int" LENGTH="10" NOTNULL="false" UNSIGNED="true" SEQUENCE="false"/>
+        <FIELD NAME="timecutoff" TYPE="int" LENGTH="10" NOTNULL="false" UNSIGNED="true" SEQUENCE="false"/>
+        <FIELD NAME="hasrule" TYPE="int" LENGTH="1" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="waitinghours" TYPE="number" LENGTH="10" DECIMALS="2" NOTNULL="false" COMMENT="Raw wall-clock hours from submission to grading (or now)." SEQUENCE="false"/>
+        <FIELD NAME="effectivehours" TYPE="number" LENGTH="10" DECIMALS="2" NOTNULL="false" COMMENT="Business/academic hours via the academic_time engine." SEQUENCE="false"/>
+        <FIELD NAME="effectiveasof" TYPE="int" LENGTH="10" NOTNULL="false" UNSIGNED="true" SEQUENCE="false"/>
+        <FIELD NAME="effectivecalver" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" COMMENT="Calendar version at last effective-hours compute; used by recompute_pending to detect staleness." SEQUENCE="false"/>
+        <FIELD NAME="slabucket" TYPE="char" LENGTH="10" NOTNULL="true" DEFAULT="pending" COMMENT="excellent|good|regular|critical|pending" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="uq_cm_user_attempt" UNIQUE="true" FIELDS="cmid, userid, attemptnumber"/>
+        <INDEX NAME="idx_course_group_graded" UNIQUE="false" FIELDS="courseid, groupid, timegraded"/>
+        <INDEX NAME="idx_course_group_submitted" UNIQUE="false" FIELDS="courseid, groupid, timesubmitted"/>
+        <INDEX NAME="idx_status_graded" UNIQUE="false" FIELDS="submissionstatus, timegraded"/>
+        <INDEX NAME="idx_pending_bucket" UNIQUE="false" FIELDS="courseid, groupid, slabucket, timesubmitted"/>
+        <INDEX NAME="idx_calver" UNIQUE="false" FIELDS="effectivecalver"/>
+      </INDEXES>
+    </TABLE>
+<TABLE NAME="block_feedback_tracker_group" COMMENT="Materialized rollup per (courseid, groupid). Read-side cache for the dashboard cards.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="true"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="false"/>
+        <FIELD NAME="groupid" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="pending" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="critical" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="overgoal" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="numgraded30d" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="compliance_pct" TYPE="number" LENGTH="5" DECIMALS="2" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="median_raw_h" TYPE="number" LENGTH="10" DECIMALS="2" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="p90_raw_h" TYPE="number" LENGTH="10" DECIMALS="2" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="max_raw_h" TYPE="number" LENGTH="10" DECIMALS="2" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="median_eff_h" TYPE="number" LENGTH="10" DECIMALS="2" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="p90_eff_h" TYPE="number" LENGTH="10" DECIMALS="2" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="max_eff_h" TYPE="number" LENGTH="10" DECIMALS="2" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="responsiveness_score" TYPE="number" LENGTH="5" DECIMALS="2" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="score_band" TYPE="char" LENGTH="10" NOTNULL="false" COMMENT="excellent|good|regular|critical" SEQUENCE="false"/>
+        <FIELD NAME="comp_compliance" TYPE="number" LENGTH="5" DECIMALS="4" NOTNULL="false" COMMENT="Compliance term value [0,1]; multiplied by W_compliance for score contribution." SEQUENCE="false"/>
+        <FIELD NAME="comp_median" TYPE="number" LENGTH="5" DECIMALS="4" NOTNULL="false" COMMENT="Median term value [0,1]." SEQUENCE="false"/>
+        <FIELD NAME="comp_critical" TYPE="number" LENGTH="5" DECIMALS="4" NOTNULL="false" COMMENT="Critical term value [0,1]." SEQUENCE="false"/>
+        <FIELD NAME="comp_pending" TYPE="number" LENGTH="5" DECIMALS="4" NOTNULL="false" COMMENT="Pending term value [0,1]." SEQUENCE="false"/>
+        <FIELD NAME="comp_trend" TYPE="number" LENGTH="5" DECIMALS="4" NOTNULL="false" COMMENT="Trend term value [0,1]; defaults to 0.5 when no prior window exists." SEQUENCE="false"/>
+        <FIELD NAME="trend_pct_30d" TYPE="number" LENGTH="6" DECIMALS="2" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="nextpause_ts" TYPE="int" LENGTH="10" NOTNULL="false" UNSIGNED="true" SEQUENCE="false"/>
+        <FIELD NAME="nextpause_reason" TYPE="char" LENGTH="40" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="nextpause_note" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="lastpause_endts" TYPE="int" LENGTH="10" NOTNULL="false" UNSIGNED="true" SEQUENCE="false"/>
+        <FIELD NAME="lastpause_reason" TYPE="char" LENGTH="40" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="timerecomputed" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="uq_course_group" UNIQUE="true" FIELDS="courseid, groupid"/>
+        <INDEX NAME="idx_score_band" UNIQUE="false" FIELDS="score_band"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="block_feedback_tracker_trend" COMMENT="Per-day median waiting hours for the 30-day sparkline; one row per (courseid, groupid, day).">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="true"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="false"/>
+        <FIELD NAME="groupid" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="day" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" COMMENT="YYYYMMDD" SEQUENCE="false"/>
+        <FIELD NAME="medianh_eff" TYPE="number" LENGTH="10" DECIMALS="2" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="medianh_raw" TYPE="number" LENGTH="10" DECIMALS="2" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="numgraded" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="compliance_pct" TYPE="number" LENGTH="5" DECIMALS="2" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="uq_course_group_day" UNIQUE="true" FIELDS="courseid, groupid, day"/>
+        <INDEX NAME="idx_day" UNIQUE="false" FIELDS="day"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="block_feedback_tracker_site" COMMENT="Site-wide daily stats for school-comparison overlays; one row per day.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="true"/>
+        <FIELD NAME="day" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" COMMENT="YYYYMMDD" SEQUENCE="false"/>
+        <FIELD NAME="medianh_eff" TYPE="number" LENGTH="10" DECIMALS="2" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="medianh_raw" TYPE="number" LENGTH="10" DECIMALS="2" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="p10h_eff" TYPE="number" LENGTH="10" DECIMALS="2" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="p90h_eff" TYPE="number" LENGTH="10" DECIMALS="2" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="compliance_pct_site" TYPE="number" LENGTH="5" DECIMALS="2" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="numgraded" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="numgroups" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="uq_day" UNIQUE="true" FIELDS="day"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="block_feedback_tracker_queue" COMMENT="Dirty queue of (courseid, groupid) tuples awaiting recompute; drained every 5 minutes.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="true"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="false"/>
+        <FIELD NAME="groupid" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="reason" TYPE="char" LENGTH="20" NOTNULL="true" COMMENT="submission|grade|calendar|pause|bulk" SEQUENCE="false"/>
+        <FIELD NAME="timeenqueued" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="uq_course_group" UNIQUE="true" FIELDS="courseid, groupid"/>
+        <INDEX NAME="idx_timeenqueued" UNIQUE="false" FIELDS="timeenqueued"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="block_feedback_tracker_cday" COMMENT="Platform academic calendar: per-day exceptions to the weekly schedule.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="true"/>
+        <FIELD NAME="daydate" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" COMMENT="YYYYMMDD" SEQUENCE="false"/>
+        <FIELD NAME="daytype" TYPE="char" LENGTH="20" NOTNULL="true" COMMENT="schoolday|holiday|recess|closed|optional" SEQUENCE="false"/>
+        <FIELD NAME="note" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="usermodified" TYPE="int" LENGTH="10" NOTNULL="false" UNSIGNED="true" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="uq_daydate" UNIQUE="true" FIELDS="daydate"/>
+        <INDEX NAME="idx_daytype_date" UNIQUE="false" FIELDS="daytype, daydate"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="block_feedback_tracker_chours" COMMENT="Platform academic calendar: weekly business hours (team active window). Multiple rows per dayofweek permitted (split shifts).">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="true"/>
+        <FIELD NAME="dayofweek" TYPE="int" LENGTH="1" NOTNULL="true" UNSIGNED="true" COMMENT="0=Mon ... 6=Sun (ISO 8601)" SEQUENCE="false"/>
+        <FIELD NAME="starttime" TYPE="int" LENGTH="4" NOTNULL="true" UNSIGNED="true" COMMENT="Minutes since midnight; 0..1439" SEQUENCE="false"/>
+        <FIELD NAME="endtime" TYPE="int" LENGTH="4" NOTNULL="true" UNSIGNED="true" COMMENT="Minutes since midnight; 1..1440" SEQUENCE="false"/>
+        <FIELD NAME="enabled" TYPE="int" LENGTH="1" NOTNULL="true" UNSIGNED="true" DEFAULT="1" SEQUENCE="false"/>
+        <FIELD NAME="usermodified" TYPE="int" LENGTH="10" NOTNULL="false" UNSIGNED="true" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="idx_dayofweek_enabled" UNIQUE="false" FIELDS="dayofweek, enabled"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="block_feedback_tracker_cpause" COMMENT="Manual SLA pause windows. Three scope levels only: site, course, group.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="true"/>
+        <FIELD NAME="scopelevel" TYPE="char" LENGTH="10" NOTNULL="true" COMMENT="site|course|group" SEQUENCE="false"/>
+        <FIELD NAME="scopeid" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" COMMENT="courseid for course; groupid for group; 0 for site" SEQUENCE="false"/>
+        <FIELD NAME="contextid" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" COMMENT="Moodle context id at create time, for capability checks" SEQUENCE="false"/>
+        <FIELD NAME="reason" TYPE="char" LENGTH="50" NOTNULL="true" COMMENT="archived|vacancy|closure|other" SEQUENCE="false"/>
+        <FIELD NAME="timestart" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="false"/>
+        <FIELD NAME="timeend" TYPE="int" LENGTH="10" NOTNULL="false" UNSIGNED="true" COMMENT="NULL = open-ended; engine clips at read horizon" SEQUENCE="false"/>
+        <FIELD NAME="note" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="usermodified" TYPE="int" LENGTH="10" NOTNULL="false" UNSIGNED="true" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="idx_scope" UNIQUE="false" FIELDS="scopelevel, scopeid"/>
+        <INDEX NAME="idx_timestart" UNIQUE="false" FIELDS="timestart"/>
+        <INDEX NAME="idx_timeend" UNIQUE="false" FIELDS="timeend"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="block_feedback_tracker_log" COMMENT="Recompute audit log; traceability for bulk recomputes and large calendar edits. Pruned daily after 90 days.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="true"/>
+        <FIELD NAME="triggeredby" TYPE="int" LENGTH="10" NOTNULL="false" UNSIGNED="true" COMMENT="userid that triggered, or NULL for tasks" SEQUENCE="false"/>
+        <FIELD NAME="reason" TYPE="char" LENGTH="40" NOTNULL="true" COMMENT="manual_reset|calendar_save|business_hours_save|pause_save|bulk_import|daily_pending" SEQUENCE="false"/>
+        <FIELD NAME="affectedrows" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="details" TYPE="text" NOTNULL="false" COMMENT="JSON: { groups_touched, subs_touched, took_ms, ... }" SEQUENCE="false"/>
+        <FIELD NAME="timestarted" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timefinished" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="idx_timestarted" UNIQUE="false" FIELDS="timestarted"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="block_feedback_tracker_bfcursor" COMMENT="Per-course backfill cursor — tracks how far backfill_history has progressed through {assign_submission} for each block-enabled course. Lazily created on first backfill tick for a course; removed by course_deleted observer.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="true"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="false"/>
+        <FIELD NAME="lastsubid" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" COMMENT="Last assign_submission.id dispatched for this course; next tick processes rows with id > lastsubid. Named lastsubid rather than cursor because CURSOR is reserved in MariaDB and INSERT/UPDATE fail without quoting." SEQUENCE="false"/>
+        <FIELD NAME="active" TYPE="int" LENGTH="1" NOTNULL="true" UNSIGNED="true" DEFAULT="1" COMMENT="1 = dispatcher should walk this course; 0 = complete (no more rows past cursor at last tick). Admin can reset to 1 to retry." SEQUENCE="false"/>
+        <FIELD NAME="lastrunat" TYPE="int" LENGTH="10" NOTNULL="false" UNSIGNED="true" COMMENT="Unix ts of last dispatcher pass for this course." SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="uq_courseid" UNIQUE="true" FIELDS="courseid"/>
+        <INDEX NAME="idx_active" UNIQUE="false" FIELDS="active"/>
+      </INDEXES>
+    </TABLE>
+  </TABLES>
+</XMLDB>

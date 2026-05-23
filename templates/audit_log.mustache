@@ -1,0 +1,60 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    @template    block_feedback_tracker/audit_log
+
+    Recompute audit log table.
+
+    Context variables required:
+    * heading      Page heading text
+    * empty        Truthy when no rows are present
+    * emptytext    Empty-state message
+    * cols         {time, reason, affected, triggeredby, details} localised column headings
+    * rows         Array of {when, reason, affected, triggeredby, details}
+    * pagingbar    Pre-rendered paging-bar HTML (raw)
+
+    Example context (json):
+    {
+        "heading": "Audit log",
+        "empty": false,
+        "emptytext": "No rows yet.",
+        "cols": {
+            "time": "When", "reason": "Reason", "affected": "Rows",
+            "triggeredby": "By", "details": "Details"
+        },
+        "rows": [
+            {"when": "2026-05-20 10:00", "reason": "drain", "affected": 3,
+             "triggeredby": "-", "details": "took_ms=42"}
+        ],
+        "pagingbar": ""
+    }
+}}
+<h2>{{heading}}</h2>
+{{#empty}}
+    <div class="alert alert-info">{{emptytext}}</div>
+{{/empty}}
+{{^empty}}
+    <table class="generaltable">
+        <thead>
+            <tr>
+                <th>{{cols.time}}</th>
+                <th>{{cols.reason}}</th>
+                <th>{{cols.affected}}</th>
+                <th>{{cols.triggeredby}}</th>
+                <th>{{cols.details}}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{#rows}}
+                <tr>
+                    <td>{{when}}</td>
+                    <td>{{reason}}</td>
+                    <td>{{affected}}</td>
+                    <td>{{triggeredby}}</td>
+                    <td>{{details}}</td>
+                </tr>
+            {{/rows}}
+        </tbody>
+    </table>
+    {{{pagingbar}}}
+{{/empty}}

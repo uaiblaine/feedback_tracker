@@ -1,0 +1,59 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    @template    block_feedback_tracker/reset
+
+    Reset confirmation page. Before submission: warning + form. After
+    submission: result table.
+
+    Context variables required:
+    * heading
+    * done            Truthy if the reset has been executed
+    * doneheading     Localised "Reset complete" text
+    * warningtext     Pre-execution warning text
+    * form            Rendered reset form HTML (raw) — only shown when not done
+    * tablecols       {table, count}
+    * counts          Array of {table, count}
+    * continueurl     URL for the "continue" button
+    * continuelabel   Continue button label
+
+    Example context (json):
+    {
+        "heading": "Reset all data",
+        "done": true,
+        "doneheading": "Reset complete.",
+        "warningtext": "This will delete every ledger row.",
+        "form": "",
+        "tablecols": {"table": "Table", "count": "Rows removed"},
+        "counts": [
+            {"table": "ledger", "count": 42},
+            {"table": "pauses", "count": 117}
+        ],
+        "continueurl": "/blocks/feedback_tracker/manage.php",
+        "continuelabel": "Continue"
+    }
+}}
+<h2>{{heading}}</h2>
+
+{{^done}}
+    <div class="alert alert-warning">{{warningtext}}</div>
+    {{{form}}}
+{{/done}}
+
+{{#done}}
+    <div class="alert alert-success">{{doneheading}}</div>
+    <table class="generaltable">
+        <thead>
+            <tr>
+                <th>{{tablecols.table}}</th>
+                <th>{{tablecols.count}}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{#counts}}
+                <tr><td>{{table}}</td><td>{{count}}</td></tr>
+            {{/counts}}
+        </tbody>
+    </table>
+    <p><a href="{{continueurl}}" class="btn btn-secondary">{{continuelabel}}</a></p>
+{{/done}}

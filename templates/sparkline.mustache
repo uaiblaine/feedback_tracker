@@ -1,0 +1,41 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    @template    block_feedback_tracker/sparkline
+
+    Compact 30-day median effective-hours sparkline.
+
+    Context variables required:
+    * empty     Truthy when no data is available
+    * width     SVG width in user units
+    * height    SVG height in user units
+    * polyline  Space-separated "x,y" coordinates for the line
+    * hasgoal   Truthy when a goal line should be drawn
+    * goaly     Y-coordinate of the dashed goal line
+
+    Example context (json):
+    {
+        "empty": false,
+        "width": 120,
+        "height": 30,
+        "polyline": "0,20 20,15 40,10 60,12 80,8 100,5 120,7",
+        "hasgoal": true,
+        "goaly": 14
+    }
+}}
+<svg class="bft-sparkline" viewBox="0 0 {{width}} {{height}}"
+     width="{{width}}" height="{{height}}"
+     role="img" aria-label="30-day trend">
+    {{#empty}}
+        <line x1="0" y1="{{height}}" x2="{{width}}" y2="{{height}}" stroke="#cbd5e1" stroke-width="0.5"/>
+    {{/empty}}
+    {{^empty}}
+        {{#hasgoal}}
+            <line x1="0" y1="{{goaly}}" x2="{{width}}" y2="{{goaly}}"
+                  stroke="#cbd5e1" stroke-width="0.5" stroke-dasharray="2 2"/>
+        {{/hasgoal}}
+        <polyline fill="none" stroke="#6366f1" stroke-width="1.5"
+                  stroke-linecap="round" stroke-linejoin="round"
+                  points="{{polyline}}"/>
+    {{/empty}}
+</svg>

@@ -1,0 +1,70 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    @template    block_feedback_tracker/drilldown
+
+    Pending-submissions drilldown table.
+
+    Context variables required:
+    * heading       Page heading text
+    * empty         Truthy when no submissions match the filter
+    * emptytext     Empty-state message
+    * cols          {student, activity, group, submitted, waiting, effective, status}
+    * rows          Array of {student, activity, group, submitted, waiting, effective, status, bucket}
+    * pagingbar     Pre-rendered paging-bar HTML (raw)
+
+    Example context (json):
+    {
+        "heading": "Pending submissions",
+        "empty": false,
+        "emptytext": "No pending submissions.",
+        "cols": {
+            "student": "Student", "activity": "Activity", "group": "Group",
+            "submitted": "Submitted", "waiting": "Waiting", "effective": "Effective",
+            "status": "Status"
+        },
+        "rows": [
+            {
+                "student": "Ana Silva", "activity": "Class log 3", "group": "Class A",
+                "submitted": "2026-05-16 09:14", "submittedts": 1747380840,
+                "waiting": "27.0 h", "waitingnum": 27.0,
+                "effective": "16.0 h", "effectivenum": 16.0,
+                "status": "good", "bucket": "good"
+            }
+        ],
+        "pagingbar": ""
+    }
+}}
+<h2>{{heading}}</h2>
+{{#empty}}
+    <div class="alert alert-info">{{emptytext}}</div>
+{{/empty}}
+{{^empty}}
+    <table class="generaltable bft-sortable">
+        <thead>
+            <tr>
+                <th data-sort="text">{{cols.student}}</th>
+                <th data-sort="text">{{cols.activity}}</th>
+                <th data-sort="text">{{cols.group}}</th>
+                <th data-sort="num">{{cols.submitted}}</th>
+                <th data-sort="num">{{cols.waiting}}</th>
+                <th data-sort="num">{{cols.effective}}</th>
+                <th data-sort="text">{{cols.status}}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{#rows}}
+                <tr>
+                    <td>{{student}}</td>
+                    <td>{{activity}}</td>
+                    <td>{{group}}</td>
+                    <td data-sort-value="{{submittedts}}">{{submitted}}</td>
+                    <td data-sort-value="{{waitingnum}}">{{waiting}}</td>
+                    <td data-sort-value="{{effectivenum}}">{{effective}}</td>
+                    <td><span class="badge badge-{{bucket}}">{{status}}</span></td>
+                </tr>
+            {{/rows}}
+        </tbody>
+    </table>
+    {{{pagingbar}}}
+{{/empty}}

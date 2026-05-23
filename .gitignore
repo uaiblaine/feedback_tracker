@@ -1,0 +1,8 @@
+.DS_Store
+node_modules/
+vendor/
+coverage/
+.phpunit.result.cache
+.idea/
+.vscode/
+.claude/

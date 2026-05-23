@@ -1,0 +1,130 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    @template    block_feedback_tracker/calendar_editor
+
+    Three sections: calendar days, weekly business hours, manual pause
+    windows. Each form html is already rendered by `moodleform::render()`
+    (which uses core's Mustache form template) and passed in as a raw string.
+
+    Context variables required:
+    * heading
+    * notice          {text, level} or empty
+    * days            {heading, addheading, bulkheading, empty, emptytext,
+                       cols: [...], rows: [{cells, deleteurl}], addform, bulkform}
+    * hours           {heading, days: [{name, form}]}
+    * pauses          {heading, addheading, empty, emptytext, cols: [...],
+                       rows: [{cells, deleteurl}], addform}
+
+    Example context (json):
+    {
+        "heading": "Academic calendar editor",
+        "notice": null,
+        "days": {
+            "heading": "Calendar days",
+            "addheading": "Add or update one day",
+            "bulkheading": "Bulk CSV import",
+            "empty": false,
+            "emptytext": "No calendar days yet.",
+            "cols": ["Date", "Type", "Note", "Actions"],
+            "rows": [
+                {
+                    "cells": ["20260403", "holiday", "Good Friday"],
+                    "deleteurl": "/blocks/feedback_tracker/pages/calendar_editor.php?action=remove_day&daydate=20260403",
+                    "deletetext": "Delete"
+                }
+            ],
+            "addform": "<form><input name=\"daydate\"></form>",
+            "bulkform": "<form><textarea name=\"csv\"></textarea></form>"
+        },
+        "hours": {
+            "heading": "Weekly business hours",
+            "days": [
+                {"name": "Monday", "form": "<form><input name=\"start_0\"></form>"}
+            ]
+        },
+        "pauses": {
+            "heading": "Pause windows",
+            "addheading": "Add a pause window",
+            "empty": false,
+            "emptytext": "No pause windows.",
+            "cols": ["Scope", "Reason", "From", "To", "Note", "Actions"],
+            "rows": [
+                {
+                    "cells": ["site", "closure", "2026-05-25 00:00", "2026-05-25 23:59", ""],
+                    "deleteurl": "/blocks/feedback_tracker/pages/calendar_editor.php?action=delete_pause&id=1",
+                    "deletetext": "Delete"
+                }
+            ],
+            "addform": "<form><input name=\"reason\"></form>"
+        }
+    }
+}}
+<h2>{{heading}}</h2>
+
+{{#notice}}
+    <div class="alert alert-{{level}}">{{{text}}}</div>
+{{/notice}}
+
+<section>
+    <h3>{{days.heading}}</h3>
+    {{#days.empty}}
+        <div class="alert alert-info">{{days.emptytext}}</div>
+    {{/days.empty}}
+    {{^days.empty}}
+        <table class="generaltable">
+            <thead>
+                <tr>{{#days.cols}}<th>{{.}}</th>{{/days.cols}}</tr>
+            </thead>
+            <tbody>
+                {{#days.rows}}
+                    <tr>
+                        {{#cells}}<td>{{.}}</td>{{/cells}}
+                        <td><a href="{{deleteurl}}">{{deletetext}}</a></td>
+                    </tr>
+                {{/days.rows}}
+            </tbody>
+        </table>
+    {{/days.empty}}
+
+    <h4>{{days.addheading}}</h4>
+    {{{days.addform}}}
+
+    <h4>{{days.bulkheading}}</h4>
+    {{{days.bulkform}}}
+</section>
+
+<section>
+    <h3>{{hours.heading}}</h3>
+    {{#hours.days}}
+        <div class="bft-hours-day mb-3">
+            <strong>{{name}}</strong>
+            {{{form}}}
+        </div>
+    {{/hours.days}}
+</section>
+
+<section>
+    <h3>{{pauses.heading}}</h3>
+    {{#pauses.empty}}
+        <div class="alert alert-info">{{pauses.emptytext}}</div>
+    {{/pauses.empty}}
+    {{^pauses.empty}}
+        <table class="generaltable">
+            <thead>
+                <tr>{{#pauses.cols}}<th>{{.}}</th>{{/pauses.cols}}</tr>
+            </thead>
+            <tbody>
+                {{#pauses.rows}}
+                    <tr>
+                        {{#cells}}<td>{{.}}</td>{{/cells}}
+                        <td><a href="{{deleteurl}}">{{deletetext}}</a></td>
+                    </tr>
+                {{/pauses.rows}}
+            </tbody>
+        </table>
+    {{/pauses.empty}}
+
+    <h4>{{pauses.addheading}}</h4>
+    {{{pauses.addform}}}
+</section>

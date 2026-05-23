@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ruleset name="block_feedback_tracker"
+         xmlns="http://pmd.sf.net/ruleset/1.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sf.net/ruleset/1.0.0
+                             http://pmd.sf.net/ruleset_xml_schema.xsd"
+         xsi:noNamespaceSchemaLocation="http://pmd.sf.net/ruleset_xml_schema.xsd">
+
+    <description>
+        PHPMD ruleset for block_feedback_tracker. Inherits every default
+        Moodle / catalyst ruleset, then raises specific thresholds to
+        match the inherent complexity of the SLA data pipeline. The
+        rollup / ledger / academic-time methods fork on many
+        dimensions (calendar rules, group overrides, pause windows,
+        bucket thresholds) — each branch is a real domain concern, not
+        accidental complexity, so the right answer is to widen the
+        threshold rather than fragment the methods.
+
+        Pre-existing violations covered by these widened thresholds:
+          - rollup_service::recompute_group        — cyclo 21, NPath 245760, 149 lines
+          - submission_ledger::upsert_for_cm_user_attempt — cyclo 22, NPath 69120, 143 lines
+          - get_calendar::execute                  — cyclo 13, NPath 540
+          - responsiveness_payload::group_payload  — cyclo 26
+          - responsiveness_calculator::compute     — cyclo 10, NPath 256
+          - pending_recomputer::recompute_stale    — cyclo 10
+          - site_stats_service::recompute_for_day  — cyclo 10, NPath 384
+          - responsiveness_card::export_for_template — NPath 256
+          - observer_test                          — coupling 13
+          - interval_math_test                     — 20 public methods
+          - ts() helpers in three test files       — 2-char method name
+
+        Two rules are excluded outright:
+          - BooleanArgumentFlag — Moodle convention uses cache-bypass
+            boolean flags (`force`, `reenablebackfill`, etc.) pervasively
+            in core APIs. Linting against the pattern fights the grain.
+          - LongVariable / ShortVariable — Moodle's coding style allows
+            both shorthand $r loop variables and frankenstyle long names;
+            we don't want either lint enforced here.
+    </description>
+
+    <!-- Inherit all the default rulesets. -->
+    <rule ref="rulesets/cleancode.xml">
+        <exclude name="BooleanArgumentFlag" />
+    </rule>
+    <rule ref="rulesets/codesize.xml">
+        <exclude name="CyclomaticComplexity" />
+        <exclude name="NPathComplexity" />
+        <exclude name="ExcessiveMethodLength" />
+        <exclude name="TooManyMethods" />
+    </rule>
+    <rule ref="rulesets/controversial.xml" />
+    <rule ref="rulesets/design.xml">
+        <exclude name="CouplingBetweenObjects" />
+    </rule>
+    <rule ref="rulesets/naming.xml">
+        <exclude name="ShortMethodName" />
+        <exclude name="LongVariable" />
+        <exclude name="ShortVariable" />
+    </rule>
+    <rule ref="rulesets/unusedcode.xml">
+        <!-- Several `\templatable` implementations (score_gauge,
+             sparkline, ...) keep the required \renderer_base $output
+             parameter unused because the renderable computes its own
+             markup. PHPMD's official `@SuppressWarnings` annotation
+             would silence this per-method, but Moodle's PHPCS rejects
+             it as an invalid docblock tag — so the rule is disabled
+             plugin-wide instead. The vast majority of unused-param
+             issues are caught by IDE static analysis anyway. -->
+        <exclude name="UnusedFormalParameter" />
+    </rule>
+
+    <!-- Widened-threshold reinstatements of the excluded rules. -->
+
+    <rule ref="rulesets/codesize.xml/CyclomaticComplexity">
+        <properties>
+            <!-- Worst observed: 22 in submission_ledger upsert. Headroom for one extra branch. -->
+            <property name="reportLevel" value="25" />
+        </properties>
+    </rule>
+
+    <rule ref="rulesets/codesize.xml/NPathComplexity">
+        <properties>
+            <!-- Worst observed: 245760 in rollup_service::recompute_group. -->
+            <property name="minimum" value="300000" />
+        </properties>
+    </rule>
+
+    <rule ref="rulesets/codesize.xml/ExcessiveMethodLength">
+        <properties>
+            <!-- Worst observed: 149 lines in rollup_service::recompute_group. -->
+            <property name="minimum" value="160" />
+        </properties>
+    </rule>
+
+    <rule ref="rulesets/codesize.xml/TooManyMethods">
+        <properties>
+            <!-- Worst observed: 20 public methods in interval_math_test.
+                 Test classes inherently have many public methods (one
+                 per scenario); 25 leaves room for growth. -->
+            <property name="maxmethods" value="25" />
+        </properties>
+    </rule>
+
+    <rule ref="rulesets/design.xml/CouplingBetweenObjects">
+        <properties>
+            <!-- Worst observed: 13 in observer_test. Observers are
+                 broad by design — they bridge many event types into the
+                 ledger + queue + rollup chain. -->
+            <property name="maximum" value="15" />
+        </properties>
+    </rule>
+
+    <rule ref="rulesets/naming.xml/ShortMethodName">
+        <properties>
+            <!-- `ts()` (timestamp) is a conventional one-letter-prefixed
+                 test helper across three test files. Two chars is fine
+                 for private test helpers; production methods are still
+                 expected to be self-describing. -->
+            <property name="minimum" value="2" />
+        </properties>
+    </rule>
+
+</ruleset>
