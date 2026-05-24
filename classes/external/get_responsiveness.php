@@ -114,6 +114,7 @@ class get_responsiveness extends external_api {
             'median_raw_h'         => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
             'p90_raw_h'            => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
             'max_raw_h'            => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
+            'perceived_median_hours' => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
             'responsiveness_score' => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
             'score_band'           => new external_value(PARAM_ALPHA, '', VALUE_DEFAULT, null, NULL_ALLOWED),
             'comp_compliance'      => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
@@ -136,6 +137,16 @@ class get_responsiveness extends external_api {
             'nextpause_note'       => new external_value(PARAM_TEXT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
             'lastpause_endts'      => new external_value(PARAM_INT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
             'lastpause_reason'     => new external_value(PARAM_TEXT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
+            'paused_days_30d'      => new external_value(PARAM_INT, '', VALUE_DEFAULT, 0),
+            'paused_breakdown_30d' => new external_single_structure([
+                'weekend' => new external_value(PARAM_INT, ''),
+                'holiday' => new external_value(PARAM_INT, ''),
+                'recess'  => new external_value(PARAM_INT, ''),
+            ]),
+            'peer_department_score' => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
+            'peer_department_hours' => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
+            'peer_top10_score'      => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
+            'peer_top10_hours'      => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
         ]);
     }
 }

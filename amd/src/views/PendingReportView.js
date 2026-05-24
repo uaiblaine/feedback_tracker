@@ -14,17 +14,20 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Full-page React view for pages/pending_report.php — paginated table of
- * pending submissions in a course, with server-side bucket / group / sort
- * filters and client-side search + column sort. Row click opens the pause
- * timeline modal.
+ * Full-page React view for pages/pending_report.php — redesigned for MVP3.
  *
- * State split:
+ * Composition (top → bottom):
+ *   1. Breadcrumb (back link + current crumb)
+ *   2. Title row (course name H1 + overall status pill)
+ *   3. Hero row — 4 cards: Score / Effective / SLA / Trend
+ *   4. PausedCallout — transparency about excluded paused periods
+ *   5. StatusDistributionBar — click a segment to filter the table
+ *   6. Toolbar — class select, segmented status filter, sort select, search, refresh
+ *   7. Table — Student / Activity / Class / Submitted / Effective / Perceived / Status / Action
+ *
+ * State split is unchanged from MVP2:
  *   - Server-driven (re-fetches WS):  groupid, bucket, serverSort, page
  *   - Client-only (no fetch):         search, clientSortKey, clientSortOrder
- *
- * Initial payload (submissions + total + filters) comes from the server-
- * rendered mount-point JSON so the first paint is data-rich.
  *
  * @module    block_feedback_tracker/views/PendingReportView
  * @copyright 2026 Anderson Blaine <anderson@blaine.com.br>
@@ -33,9 +36,42 @@
 
 import {html, useState, useMemo, useEffect, useRef} from 'block_feedback_tracker/lib/preact';
 import Badge from 'block_feedback_tracker/components/Badge';
+import ScoreRing from 'block_feedback_tracker/components/ScoreRing';
+import Sparkline from 'block_feedback_tracker/components/Sparkline';
+import PausedCallout from 'block_feedback_tracker/components/PausedCallout';
+import StatusDistributionBar from 'block_feedback_tracker/components/StatusDistributionBar';
+import HeroMetricCard from 'block_feedback_tracker/components/HeroMetricCard';
+import SegmentedFilter from 'block_feedback_tracker/components/SegmentedFilter';
+import {bandForScore, colourFor} from 'block_feedback_tracker/lib/bands';
 import {getPendingSubmissions} from 'block_feedback_tracker/lib/api';
-import {formatHours, formatDate} from 'block_feedback_tracker/lib/format';
+import {formatHours, formatDate, formatPercent} from 'block_feedback_tracker/lib/format';
 import * as PauseTimelineModal from 'block_feedback_tracker/components/PauseTimelineModal';
+
+/**
+ * Threshold (in business hours) above which the difference between effective
+ * and perceived is meaningful enough to surface a "paused" tag on the row.
+ */
+const PAUSED_TAG_EPSILON = 0.5;
+
+/**
+ * Convert effective hours to a rough calendar-day approximation. Uses an
+ * 8-hour business day (matches the install.php seed); we round up to keep
+ * "perceived" honest (a 1-hour wait still feels like "today").
+ *
+ * @param {number|null|undefined} effectivehours
+ * @returns {string} Formatted "Nd" or "—".
+ */
+const formatPerceivedDays = (effectivehours) => {
+    if (effectivehours === null || effectivehours === undefined) {
+        return '—';
+    }
+    const n = Number(effectivehours);
+    if (!Number.isFinite(n) || n <= 0) {
+        return '0d';
+    }
+    const days = Math.max(1, Math.round(n / 24 * 1.35));
+    return days + 'd';
+};
 
 /**
  * Apply the client-side search + sort to a fetched page of submissions.
@@ -100,23 +136,41 @@ const SortableHeader = ({label, sortKey, currentKey, currentOrder, onClick}) => 
 };
 
 /**
- * Top-level view. The initial payload mirrors the bootstrap shape used by
- * the block (see block_feedback_tracker.php::build_block_payload), with
- * the addition of a `pending` sub-object holding the first page of
- * submissions and a `groups` list for the group filter.
+ * Bucket counts grouped by band slug.
+ *
+ * @param {Array<object>} rows
+ * @returns {Object<string, number>}
+ */
+const countByBand = (rows) => {
+    const out = {excellent: 0, good: 0, regular: 0, critical: 0};
+    if (!Array.isArray(rows)) {
+        return out;
+    }
+    for (const r of rows) {
+        const b = r.slabucket;
+        if (out[b] !== undefined) {
+            out[b]++;
+        }
+    }
+    return out;
+};
+
+/**
+ * Top-level view.
  *
  * @param {object} props
  * @param {object} props.initial  Mount-point payload: {courseid, coursename,
- *                                pending: {submissions, total, page, perpage,
- *                                lastsynced, bucket, groupid, sort},
- *                                groups: [{id, name}], i18n, config}.
+ *                                pending, groups, scope, i18n, config}.
  * @returns {object} vnode
  */
 export default function PendingReportView({initial}) {
     const i18n = initial.i18n || {};
+    const config = initial.config || {};
+    const scoreThresholds = config.score_thresholds || null;
     const courseid = Number(initial.courseid) || 0;
     const availableGroups = Array.isArray(initial.groups) ? initial.groups : [];
     const initialPending = initial.pending || {};
+    const scope = initial.scope || null;
 
     // --- Server-driven filters (each change refetches the WS). ---
     const [page, setPage] = useState(Number(initialPending.page) || 0);
@@ -169,11 +223,12 @@ export default function PendingReportView({initial}) {
         fetchPage();
     }, [groupid, bucket, serverSort, page]);
 
-    // Derived: filtered + client-sorted submissions.
+    // Derived: filtered + client-sorted submissions + distribution counts.
     const visible = useMemo(
         () => decorate(submissions, search, clientSortKey, clientSortOrder),
         [submissions, search, clientSortKey, clientSortOrder]
     );
+    const distCounts = useMemo(() => countByBand(submissions), [submissions]);
 
     const totalPages = Math.max(1, Math.ceil(total / perpage));
 
@@ -200,18 +255,166 @@ export default function PendingReportView({initial}) {
         PauseTimelineModal.open({submission, i18n});
     };
 
+    // --- Scope-derived hero values. ---
+    const scopeScore = scope && scope.score !== null && scope.score !== undefined
+        ? Number(scope.score) : null;
+    const scopeBand = (scope && scope.band) || bandForScore(scopeScore, scoreThresholds);
+    const scopeBandLabel = (i18n.bands || {})[scopeBand] || '';
+    const trendSeries = (scope && Array.isArray(scope.trend_series))
+        ? scope.trend_series.map((p) => (p && p.value !== null && p.value !== undefined ? Number(p.value) : null))
+        : [];
+    const trendPct = scope && scope.trend_pct_30d !== null && scope.trend_pct_30d !== undefined
+        ? Number(scope.trend_pct_30d) : null;
+    const trendTone = trendPct === null || Math.abs(trendPct) < 2
+        ? 'pending'
+        : trendPct < 0 ? 'excellent' : 'critical';
+    const effective = scope && scope.median_eff_h !== null && scope.median_eff_h !== undefined
+        ? Number(scope.median_eff_h) : null;
+    const perceivedDays = formatPerceivedDays(effective);
+
+    // --- Status filter options. ---
+    const labels = i18n.bands || {};
+    const statusOptions = [
+        {value: '',          label: i18n.pendingreport_filter_bucket_all || 'All'},
+        {value: 'excellent', label: labels.excellent || 'Excellent', tone: 'excellent'},
+        {value: 'good',      label: labels.good      || 'Good',      tone: 'good'},
+        {value: 'regular',   label: labels.regular   || 'Up Next',   tone: 'regular'},
+        {value: 'critical',  label: labels.critical  || 'Priority',  tone: 'critical'},
+    ];
+
+    // Build a course-page URL for the "← Block" breadcrumb.
+    // eslint-disable-next-line no-undef
+    const wwwroot = (typeof M !== 'undefined' && M.cfg && M.cfg.wwwroot) || '';
+    const courseUrl = wwwroot + '/course/view.php?id=' + encodeURIComponent(String(courseid));
+
     return html`
         <div class="bft-report">
+            <nav class="bft-breadcrumb" aria-label="breadcrumb">
+                <a class="bft-crumb-link" href=${courseUrl}>
+                    ${i18n.pendingreport_breadcrumb_block || '← Block'}
+                </a>
+                <span class="bft-crumb-sep">/</span>
+                <span class="bft-crumb-current">
+                    ${i18n.pendingreport_crumb_current || 'Pending grading · detailed report'}
+                </span>
+            </nav>
+
+            <div class="bft-report-title-row">
+                <div class="bft-report-title-text">
+                    <h1 class="bft-report-h1">${initial.coursename}</h1>
+                    <div class="bft-report-subline">
+                        <strong>${total}</strong>
+                        ${' ' + (i18n.pendingreport_search_placeholder ? '' : '')}
+                        ${availableGroups.length > 0 && html`
+                            <span class="bft-report-subline-classes">
+                                · ${availableGroups.length} ${availableGroups.length === 1 ? 'class' : 'classes'}
+                            </span>
+                        `}
+                    </div>
+                </div>
+                ${scopeBand && scopeBandLabel && html`
+                    <${Badge} band=${scopeBand} label=${scopeBandLabel} />
+                `}
+            </div>
+
+            ${scope && html`
+                <div class="bft-hero-row">
+                    <${HeroMetricCard}
+                        wide=${true}
+                        eyebrow=${i18n.hero_score_eyebrow || 'Academic Responsiveness'}
+                        tip=${i18n.hero_score_tip}>
+                        <div class="bft-hero-score">
+                            <${ScoreRing} score=${scopeScore} band=${scopeBand} size=${72} thickness=${7} />
+                            <div class="bft-hero-score-text">
+                                <div class="bft-hero-score-row">
+                                    <span class=${'bft-hero-score-val bft-mono bft-overall-score-tone-' + scopeBand}>
+                                        ${scopeScore === null ? '—' : Math.round(scopeScore)}
+                                    </span>
+                                    <span class="bft-hero-score-of bft-mono">/ 100</span>
+                                </div>
+                                <span class="bft-hero-score-note">
+                                    ${scopeBandLabel} · ${i18n.hero_score_note || 'business-time'}
+                                </span>
+                            </div>
+                        </div>
+                    <//>
+                    <${HeroMetricCard}
+                        eyebrow=${i18n.hero_effective_eyebrow || 'Effective feedback time'}
+                        tip=${i18n.hero_effective_tip}>
+                        <div class="bft-hero-kpi">
+                            <span class=${'bft-hero-kpi-val bft-mono bft-overall-score-tone-' + scopeBand}>
+                                ${effective === null ? '—' : formatHours(effective)}
+                            </span>
+                            <span class="bft-hero-kpi-unit">${i18n.hero_effective_unit || 'business hrs'}</span>
+                        </div>
+                        <div class="bft-hero-kpi-sub">
+                            <span class="bft-hero-kpi-sub-label">${i18n.hero_perceived_label || 'Perceived wait'}</span>
+                            <span class="bft-hero-kpi-sub-value bft-mono">
+                                ${perceivedDays} ${i18n.hero_perceived_unit || 'calendar days'}
+                            </span>
+                        </div>
+                    <//>
+                    <${HeroMetricCard}
+                        eyebrow=${i18n.hero_sla_eyebrow || 'SLA compliance'}
+                        tip=${i18n.hero_sla_tip}>
+                        <div class="bft-hero-kpi">
+                            <span class=${'bft-hero-kpi-val bft-mono bft-overall-score-tone-' + scopeBand}>
+                                ${scope.compliance_pct === null || scope.compliance_pct === undefined
+                                    ? '—' : formatPercent(scope.compliance_pct)}
+                            </span>
+                            <span class="bft-hero-kpi-unit">${i18n.hero_sla_unit || 'within'}</span>
+                        </div>
+                        <div class="bft-hero-kpi-chips">
+                            ${(scope.total_overgoal || 0) > 0 && html`
+                                <span class="bft-hero-chip bft-hero-chip-regular">
+                                    ${scope.total_overgoal} ${i18n.hero_sla_atrisk || 'at risk'}
+                                </span>
+                            `}
+                            ${(scope.total_critical || 0) > 0 && html`
+                                <span class="bft-hero-chip bft-hero-chip-critical">
+                                    ${scope.total_critical} ${i18n.hero_sla_critical || 'critical'}
+                                </span>
+                            `}
+                        </div>
+                    <//>
+                    <${HeroMetricCard}
+                        eyebrow=${i18n.hero_trend_eyebrow || 'Trend'}
+                        tip=${i18n.hero_trend_tip}>
+                        <div class="bft-hero-kpi">
+                            <span class=${'bft-hero-kpi-val bft-mono bft-overall-score-tone-' + trendTone}>
+                                ${trendPct === null ? '—' : (trendPct > 0 ? '+' : '') + Math.round(trendPct) + '%'}
+                            </span>
+                            <span class="bft-hero-kpi-unit">${i18n.hero_trend_unit || 'vs last month'}</span>
+                        </div>
+                        ${trendSeries.length > 0 && html`
+                            <div class="bft-hero-spark">
+                                <${Sparkline}
+                                    values=${trendSeries}
+                                    width=${120}
+                                    height=${26} />
+                            </div>
+                        `}
+                    <//>
+                </div>
+            `}
+
+            ${scope && html`
+                <${PausedCallout}
+                    totaldays=${scope.paused_days_30d || 0}
+                    breakdown=${scope.paused_breakdown_30d || {}}
+                    i18n=${i18n} />
+            `}
+
+            <${StatusDistributionBar}
+                counts=${distCounts}
+                activeband=${bucket}
+                onSelect=${(b) => { setPage(0); setBucket(b); }}
+                i18n=${i18n} />
+
             <div class="bft-report-controls">
-                <input type="search"
-                       class="bft-search"
-                       placeholder=${i18n.pendingreport_search_placeholder || 'Search by name…'}
-                       aria-label=${i18n.pendingreport_search_placeholder || 'Search by name'}
-                       value=${search}
-                       onInput=${(e) => setSearch(e.target.value)} />
                 ${availableGroups.length > 1 && html`
                     <label class="bft-filter-label">
-                        <span>${i18n.pendingreport_filter_group_label || 'Group'}</span>
+                        <span>${i18n.pendingreport_filter_class_label || 'Class'}</span>
                         <select value=${String(groupid)}
                                 onChange=${(e) => { setPage(0); setGroupid(Number(e.target.value)); }}>
                             <option value="0">${i18n.pendingreport_filter_group_all || 'All groups'}</option>
@@ -221,17 +424,21 @@ export default function PendingReportView({initial}) {
                         </select>
                     </label>
                 `}
-                <label class="bft-filter-label">
-                    <span>${i18n.pendingreport_filter_bucket_label || 'Bucket'}</span>
-                    <select value=${bucket}
-                            onChange=${(e) => { setPage(0); setBucket(e.target.value); }}>
-                        <option value="">${i18n.pendingreport_filter_bucket_all || 'All bands'}</option>
-                        <option value="excellent">${(i18n.bands || {}).excellent || 'Excellent'}</option>
-                        <option value="good">${(i18n.bands || {}).good || 'Good'}</option>
-                        <option value="regular">${(i18n.bands || {}).regular || 'Up Next'}</option>
-                        <option value="critical">${(i18n.bands || {}).critical || 'Priority'}</option>
-                    </select>
-                </label>
+                <div class="bft-filter-label">
+                    <span>${i18n.pendingreport_filter_bucket_label || 'Status'}</span>
+                    <${SegmentedFilter}
+                        options=${statusOptions}
+                        value=${bucket}
+                        onChange=${(v) => { setPage(0); setBucket(v); }}
+                        ariaLabel=${i18n.pendingreport_filter_bucket_label || 'Status'} />
+                </div>
+                <div class="bft-report-controls-spacer"></div>
+                <input type="search"
+                       class="bft-search"
+                       placeholder=${i18n.pendingreport_search_placeholder || 'Search by name…'}
+                       aria-label=${i18n.pendingreport_search_placeholder || 'Search by name'}
+                       value=${search}
+                       onInput=${(e) => setSearch(e.target.value)} />
                 <label class="bft-filter-label">
                     <span>${i18n.pendingreport_filter_serversort_label || 'Order'}</span>
                     <select value=${serverSort}
@@ -270,47 +477,64 @@ export default function PendingReportView({initial}) {
                                 <${SortableHeader} label=${i18n.drilldown_col_activity}
                                     sortKey="activityname" currentKey=${clientSortKey}
                                     currentOrder=${clientSortOrder} onClick=${handleHeaderClick} />
-                                <${SortableHeader} label=${i18n.drilldown_col_group}
+                                <${SortableHeader} label=${(i18n.pendingreport_filter_class_label || 'Class')}
                                     sortKey="groupname" currentKey=${clientSortKey}
                                     currentOrder=${clientSortOrder} onClick=${handleHeaderClick} />
                                 <${SortableHeader} label=${i18n.drilldown_col_submitted}
                                     sortKey="timesubmitted" currentKey=${clientSortKey}
                                     currentOrder=${clientSortOrder} onClick=${handleHeaderClick} />
-                                <${SortableHeader} label=${i18n.drilldown_col_waiting}
-                                    sortKey="waitinghours" currentKey=${clientSortKey}
-                                    currentOrder=${clientSortOrder} onClick=${handleHeaderClick} />
-                                <${SortableHeader} label=${i18n.drilldown_col_effective}
+                                <${SortableHeader} label=${i18n.pendingreport_col_effective || 'Effective'}
                                     sortKey="effectivehours" currentKey=${clientSortKey}
+                                    currentOrder=${clientSortOrder} onClick=${handleHeaderClick} />
+                                <${SortableHeader} label=${i18n.pendingreport_col_perceived || 'Perceived'}
+                                    sortKey="waitinghours" currentKey=${clientSortKey}
                                     currentOrder=${clientSortOrder} onClick=${handleHeaderClick} />
                                 <th>${i18n.drilldown_col_status}</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${visible.map((row) => html`
-                                <tr class="bft-report-row"
-                                    key=${'r-' + row.submissionid}
-                                    tabindex="0"
-                                    role="button"
-                                    aria-label=${(row.studentname || '') + ' — ' + (row.activityname || '')}
-                                    onClick=${() => openTimeline(row)}
-                                    onKeyDown=${(e) => {
-                                        if (e.key === 'Enter' || e.key === ' ') {
-                                            e.preventDefault();
-                                            openTimeline(row);
-                                        }
-                                    }}>
-                                    <td>${row.studentname}</td>
-                                    <td>${row.activityname}</td>
-                                    <td>${row.groupname || '-'}</td>
-                                    <td>${formatDate(row.timesubmitted)}</td>
-                                    <td>${formatHours(row.waitinghours)}</td>
-                                    <td>${formatHours(row.effectivehours)}</td>
-                                    <td>
-                                        <${Badge} band=${row.slabucket}
-                                                  label=${(i18n.bands || {})[row.slabucket] || row.slabucket} />
-                                    </td>
-                                </tr>
-                            `)}
+                            ${visible.map((row) => {
+                                const paused = Number(row.waitinghours || 0)
+                                    - Number(row.effectivehours || 0) > PAUSED_TAG_EPSILON;
+                                const rowColor = colourFor(row.slabucket);
+                                return html`
+                                    <tr class="bft-report-row"
+                                        key=${'r-' + row.submissionid}
+                                        tabindex="0"
+                                        role="button"
+                                        aria-label=${(row.studentname || '') + ' — ' + (row.activityname || '')}
+                                        onClick=${() => openTimeline(row)}
+                                        onKeyDown=${(e) => {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault();
+                                                openTimeline(row);
+                                            }
+                                        }}>
+                                        <td>${row.studentname}</td>
+                                        <td>${row.activityname}</td>
+                                        <td>${row.groupname || '-'}</td>
+                                        <td class="bft-mono">${formatDate(row.timesubmitted)}</td>
+                                        <td class="bft-report-effective bft-mono"
+                                            style=${'color: ' + rowColor + ';'}>
+                                            ${formatHours(row.effectivehours)}
+                                        </td>
+                                        <td class="bft-report-perceived bft-mono">
+                                            ${formatHours(row.waitinghours)}
+                                            ${paused && html`
+                                                <span class="bft-row-paused-tag"
+                                                      title=${i18n.pendingreport_row_paused_tip || ''}>
+                                                    <span class="bft-row-paused-swatch" aria-hidden="true"></span>
+                                                    ${i18n.pendingreport_row_paused || 'paused'}
+                                                </span>
+                                            `}
+                                        </td>
+                                        <td>
+                                            <${Badge} band=${row.slabucket}
+                                                      label=${(i18n.bands || {})[row.slabucket] || row.slabucket} />
+                                        </td>
+                                    </tr>
+                                `;
+                            })}
                         </tbody>
                     </table>
                 `}

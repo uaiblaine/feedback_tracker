@@ -109,4 +109,18 @@ $functions = [
         'ajax'        => true,
         'capabilities' => 'block/feedback_tracker:viewdashboard',
     ],
+    'block_feedback_tracker_get_insights' => [
+        'classname'   => 'block_feedback_tracker\external\get_insights',
+        'description' => 'Dashboard insights: bright spot, most improved, gentle watch.',
+        'type'        => 'read',
+        'ajax'        => true,
+        'capabilities' => 'block/feedback_tracker:viewdashboard',
+    ],
+    'block_feedback_tracker_get_audit_log' => [
+        'classname'   => 'block_feedback_tracker\external\get_audit_log',
+        'description' => 'Paginated recompute-audit log entries.',
+        'type'        => 'read',
+        'ajax'        => true,
+        'capabilities' => 'block/feedback_tracker:viewaudit',
+    ],
 ];

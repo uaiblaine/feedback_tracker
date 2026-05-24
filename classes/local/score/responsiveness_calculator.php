@@ -125,22 +125,41 @@ class responsiveness_calculator {
     }
 
     /**
-     * Map a score to one of the four bands.
+     * Map a score to one of the four bands using the configured cutoffs.
      *
      * @param float $score
      * @return string excellent|good|regular|critical
      */
     public static function band_for(float $score): string {
-        if ($score >= 90.0) {
+        [$excellent, $good, $regular] = self::parse_thresholds_band();
+        if ($score >= $excellent) {
             return 'excellent';
         }
-        if ($score >= 70.0) {
+        if ($score >= $good) {
             return 'good';
         }
-        if ($score >= 40.0) {
+        if ($score >= $regular) {
             return 'regular';
         }
         return 'critical';
+    }
+
+    /**
+     * Parse the score-band thresholds setting (CSV) into a descending
+     * three-element float array [excellent_min, good_min, regular_min].
+     * Returns the design defaults (90, 70, 40) if the setting is malformed.
+     * Mirrors the bucket::parse_thresholds_eff() shape so settings.php can
+     * follow the same pattern for both.
+     *
+     * @return array{0:float, 1:float, 2:float}
+     */
+    public static function parse_thresholds_band(): array {
+        $raw = (string) (get_config('block_feedback_tracker', 'score_thresholds_band') ?: '90,70,40');
+        $parts = array_map('trim', explode(',', $raw));
+        $t1 = isset($parts[0]) && is_numeric($parts[0]) ? (float) $parts[0] : 90.0;
+        $t2 = isset($parts[1]) && is_numeric($parts[1]) ? (float) $parts[1] : 70.0;
+        $t3 = isset($parts[2]) && is_numeric($parts[2]) ? (float) $parts[2] : 40.0;
+        return [$t1, $t2, $t3];
     }
 
     /**

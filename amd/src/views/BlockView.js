@@ -31,6 +31,8 @@
 
 import {html, useState, useMemo} from 'block_feedback_tracker/lib/preact';
 import GroupCard from 'block_feedback_tracker/components/GroupCard';
+import OverallBanner from 'block_feedback_tracker/components/OverallBanner';
+import {bandForScore} from 'block_feedback_tracker/lib/bands';
 import {getResponsiveness} from 'block_feedback_tracker/lib/api';
 
 /**
@@ -55,6 +57,62 @@ const sortGroups = (groups, sortKey) => {
 };
 
 /**
+ * Pending-weighted average of per-group scores. A group with no pending
+ * work doesn't drag the headline figure — its score still counts but with
+ * a minimum weight of 1 so courses early in the term don't end up with
+ * "no overall score" simply because nobody has submitted yet.
+ *
+ * @param {Array<object>} groups
+ * @param {{excellent?: number, good?: number, regular?: number}|null} thresholds
+ * @returns {{score: number|null, band: string}}
+ */
+const overallScore = (groups, thresholds) => {
+    if (!Array.isArray(groups) || groups.length === 0) {
+        return {score: null, band: 'pending'};
+    }
+    let totalw = 0;
+    let totalv = 0;
+    groups.forEach((g) => {
+        if (g.responsiveness_score === null || g.responsiveness_score === undefined) {
+            return;
+        }
+        const weight = Math.max(1, Number(g.pending) || 0);
+        totalv += Number(g.responsiveness_score) * weight;
+        totalw += weight;
+    });
+    if (totalw === 0) {
+        return {score: null, band: 'pending'};
+    }
+    const score = totalv / totalw;
+    return {score, band: bandForScore(score, thresholds)};
+};
+
+/**
+ * Pull the "paused current" + "next paused" strings from the most relevant
+ * group's payload (any non-empty group works — the calendar is platform-wide).
+ *
+ * @param {Array<object>} groups
+ * @returns {{current: string|null, next: string|null}}
+ */
+const pausedSummary = (groups) => {
+    if (!Array.isArray(groups)) {
+        return {current: null, next: null};
+    }
+    for (const g of groups) {
+        const current = g.lastpause_reason
+            ? String(g.lastpause_reason)
+            : null;
+        const next = g.nextpause_reason
+            ? String(g.nextpause_reason)
+            : null;
+        if (current || next) {
+            return {current, next};
+        }
+    }
+    return {current: null, next: null};
+};
+
+/**
  * Top-level block view.
  *
  * @param {object} props
@@ -74,6 +132,12 @@ export default function BlockView({initial}) {
     const [error, setError] = useState(null);
 
     const sorted = useMemo(() => sortGroups(groups, sort), [groups, sort]);
+    const overall = useMemo(
+        () => overallScore(groups, config && config.score_thresholds),
+        [groups, config]
+    );
+    const paused = useMemo(() => pausedSummary(groups), [groups]);
+    const overallBandLabel = i18n.bands && i18n.bands[overall.band] ? i18n.bands[overall.band] : '';
 
     const handleRefresh = async () => {
         if (refreshing) {
@@ -127,6 +191,13 @@ export default function BlockView({initial}) {
             ${groups.length === 0
                 ? html`<div class="bft-empty">${i18n.card_empty}</div>`
                 : html`
+                    <${OverallBanner}
+                        score=${overall.score}
+                        band=${overall.band}
+                        bandlabel=${overallBandLabel}
+                        i18n=${i18n}
+                        pausedcurrent=${paused.current}
+                        pausednext=${paused.next} />
                     <div class="bft-card-list">
                         ${sorted.map((group) => html`
                             <${GroupCard}

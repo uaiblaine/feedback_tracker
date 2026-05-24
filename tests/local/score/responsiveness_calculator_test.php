@@ -109,6 +109,36 @@ final class responsiveness_calculator_test extends \advanced_testcase {
     }
 
     /**
+     * Admin-tunable score_thresholds_band setting shifts the band cutoffs:
+     * a stricter "85,70,50" configuration matches the v1.0.0 legacy bands.
+     */
+    public function test_band_thresholds_respect_setting(): void {
+        $this->resetAfterTest();
+        set_config('score_thresholds_band', '85,70,50', 'block_feedback_tracker');
+
+        $this->assertSame('excellent', responsiveness_calculator::band_for(85.0));
+        $this->assertSame('good', responsiveness_calculator::band_for(84.99));
+        $this->assertSame('good', responsiveness_calculator::band_for(70.0));
+        $this->assertSame('regular', responsiveness_calculator::band_for(69.99));
+        $this->assertSame('regular', responsiveness_calculator::band_for(50.0));
+        $this->assertSame('critical', responsiveness_calculator::band_for(49.99));
+    }
+
+    /**
+     * Malformed CSV in the setting falls back to design defaults
+     * (90, 70, 40) rather than crashing.
+     */
+    public function test_band_thresholds_fall_back_when_malformed(): void {
+        $this->resetAfterTest();
+        set_config('score_thresholds_band', 'not,a,number', 'block_feedback_tracker');
+
+        $this->assertSame('excellent', responsiveness_calculator::band_for(90.0));
+        $this->assertSame('good', responsiveness_calculator::band_for(70.0));
+        $this->assertSame('regular', responsiveness_calculator::band_for(40.0));
+        $this->assertSame('critical', responsiveness_calculator::band_for(39.99));
+    }
+
+    /**
      * Median term equals 0.5 when median == sla_goal_hours.
      */
     public function test_median_term_half_at_goal(): void {

@@ -14,61 +14,86 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Teacher dashboard view (Phase 2D) — cross-course aggregation page.
+ * Teacher dashboard view (Phase 3E redesign) — warm, supportive
+ * cross-course overview.
  *
- * Three sections:
- *   - Hero: greeting, three KPI tiles (total Pending / Priority / Over
- *     goal), and an overall responsiveness score with band badge.
- *   - Courses table: one row per course, sortable client-side, row click
- *     navigates to pending_report.php?courseid=X.
- *   - School comparison: collapsible section that lazy-fetches
- *     get_school_comparison on first expand (no upfront cost).
+ * Composition (top → bottom):
+ *   1. Brand-tag eyebrow ("FEEDBACK TRACKER")
+ *   2. Greeting H1 (time-of-day aware) + WaveMark
+ *   3. Subline (pending count · critical count · business-time chip)
+ *   4. ResponsivenessModule — full hero ↔ slim strip (collapsible)
+ *   5. Insights row (Bright spot / Most improved / Gentle watch)
+ *   6. "Grade now · picked for you" — 3 priority cards
+ *   7. "Your courses" table with inline ScoreRing + sparkline + Open link
  *
- * Initial payload (courses + greeting + i18n + config) comes from the
- * mount-point JSON so the first paint is data-rich.
+ * Initial payload comes from the mount-point JSON so the first paint is
+ * data-rich. Insights lazy-load on mount.
  *
  * @module    block_feedback_tracker/views/DashboardView
  * @copyright 2026 Anderson Blaine <anderson@blaine.com.br>
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-import {html, useState, useMemo} from 'block_feedback_tracker/lib/preact';
-import Badge from 'block_feedback_tracker/components/Badge';
-import ScoreGauge from 'block_feedback_tracker/components/ScoreGauge';
-import {getDashboard, getSchoolComparison, getGraderPriorityList}
+import {html, useState, useMemo, useEffect} from 'block_feedback_tracker/lib/preact';
+import ResponsivenessModule from 'block_feedback_tracker/components/ResponsivenessModule';
+import InsightCard from 'block_feedback_tracker/components/InsightCard';
+import PriorityCard from 'block_feedback_tracker/components/PriorityCard';
+import CoursesTable from 'block_feedback_tracker/components/CoursesTable';
+import WaveMark from 'block_feedback_tracker/components/WaveMark';
+import {getDashboard, getGraderPriorityList, getInsights}
     from 'block_feedback_tracker/lib/api';
-import {formatHours, formatPercent, formatNumber} from 'block_feedback_tracker/lib/format';
 import {bandForScore} from 'block_feedback_tracker/lib/bands';
-import GradeNowPanel from 'block_feedback_tracker/components/GradeNowPanel';
 
 /**
- * Aggregate per-course rows into the three hero KPI numbers + overall
- * score.
+ * Aggregate per-course rows into a single hero score + total counters.
  *
  * @param {Array<object>} courses
  * @returns {{pending: number, critical: number, overgoal: number,
- *            avgscore: number|null}}
+ *            avgscore: number|null, effective: number|null,
+ *            compliance: number|null, trendpct: number|null}}
  */
 const aggregate = (courses) => {
     let pending = 0;
     let critical = 0;
     let overgoal = 0;
-    let scoresum = 0;
-    let scorecount = 0;
+    let scoreSum = 0;
+    let scoreWeight = 0;
+    let effSum = 0;
+    let effCount = 0;
+    let compSum = 0;
+    let compCount = 0;
+    let trendSum = 0;
+    let trendCount = 0;
     (courses || []).forEach((c) => {
         pending += Number(c.pending) || 0;
         critical += Number(c.critical) || 0;
         overgoal += Number(c.overgoal) || 0;
         if (c.avgscore !== null && c.avgscore !== undefined) {
-            scoresum += Number(c.avgscore);
-            scorecount += 1;
+            const weight = Math.max(1, Number(c.pending) || 0);
+            scoreSum += Number(c.avgscore) * weight;
+            scoreWeight += weight;
+        }
+        if (c.median_eff_h !== null && c.median_eff_h !== undefined) {
+            effSum += Number(c.median_eff_h);
+            effCount += 1;
+        }
+        if (c.compliance_pct !== null && c.compliance_pct !== undefined) {
+            compSum += Number(c.compliance_pct);
+            compCount += 1;
+        }
+        if (c.trend_pct_30d !== null && c.trend_pct_30d !== undefined) {
+            trendSum += Number(c.trend_pct_30d);
+            trendCount += 1;
         }
     });
     return {
         pending,
         critical,
         overgoal,
-        avgscore: scorecount > 0 ? scoresum / scorecount : null,
+        avgscore:   scoreWeight > 0 ? scoreSum / scoreWeight : null,
+        effective:  effCount > 0 ? effSum / effCount : null,
+        compliance: compCount > 0 ? compSum / compCount : null,
+        trendpct:   trendCount > 0 ? trendSum / trendCount : null,
     };
 };
 
@@ -77,7 +102,7 @@ const aggregate = (courses) => {
  *
  * @param {Array<object>} rows
  * @param {string|null} sortKey
- * @param {string} sortOrder  'asc' | 'desc'
+ * @param {string} sortOrder
  * @returns {Array<object>}
  */
 const sortCourses = (rows, sortKey, sortOrder) => {
@@ -85,7 +110,7 @@ const sortCourses = (rows, sortKey, sortOrder) => {
         return rows;
     }
     const dir = sortOrder === 'asc' ? 1 : -1;
-    const numeric = ['numgroups', 'pending', 'critical', 'overgoal', 'avgscore'];
+    const numeric = ['pending', 'critical', 'overgoal', 'avgscore', 'median_eff_h'];
     const numkey = numeric.indexOf(sortKey) !== -1;
     const copy = rows.slice();
     copy.sort((a, b) => {
@@ -100,82 +125,47 @@ const sortCourses = (rows, sortKey, sortOrder) => {
 };
 
 /**
- * Build the deep-link to pages/pending_report.php for one course.
+ * Pick the time-of-day greeting string key from local clock.
  *
- * @param {number} courseid
  * @returns {string}
  */
-const courseReportUrl = (courseid) => {
-    // eslint-disable-next-line no-undef
-    const wwwroot = (typeof M !== 'undefined' && M.cfg && M.cfg.wwwroot) || '';
-    return wwwroot + '/blocks/feedback_tracker/pages/pending_report.php'
-        + '?courseid=' + encodeURIComponent(String(courseid));
+const greetingKey = () => {
+    const h = new Date().getHours();
+    if (h < 12) {
+        return 'dashboard_greeting_morning';
+    }
+    if (h < 18) {
+        return 'dashboard_greeting_afternoon';
+    }
+    return 'dashboard_greeting_evening';
 };
 
 /**
- * Sortable column header — same shape as PendingReportView's helper, kept
- * local so Phase 2D doesn't reach across views.
+ * Rough perceived calendar-days from business hours (8h day, with weekend
+ * inflation). Returns a string suffix like "4d" or "—".
  *
- * @param {object} props
- * @param {string} props.label
- * @param {string} props.sortKey
- * @param {string|null} props.currentKey
- * @param {string} props.currentOrder
- * @param {Function} props.onClick
- * @returns {object} vnode
+ * @param {number|null|undefined} effectivehours
+ * @returns {string}
  */
-const SortableHeader = ({label, sortKey, currentKey, currentOrder, onClick}) => {
-    const active = currentKey === sortKey;
-    const arrow = active ? (currentOrder === 'asc' ? ' ▲' : ' ▼') : '';
-    const ariaSort = active ? (currentOrder === 'asc' ? 'ascending' : 'descending') : 'none';
-    return html`
-        <th class=${'bft-th-sortable' + (active ? ' is-active' : '')}>
-            <button type="button" class="bft-th-sortable-btn"
-                    onClick=${() => onClick(sortKey)} aria-sort=${ariaSort}>
-                ${label}${arrow}
-            </button>
-        </th>
-    `;
+const perceivedLabel = (effectivehours) => {
+    const n = Number(effectivehours);
+    if (!Number.isFinite(n) || n <= 0) {
+        return '—';
+    }
+    return Math.max(1, Math.round(n / 24 * 1.35)) + 'd';
 };
 
 /**
- * Render one day's row in the comparison table.
- *
  * @param {object} props
- * @param {object} props.d  One entry from get_school_comparison.days[].
- * @returns {object} vnode
- */
-const ComparisonRow = ({d}) => {
-    // get_school_comparison returns `day` as YYYYMMDD integer.
-    const ymd = String(d.day);
-    const pretty = ymd.length === 8
-        ? ymd.slice(0, 4) + '-' + ymd.slice(4, 6) + '-' + ymd.slice(6, 8)
-        : ymd;
-    return html`
-        <tr key=${'d-' + d.day}>
-            <td>${pretty}</td>
-            <td>${formatHours(d.medianh_eff)}</td>
-            <td>${formatHours(d.p10h_eff)}</td>
-            <td>${formatHours(d.p90h_eff)}</td>
-            <td>${formatPercent(d.compliance_pct_site)}</td>
-            <td>${formatNumber(d.numgraded, 0)}</td>
-        </tr>
-    `;
-};
-
-/**
- * Top-level dashboard view.
- *
- * @param {object} props
- * @param {object} props.initial  Mount-point payload: {userid, greeting,
- *                                dashboard: {success, lastsynced, courses[]},
- *                                cancompare, i18n: {...}, config: {...}}.
+ * @param {object} props.initial   Mount-point payload: {greeting, dashboard,
+ *                                 gradenow, cancompare, i18n, config}.
  * @returns {object} vnode
  */
 export default function DashboardView({initial}) {
     const i18n = initial.i18n || {};
+    const config = initial.config || {};
+    const scoreThresholds = config.score_thresholds || null;
     const dashboard = initial.dashboard || {};
-    const canCompare = Boolean(initial.cancompare);
 
     const [courses, setCourses] = useState(
         Array.isArray(dashboard.courses) ? dashboard.courses : []
@@ -184,20 +174,23 @@ export default function DashboardView({initial}) {
     const [error, setError] = useState(null);
     const [sortKey, setSortKey] = useState('pending');
     const [sortOrder, setSortOrder] = useState('desc');
-    const [comparisonOpen, setComparisonOpen] = useState(false);
-    const [comparisonDays, setComparisonDays] = useState(null);
-    const [comparisonLoading, setComparisonLoading] = useState(false);
-    // Grade Now panel state — pre-loaded from the initial payload so the
-    // first paint is data-rich, refreshed in sync with the courses table.
     const [gradenow, setGradenow] = useState(initial.gradenow || null);
     const [gradenowError, setGradenowError] = useState(null);
+    const [insights, setInsights] = useState(initial.insights || null);
 
     const sorted = useMemo(() => sortCourses(courses, sortKey, sortOrder), [courses, sortKey, sortOrder]);
     const totals = useMemo(() => aggregate(courses), [courses]);
-    const heroBand = bandForScore(totals.avgscore);
+    const heroBand = bandForScore(totals.avgscore, scoreThresholds);
+    const heroBandLabel = (i18n.bands || {})[heroBand] || '';
+
+    // Local-clock greeting, recomputed every render (cheap).
+    const greetingTemplate = i18n[greetingKey()]
+        || i18n.dashboard_hero_greeting
+        || 'Hi there, {$a->firstname}';
+    const greeting = greetingTemplate.replace('{$a->firstname}', initial.greeting_firstname || '');
 
     /**
-     * Refresh the dashboard payload via the WS.
+     * Refresh courses + grade-now + insights in parallel.
      */
     const handleRefresh = async () => {
         if (refreshing) {
@@ -206,215 +199,167 @@ export default function DashboardView({initial}) {
         setRefreshing(true);
         setError(null);
         setGradenowError(null);
-        // Two WS calls in parallel — the courses aggregate and the Grade
-        // Now top-N list. Promise.allSettled keeps one failure from
-        // dropping the other panel's update.
-        const [dashRes, gradenowRes] = await Promise.allSettled([
-            getDashboard({}),
-            getGraderPriorityList({}),
-        ]);
-        if (dashRes.status === 'fulfilled'
-            && dashRes.value && Array.isArray(dashRes.value.courses)) {
-            setCourses(dashRes.value.courses);
-        } else {
-            setError(i18n.dashboard_error || 'Failed to load dashboard.');
+        try {
+            const [resCourses, resGradenow, resInsights] = await Promise.all([
+                getDashboard({}),
+                getGraderPriorityList({limit: 3}),
+                getInsights(),
+            ]);
+            if (resCourses && Array.isArray(resCourses.courses)) {
+                setCourses(resCourses.courses);
+            }
+            if (resGradenow) {
+                setGradenow(resGradenow);
+            }
+            if (resInsights) {
+                setInsights(resInsights);
+            }
+        } catch (e) {
+            setError(i18n.dashboard_error || 'Failed to refresh.');
+        } finally {
+            setRefreshing(false);
         }
-        if (gradenowRes.status === 'fulfilled' && gradenowRes.value) {
-            setGradenow(gradenowRes.value);
-        } else {
-            setGradenowError(i18n.gradenow_error || 'Failed to load priority list.');
-        }
-        setRefreshing(false);
     };
 
-    /**
-     * Toggle the school-comparison section. First open triggers a fetch.
-     */
-    const toggleComparison = async () => {
-        const opening = !comparisonOpen;
-        setComparisonOpen(opening);
-        if (!opening || comparisonDays !== null || comparisonLoading) {
+    // Lazy-load insights on mount if the server didn't preload them.
+    useEffect(() => {
+        if (insights !== null) {
             return;
         }
-        setComparisonLoading(true);
-        try {
-            const result = await getSchoolComparison();
-            setComparisonDays(Array.isArray(result && result.days) ? result.days : []);
-        } catch (e) {
-            setComparisonDays([]);
-        } finally {
-            setComparisonLoading(false);
-        }
-    };
+        getInsights()
+            .then((res) => setInsights(res || {}))
+            .catch(() => setInsights({}));
+    }, []);
 
-    /**
-     * Toggle client-side sort.
-     *
-     * @param {string} key
-     */
-    const handleHeaderClick = (key) => {
+    const handleSort = (key) => {
         if (sortKey === key) {
             setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
         } else {
             setSortKey(key);
-            // Numbers default to descending (most-pending-first feels right).
-            const numeric = ['numgroups', 'pending', 'critical', 'overgoal', 'avgscore'];
-            setSortOrder(numeric.indexOf(key) !== -1 ? 'desc' : 'asc');
+            setSortOrder(key === 'coursename' ? 'asc' : 'desc');
         }
+    };
+
+    const priorities = (gradenow && Array.isArray(gradenow.submissions))
+        ? gradenow.submissions.slice(0, 3) : [];
+
+    // Build the hero props once so both the full and slim variants get the same shape.
+    const heroprops = {
+        score: totals.avgscore,
+        band: heroBand,
+        bandlabel: heroBandLabel,
+        effectivehours: totals.effective,
+        perceivedlabel: perceivedLabel(totals.effective),
+        compliancepct: totals.compliance,
+        trendpct: totals.trendpct,
+        i18n,
     };
 
     return html`
         <div class="bft-dashboard">
-            <header class="bft-dashboard-hero">
-                <div class="bft-dashboard-hero-text">
-                    <h2 class="bft-dashboard-hero-greeting">${initial.greeting || ''}</h2>
-                    <p class="bft-dashboard-hero-subtitle">${i18n.dashboard_hero_subtitle || ''}</p>
+            <header class="bft-dashboard-header">
+                <div class="bft-dashboard-header-text">
+                    <div class="bft-dashboard-brandtag">
+                        ${i18n.dashboard_brandtag || 'Feedback tracker'}
+                    </div>
+                    <h1 class="bft-dashboard-h1">
+                        ${greeting}
+                        <span class="bft-dashboard-wave"><${WaveMark} size=${26} /></span>
+                    </h1>
+                    <div class="bft-dashboard-subline">
+                        <strong>${totals.pending}</strong>
+                        <span>${i18n.dashboard_subline_waiting || 'waiting'}</span>
+                        <span class="bft-dashboard-dot">·</span>
+                        <strong class=${totals.critical > 0 ? 'bft-overall-score-tone-critical' : ''}>
+                            ${totals.critical}
+                        </strong>
+                        <span>${i18n.dashboard_subline_critical || 'critical'}</span>
+                        <span class="bft-dashboard-dot">·</span>
+                        <span class="bft-dashboard-business-chip">
+                            ${i18n.dashboard_business_chip
+                                || 'Business-time only · weekends, holidays & recess paused'}
+                        </span>
+                    </div>
                 </div>
-                <div class="bft-dashboard-hero-stats">
-                    <div class="bft-dashboard-kpi">
-                        <span class="bft-dashboard-kpi-value">${totals.pending}</span>
-                        <span class="bft-dashboard-kpi-label">${i18n.dashboard_kpi_pending}</span>
-                    </div>
-                    <div class="bft-dashboard-kpi">
-                        <span class="bft-dashboard-kpi-value">${totals.critical}</span>
-                        <span class="bft-dashboard-kpi-label">${i18n.dashboard_kpi_critical}</span>
-                    </div>
-                    <div class="bft-dashboard-kpi">
-                        <span class="bft-dashboard-kpi-value">${totals.overgoal}</span>
-                        <span class="bft-dashboard-kpi-label">${i18n.dashboard_kpi_overgoal}</span>
-                    </div>
-                    <div class="bft-dashboard-score">
-                        <${ScoreGauge} score=${totals.avgscore}
-                                        band=${heroBand}
-                                        size=${140} />
-                        <${Badge} band=${heroBand}
-                                  label=${(i18n.bands || {})[heroBand] || heroBand} />
-                    </div>
-                    <button type="button"
-                            class=${'bft-refresh' + (refreshing ? ' bft-refresh-busy' : '')}
-                            disabled=${refreshing}
-                            title=${i18n.dashboard_refresh || i18n.card_refresh}
-                            aria-label=${i18n.dashboard_refresh || i18n.card_refresh}
-                            onClick=${handleRefresh}>⟳</button>
-                </div>
+                <button type="button"
+                        class=${'bft-refresh' + (refreshing ? ' bft-refresh-busy' : '')}
+                        disabled=${refreshing}
+                        title=${i18n.dashboard_refresh || 'Refresh'}
+                        aria-label=${i18n.dashboard_refresh || 'Refresh'}
+                        onClick=${handleRefresh}>⟳</button>
             </header>
 
             ${error && html`<div class="bft-error" role="alert">${error}</div>`}
 
-            <${GradeNowPanel}
-                data=${gradenow}
-                loading=${refreshing}
-                error=${gradenowError}
-                i18n=${i18n} />
+            <${ResponsivenessModule} heroprops=${heroprops} />
 
-            <section class="bft-dashboard-section">
-                <h3 class="bft-dashboard-section-title">${i18n.dashboard_courses_title}</h3>
-                ${courses.length === 0
-                    ? html`<div class="bft-empty">${i18n.dashboard_courses_empty}</div>`
-                    : html`
-                        <table class="bft-report-table">
-                            <thead>
-                                <tr>
-                                    <${SortableHeader} label=${i18n.dashboard_col_course}
-                                        sortKey="coursename" currentKey=${sortKey}
-                                        currentOrder=${sortOrder} onClick=${handleHeaderClick} />
-                                    <${SortableHeader} label=${i18n.dashboard_col_groups}
-                                        sortKey="numgroups" currentKey=${sortKey}
-                                        currentOrder=${sortOrder} onClick=${handleHeaderClick} />
-                                    <${SortableHeader} label=${i18n.dashboard_col_pending}
-                                        sortKey="pending" currentKey=${sortKey}
-                                        currentOrder=${sortOrder} onClick=${handleHeaderClick} />
-                                    <${SortableHeader} label=${i18n.dashboard_col_critical}
-                                        sortKey="critical" currentKey=${sortKey}
-                                        currentOrder=${sortOrder} onClick=${handleHeaderClick} />
-                                    <${SortableHeader} label=${i18n.dashboard_col_overgoal}
-                                        sortKey="overgoal" currentKey=${sortKey}
-                                        currentOrder=${sortOrder} onClick=${handleHeaderClick} />
-                                    <${SortableHeader} label=${i18n.dashboard_col_avgscore}
-                                        sortKey="avgscore" currentKey=${sortKey}
-                                        currentOrder=${sortOrder} onClick=${handleHeaderClick} />
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${sorted.map((row) => {
-                                    const band = bandForScore(row.avgscore);
-                                    const navigate = () => { window.location.href = courseReportUrl(row.courseid); };
-                                    return html`
-                                        <tr class="bft-report-row"
-                                            key=${'c-' + row.courseid}
-                                            tabindex="0"
-                                            role="link"
-                                            aria-label=${row.coursename}
-                                            onClick=${navigate}
-                                            onKeyDown=${(e) => {
-                                                if (e.key === 'Enter' || e.key === ' ') {
-                                                    e.preventDefault();
-                                                    navigate();
-                                                }
-                                            }}>
-                                            <td>${row.coursename}</td>
-                                            <td>${row.numgroups}</td>
-                                            <td>${row.pending}</td>
-                                            <td>${row.critical}</td>
-                                            <td>${row.overgoal}</td>
-                                            <td>
-                                                ${row.avgscore === null
-                                                    ? '—'
-                                                    : html`
-                                                        <span class="bft-dashboard-score-inline">
-                                                            ${Math.round(row.avgscore)}
-                                                        </span>
-                                                        <${Badge} band=${band}
-                                                                  label=${(i18n.bands || {})[band] || band} />
-                                                    `}
-                                            </td>
-                                        </tr>
-                                    `;
-                                })}
-                            </tbody>
-                        </table>
-                    `}
-            </section>
-
-            ${canCompare && html`
-                <section class="bft-dashboard-section">
-                    <button type="button"
-                            class="bft-breakdown-toggle"
-                            aria-expanded=${comparisonOpen ? 'true' : 'false'}
-                            onClick=${toggleComparison}>
-                        ${(comparisonOpen ? '▾ ' : '▸ ') + (i18n.dashboard_comparison_title || 'Site benchmarks')}
-                    </button>
-                    ${comparisonOpen && html`
-                        <p class="bft-dashboard-section-subtitle">
-                            ${i18n.dashboard_comparison_subtitle || ''}
-                        </p>
-                        ${comparisonLoading
-                            ? html`<div class="bft-empty">${i18n.dashboard_comparison_loading || 'Loading…'}</div>`
-                            : (comparisonDays === null || comparisonDays.length === 0
-                                ? html`<div class="bft-empty">${i18n.dashboard_comparison_empty || 'No data.'}</div>`
-                                : html`
-                                    <table class="bft-report-table">
-                                        <thead>
-                                            <tr>
-                                                <th>${i18n.dashboard_comparison_col_day}</th>
-                                                <th>${i18n.dashboard_comparison_col_median}</th>
-                                                <th>${i18n.dashboard_comparison_col_p10}</th>
-                                                <th>${i18n.dashboard_comparison_col_p90}</th>
-                                                <th>${i18n.dashboard_comparison_col_compliance}</th>
-                                                <th>${i18n.dashboard_comparison_col_graded}</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            ${comparisonDays.map((d) => html`
-                                                <${ComparisonRow} key=${'d-' + d.day} d=${d} />
-                                            `)}
-                                        </tbody>
-                                    </table>
-                                `)
-                        }
-                    `}
+            ${insights && (insights.bright_spot || insights.most_improved || insights.gentle_watch) && html`
+                <section class="bft-dashboard-insights">
+                    <div class="bft-dashboard-section-eyebrow">
+                        ${i18n.dashboard_insights_title || 'Insights'}
+                    </div>
+                    <div class="bft-insights-row">
+                        ${insights.bright_spot && html`
+                            <${InsightCard}
+                                tone="bright"
+                                eyebrow=${i18n.insight_brightspot_eyebrow || "This week's bright spot"}
+                                title=${insights.bright_spot.coursename}
+                                metric_value=${insights.bright_spot.metric_value}
+                                metric_suffix=${insights.bright_spot.metric_suffix}
+                                body=${i18n.insight_brightspot_body || ''} />
+                        `}
+                        ${insights.most_improved && html`
+                            <${InsightCard}
+                                tone="climbing"
+                                eyebrow=${i18n.insight_mostimproved_eyebrow || 'Most improved'}
+                                title=${insights.most_improved.coursename}
+                                metric_value=${insights.most_improved.metric_value}
+                                metric_suffix=${insights.most_improved.metric_suffix}
+                                body=${i18n.insight_mostimproved_body || ''} />
+                        `}
+                        ${insights.gentle_watch && html`
+                            <${InsightCard}
+                                tone="watch"
+                                eyebrow=${i18n.insight_gentlewatch_eyebrow || 'Gentle watch'}
+                                title=${insights.gentle_watch.coursename}
+                                metric_value=${insights.gentle_watch.metric_value}
+                                metric_suffix=${insights.gentle_watch.metric_suffix}
+                                body=${i18n.insight_gentlewatch_body || ''} />
+                        `}
+                    </div>
                 </section>
             `}
+
+            ${priorities.length > 0 && html`
+                <section class="bft-dashboard-priorities">
+                    <div class="bft-dashboard-section-eyebrow">
+                        ${i18n.dashboard_priority_title || 'Grade now · picked for you'}
+                    </div>
+                    ${gradenowError && html`<div class="bft-error" role="alert">${gradenowError}</div>`}
+                    <div class="bft-priority-row">
+                        ${priorities.map((sub, i) => html`
+                            <${PriorityCard}
+                                key=${'p-' + (sub.submissionid || i)}
+                                idx=${i + 1}
+                                submission=${sub}
+                                i18n=${i18n} />
+                        `)}
+                    </div>
+                </section>
+            `}
+
+            <section class="bft-dashboard-courses">
+                <div class="bft-dashboard-section-eyebrow">
+                    ${i18n.dashboard_courses_title || 'Your courses'}
+                </div>
+                <${CoursesTable}
+                    rows=${sorted}
+                    i18n=${i18n}
+                    sortKey=${sortKey}
+                    sortOrder=${sortOrder}
+                    onSort=${handleSort}
+                    thresholds=${scoreThresholds} />
+            </section>
         </div>
     `;
 }

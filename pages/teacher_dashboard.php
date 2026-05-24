@@ -77,6 +77,15 @@ try {
     $gradenow = ['success' => false, 'submissions' => [], 'lastsynced' => time()];
 }
 
+// Insights pre-load — bright spot / most improved / gentle watch. Same
+// per-course capability filter. Optional; client lazy-loads on miss.
+$insights = null;
+try {
+    $insights = \block_feedback_tracker\external\get_insights::execute();
+} catch (\Throwable $e) {
+    debugging('block_feedback_tracker: insights fetch failed: ' . $e->getMessage());
+}
+
 // Whether to expose the comparison overlay — gated by its own capability so
 // teachers with viewdashboard but not viewschoolcomparison only see the
 // per-course aggregate, not the site-wide benchmarks.
@@ -84,13 +93,18 @@ $cancompare = has_capability('block/feedback_tracker:viewschoolcomparison', $sys
 
 $initial = [
     'userid' => (int) $USER->id,
+    // The legacy greeting key stays for back-compat with any caller that
+    // imports it; the new view consumes greeting_firstname + the
+    // dashboard_greeting_morning/afternoon/evening templates from i18n.
     'greeting' => get_string(
         'dashboard_hero_greeting',
         'block_feedback_tracker',
         (object) ['firstname' => format_string($USER->firstname)]
     ),
+    'greeting_firstname' => format_string($USER->firstname),
     'dashboard' => $dashboard,
     'gradenow' => $gradenow,
+    'insights' => $insights,
     'cancompare' => $cancompare,
     'i18n' => array_merge(
         \block_feedback_tracker\local\output\bootstrap::i18n_bundle(),

@@ -25,13 +25,18 @@
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-/** @type {Object<string, string>} Band slug → primary stroke / chip colour. */
+/**
+ * Band slug → primary stroke / chip colour. Mirrors
+ * classes/output/score_gauge.php::BAND_COLOURS.
+ *
+ * @type {Object<string, string>}
+ */
 export const BAND_COLOURS = {
-    excellent: '#10b981',
-    good:      '#f59e0b',
-    regular:   '#f97316',
-    critical:  '#ef4444',
-    pending:   '#94a3b8',
+    excellent: '#047857',
+    good:      '#0e7490',
+    regular:   '#b45309',
+    critical:  '#be4b25',
+    pending:   '#475569',
 };
 
 /**
@@ -54,28 +59,46 @@ export const colourFor = (band) => BAND_COLOURS[band] || BAND_COLOURS.pending;
 export const badgeClass = (band) => 'bft-badge-' + (BAND_COLOURS[band] ? band : 'pending');
 
 /**
- * Classify a 0..100 responsiveness score into a band slug. Mirrors the
- * server-side cutoffs in classes/local/sla/bucket.php — when the admin
- * changes them in settings.php the PHP-side band moves first; we follow.
- * The hardcoded defaults match the shipped defaults; admins who customise
- * them only see drift on cross-course aggregates (block + report pages
- * receive band labels straight from the server, so they're unaffected).
+ * Default score-band cutoffs. Match the design palette and PHP
+ * responsiveness_calculator::parse_thresholds_band().
+ *
+ * @type {{excellent: number, good: number, regular: number}}
+ */
+export const DEFAULT_SCORE_THRESHOLDS = {
+    excellent: 90,
+    good:      70,
+    regular:   40,
+};
+
+/**
+ * Classify a 0..100 responsiveness score into a band slug. The cutoffs
+ * normally come from the server via the bootstrap config payload
+ * (`config.score_thresholds`); when no cutoffs are supplied we fall back
+ * to the design defaults. The block + report pages receive band labels
+ * straight from the server payload, so this client-side helper only
+ * matters for client-derived aggregates (e.g. the overall-banner score
+ * averaged across groups).
  *
  * @param {number|null|undefined} score
+ * @param {{excellent?: number, good?: number, regular?: number}} [thresholds]
  * @returns {string} band slug
  */
-export const bandForScore = (score) => {
+export const bandForScore = (score, thresholds) => {
     if (score === null || score === undefined || Number.isNaN(Number(score))) {
         return 'pending';
     }
+    const t = thresholds || DEFAULT_SCORE_THRESHOLDS;
+    const excellent = Number(t.excellent ?? DEFAULT_SCORE_THRESHOLDS.excellent);
+    const good = Number(t.good ?? DEFAULT_SCORE_THRESHOLDS.good);
+    const regular = Number(t.regular ?? DEFAULT_SCORE_THRESHOLDS.regular);
     const n = Number(score);
-    if (n >= 85) {
+    if (n >= excellent) {
         return 'excellent';
     }
-    if (n >= 70) {
+    if (n >= good) {
         return 'good';
     }
-    if (n >= 50) {
+    if (n >= regular) {
         return 'regular';
     }
     return 'critical';

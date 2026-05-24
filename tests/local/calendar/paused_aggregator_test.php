@@ -1,0 +1,197 @@
+<?php
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * Tests for paused_aggregator.
+ *
+ * @package    block_feedback_tracker
+ * @copyright  2026 Anderson Blaine <anderson@blaine.com.br>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
+declare(strict_types=1);
+
+namespace block_feedback_tracker\local\calendar;
+
+/**
+ * Verifies the weekend / holiday / recess bucket counts the design's
+ * Paused Periods callout displays.
+ *
+ * @covers \block_feedback_tracker\local\calendar\paused_aggregator
+ */
+final class paused_aggregator_test extends \advanced_testcase {
+    public function test_window_with_no_overrides_counts_weekends_only(): void {
+        $this->resetAfterTest();
+        $this->seed_calendar();
+
+        // 2026-05-18 (Mon) → 2026-06-01 (Mon). 14 calendar days, 2 weekends = 4 days.
+        $start = (new \DateTimeImmutable('2026-05-18', new \DateTimeZone('UTC')))->getTimestamp();
+        $end = (new \DateTimeImmutable('2026-06-01', new \DateTimeZone('UTC')))->getTimestamp();
+        $result = paused_aggregator::for_window(0, $start, $end);
+
+        $this->assertSame(4, $result['weekend']);
+        $this->assertSame(0, $result['holiday']);
+        $this->assertSame(0, $result['recess']);
+        $this->assertSame(4, $result['total_days']);
+    }
+
+    public function test_holiday_overrides_weekend(): void {
+        $this->resetAfterTest();
+        $this->seed_calendar();
+
+        global $DB;
+        // Insert a holiday on Mon 2026-05-25 inside the window.
+        $DB->insert_record('block_feedback_tracker_cday', (object) [
+            'daydate' => 20260525, 'daytype' => 'holiday',
+            'note' => null, 'timecreated' => time(), 'timemodified' => time(),
+        ]);
+
+        $start = (new \DateTimeImmutable('2026-05-18', new \DateTimeZone('UTC')))->getTimestamp();
+        $end = (new \DateTimeImmutable('2026-06-01', new \DateTimeZone('UTC')))->getTimestamp();
+        $result = paused_aggregator::for_window(0, $start, $end);
+
+        $this->assertSame(4, $result['weekend']);
+        $this->assertSame(1, $result['holiday']);
+        $this->assertSame(0, $result['recess']);
+        $this->assertSame(5, $result['total_days']);
+    }
+
+    public function test_recess_and_closed_count_as_recess(): void {
+        $this->resetAfterTest();
+        $this->seed_calendar();
+
+        global $DB;
+        $DB->insert_record('block_feedback_tracker_cday', (object) [
+            'daydate' => 20260520, 'daytype' => 'recess',
+            'note' => null, 'timecreated' => time(), 'timemodified' => time(),
+        ]);
+        $DB->insert_record('block_feedback_tracker_cday', (object) [
+            'daydate' => 20260521, 'daytype' => 'closed',
+            'note' => null, 'timecreated' => time(), 'timemodified' => time(),
+        ]);
+
+        $start = (new \DateTimeImmutable('2026-05-18', new \DateTimeZone('UTC')))->getTimestamp();
+        $end = (new \DateTimeImmutable('2026-06-01', new \DateTimeZone('UTC')))->getTimestamp();
+        $result = paused_aggregator::for_window(0, $start, $end);
+
+        $this->assertSame(2, $result['recess']);
+        $this->assertSame(0, $result['holiday']);
+    }
+
+    public function test_schoolday_override_cancels_weekend(): void {
+        $this->resetAfterTest();
+        $this->seed_calendar();
+
+        global $DB;
+        // Opt Sat 2026-05-23 into the working week.
+        $DB->insert_record('block_feedback_tracker_cday', (object) [
+            'daydate' => 20260523, 'daytype' => 'schoolday',
+            'note' => null, 'timecreated' => time(), 'timemodified' => time(),
+        ]);
+
+        $start = (new \DateTimeImmutable('2026-05-18', new \DateTimeZone('UTC')))->getTimestamp();
+        $end = (new \DateTimeImmutable('2026-06-01', new \DateTimeZone('UTC')))->getTimestamp();
+        $result = paused_aggregator::for_window(0, $start, $end);
+
+        // 4 weekend days minus the opted-in Saturday = 3.
+        $this->assertSame(3, $result['weekend']);
+    }
+
+    public function test_manual_pause_window_counts_as_recess(): void {
+        $this->resetAfterTest();
+        $this->seed_calendar();
+
+        global $DB;
+        // Course-scoped manual pause covering Tue 2026-05-19 → Wed 2026-05-20 (UTC).
+        $DB->insert_record('block_feedback_tracker_cpause', (object) [
+            'scopelevel' => 'course',
+            'scopeid'    => 42,
+            'contextid'  => 1,
+            'reason'     => 'closure',
+            'timestart'  => (new \DateTimeImmutable('2026-05-19', new \DateTimeZone('UTC')))->getTimestamp(),
+            'timeend'    => (new \DateTimeImmutable('2026-05-21', new \DateTimeZone('UTC')))->getTimestamp(),
+            'note'       => null,
+            'timecreated' => time(),
+            'timemodified' => time(),
+        ]);
+
+        $start = (new \DateTimeImmutable('2026-05-18', new \DateTimeZone('UTC')))->getTimestamp();
+        $end = (new \DateTimeImmutable('2026-06-01', new \DateTimeZone('UTC')))->getTimestamp();
+        $result = paused_aggregator::for_window(42, $start, $end);
+
+        $this->assertSame(2, $result['recess']);
+        $this->assertSame(4, $result['weekend']);
+        $this->assertSame(6, $result['total_days']);
+    }
+
+    public function test_pause_window_only_visible_to_its_course(): void {
+        $this->resetAfterTest();
+        $this->seed_calendar();
+
+        global $DB;
+        $DB->insert_record('block_feedback_tracker_cpause', (object) [
+            'scopelevel' => 'course',
+            'scopeid'    => 42,
+            'contextid'  => 1,
+            'reason'     => 'closure',
+            'timestart'  => (new \DateTimeImmutable('2026-05-19', new \DateTimeZone('UTC')))->getTimestamp(),
+            'timeend'    => (new \DateTimeImmutable('2026-05-21', new \DateTimeZone('UTC')))->getTimestamp(),
+            'note'       => null,
+            'timecreated' => time(),
+            'timemodified' => time(),
+        ]);
+
+        $start = (new \DateTimeImmutable('2026-05-18', new \DateTimeZone('UTC')))->getTimestamp();
+        $end = (new \DateTimeImmutable('2026-06-01', new \DateTimeZone('UTC')))->getTimestamp();
+        $foreignresult = paused_aggregator::for_window(99, $start, $end);
+
+        $this->assertSame(0, $foreignresult['recess']);
+    }
+
+    public function test_empty_window_returns_zeros(): void {
+        $this->resetAfterTest();
+        $this->seed_calendar();
+        $now = time();
+        $result = paused_aggregator::for_window(0, $now, $now);
+        $this->assertSame(0, $result['total_days']);
+    }
+
+    public function test_weekend_excluded_setting_disables_weekend_bucket(): void {
+        $this->resetAfterTest();
+        $this->seed_calendar();
+        set_config('excludeweekends', '0', 'block_feedback_tracker');
+
+        $start = (new \DateTimeImmutable('2026-05-18', new \DateTimeZone('UTC')))->getTimestamp();
+        $end = (new \DateTimeImmutable('2026-06-01', new \DateTimeZone('UTC')))->getTimestamp();
+        $result = paused_aggregator::for_window(0, $start, $end);
+
+        $this->assertSame(0, $result['weekend']);
+    }
+
+    /**
+     * Seed enough calendar config for the aggregator to read.
+     *
+     * @return void
+     */
+    private function seed_calendar(): void {
+        set_config('calver', '1', 'block_feedback_tracker');
+        set_config('timezone', 'UTC', 'block_feedback_tracker');
+        set_config('excludeweekends', '1', 'block_feedback_tracker');
+        set_config('weekendmask', '96', 'block_feedback_tracker');
+        set_config('excludeholidays', '1', 'block_feedback_tracker');
+        set_config('excluderecesses', '1', 'block_feedback_tracker');
+    }
+}

@@ -3,6 +3,46 @@
  * Block Feedback tracker — block content styles.
  */
 
+/* Design tokens — calm "Academic Responsiveness" palette.
+ * Per-band foreground/background pairs match the design mock; keep them in
+ * lockstep with classes/output/score_gauge.php::BAND_COLOURS and
+ * amd/src/lib/bands.js::BAND_COLOURS. */
+:root {
+    --bft-surface: #ffffff;
+    --bft-surface-alt: #f7f8fa;
+    --bft-surface-dim: #f1f3f6;
+    --bft-border: #e5e7eb;
+    --bft-border-soft: #eef0f3;
+    --bft-text: #0f172a;
+    --bft-text-muted: #64748b;
+    --bft-text-faint: #94a3b8;
+
+    --bft-band-excellent-fg: #047857;
+    --bft-band-excellent-bg: #ecfdf5;
+    --bft-band-good-fg: #0e7490;
+    --bft-band-good-bg: #ecfeff;
+    --bft-band-regular-fg: #b45309;
+    --bft-band-regular-bg: #fffbeb;
+    --bft-band-critical-fg: #be4b25;
+    --bft-band-critical-bg: #fdf2ee;
+    --bft-band-pending-fg: #475569;
+    --bft-band-pending-bg: #f1f5f9;
+
+    --bft-font-display: 'Manrope', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    --bft-font-mono: 'JetBrains Mono', ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+
+/* Mono utility — for numeric cells, score values, hour units. Pair with
+ * font-variant-numeric: tabular-nums where vertical alignment matters. */
+.bft-mono {
+    font-family: var(--bft-font-mono);
+    font-variant-numeric: tabular-nums;
+}
+
+.block_feedback_tracker {
+    font-family: var(--bft-font-display);
+}
+
 .block_feedback_tracker .bft-block-root {
     display: flex;
     flex-direction: column;
@@ -235,7 +275,7 @@
 
 .block_feedback_tracker .bft-breakdown-table .bft-breakdown-num {
     text-align: right;
-    font-family: ui-monospace, "JetBrains Mono", monospace;
+    font-family: var(--bft-font-mono);
     font-variant-numeric: tabular-nums;
 }
 
@@ -270,50 +310,50 @@
 }
 
 .bft-badge-excellent {
-    background: #d1fae5;
-    color: #047857;
+    background: var(--bft-band-excellent-bg);
+    color: var(--bft-band-excellent-fg);
 }
 
 .bft-badge-good {
-    background: #fef3c7;
-    color: #b45309;
+    background: var(--bft-band-good-bg);
+    color: var(--bft-band-good-fg);
 }
 
 .bft-badge-regular {
-    background: #ffedd5;
-    color: #c2410c;
+    background: var(--bft-band-regular-bg);
+    color: var(--bft-band-regular-fg);
 }
 
 .bft-badge-critical {
-    background: #fee2e2;
-    color: #b91c1c;
+    background: var(--bft-band-critical-bg);
+    color: var(--bft-band-critical-fg);
 }
 
 .bft-badge-pending {
-    background: #e2e8f0;
-    color: #475569;
+    background: var(--bft-band-pending-bg);
+    color: var(--bft-band-pending-fg);
 }
 
-/* Drilldown / table badges reuse the same palette. */
+/* Drilldown / table badges reuse the same tokens. */
 .badge.badge-excellent {
-    background: #d1fae5;
-    color: #047857;
+    background: var(--bft-band-excellent-bg);
+    color: var(--bft-band-excellent-fg);
 }
 .badge.badge-good {
-    background: #fef3c7;
-    color: #b45309;
+    background: var(--bft-band-good-bg);
+    color: var(--bft-band-good-fg);
 }
 .badge.badge-regular {
-    background: #ffedd5;
-    color: #c2410c;
+    background: var(--bft-band-regular-bg);
+    color: var(--bft-band-regular-fg);
 }
 .badge.badge-critical {
-    background: #fee2e2;
-    color: #b91c1c;
+    background: var(--bft-band-critical-bg);
+    color: var(--bft-band-critical-fg);
 }
 .badge.badge-pending {
-    background: #e2e8f0;
-    color: #475569;
+    background: var(--bft-band-pending-bg);
+    color: var(--bft-band-pending-fg);
 }
 
 /* ------------------------------------------------------------------------
@@ -328,7 +368,7 @@
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
-    font-family: 'Manrope', system-ui, sans-serif;
+    font-family: var(--bft-font-display);
 }
 
 .bft-dashboard-hero {
@@ -783,4 +823,1685 @@ table.bft-sortable th.bft-sort-asc::after {
 table.bft-sortable th.bft-sort-desc::after {
     content: ' ▼';
     opacity: 1;
+}
+
+/* ------------------------------------------------------------------------
+ * Phase 3B atoms — block-view recomposition.
+ *
+ * The rules here are global (no .block_feedback_tracker prefix) so the
+ * components can be reused from the report and dashboard views in 3D / 3E
+ * without restyling. Visual tokens come from the :root block at the top
+ * of this file.
+ * ------------------------------------------------------------------------ */
+
+/* ScoreRing — flex: 0 0 auto so it never shrinks inside a hero row. */
+.bft-score-ring {
+    display: block;
+    flex: 0 0 auto;
+}
+
+/* Overall banner. */
+.bft-overall-banner {
+    background: var(--bft-surface-alt);
+    border: 1px solid var(--bft-border-soft);
+    border-radius: 10px;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.bft-overall-eyebrow {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--bft-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.bft-overall-row {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+}
+
+.bft-overall-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 0;
+}
+
+.bft-overall-score-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.25rem;
+}
+
+.bft-overall-score {
+    font-size: 1.75rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.04em;
+}
+
+.bft-overall-score-tone-excellent { color: var(--bft-band-excellent-fg); }
+.bft-overall-score-tone-good      { color: var(--bft-band-good-fg); }
+.bft-overall-score-tone-regular   { color: var(--bft-band-regular-fg); }
+.bft-overall-score-tone-critical  { color: var(--bft-band-critical-fg); }
+.bft-overall-score-tone-pending   { color: var(--bft-band-pending-fg); }
+
+.bft-overall-score-of {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--bft-text-muted);
+}
+
+/* Paused note — shared by OverallBanner and the report page's callout. */
+.bft-paused-note {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.7rem;
+    color: var(--bft-text-muted);
+    line-height: 1.4;
+    padding-top: 0.4rem;
+    border-top: 1px dashed var(--bft-border-soft);
+}
+
+.bft-paused-swatch {
+    width: 12px;
+    height: 12px;
+    flex: 0 0 auto;
+    border-radius: 3px;
+    background: repeating-linear-gradient(45deg, #cbd5e1 0 2px, #e2e8f0 2px 4px);
+    border: 1px solid #cbd5e1;
+}
+
+.bft-paused-eyebrow {
+    color: var(--bft-text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+}
+
+.bft-paused-next {
+    color: var(--bft-text-muted);
+}
+
+/* KpiTile — 3-column grid container styled by GroupCard / report views. */
+.bft-kpi-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.35rem;
+    padding: 0.5rem 0;
+    border-top: 1px dashed var(--bft-border-soft);
+    border-bottom: 1px dashed var(--bft-border-soft);
+}
+
+.bft-kpi-tile {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    padding: 0 0.25rem;
+    min-width: 0;
+}
+
+.bft-kpi-tile-label {
+    font-size: 0.6rem;
+    font-weight: 700;
+    color: var(--bft-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.bft-kpi-tile-value {
+    font-size: 1.05rem;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--bft-text);
+}
+
+.bft-kpi-tile-unit {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--bft-text-muted);
+    margin-left: 0.1rem;
+}
+
+.bft-kpi-tile-sub {
+    font-size: 0.6rem;
+    color: var(--bft-text-faint);
+    font-weight: 500;
+}
+
+.bft-kpi-tile-tone-excellent .bft-kpi-tile-value { color: var(--bft-band-excellent-fg); }
+.bft-kpi-tile-tone-good      .bft-kpi-tile-value { color: var(--bft-band-good-fg); }
+.bft-kpi-tile-tone-regular   .bft-kpi-tile-value { color: var(--bft-band-regular-fg); }
+.bft-kpi-tile-tone-critical  .bft-kpi-tile-value { color: var(--bft-band-critical-fg); }
+.bft-kpi-tile-tone-muted     .bft-kpi-tile-value { color: var(--bft-text-muted); }
+
+/* TrendRow. */
+.bft-trend-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-top: 0.625rem;
+    padding: 0.5rem 0.625rem;
+    background: var(--bft-surface-alt);
+    border-radius: 6px;
+}
+
+.bft-trend-row-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.05rem;
+    min-width: 0;
+}
+
+.bft-trend-row-eyebrow {
+    font-size: 0.6rem;
+    font-weight: 600;
+    color: var(--bft-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.bft-trend-row-line {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.bft-trend-row-arrow,
+.bft-trend-row-pct {
+    font-size: 0.8rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.bft-trend-row-label {
+    font-size: 0.7rem;
+    color: var(--bft-text-muted);
+    margin-left: 0.1rem;
+}
+
+.bft-trend-tone-stable    .bft-trend-row-arrow,
+.bft-trend-tone-stable    .bft-trend-row-pct { color: var(--bft-text-muted); }
+.bft-trend-tone-improving .bft-trend-row-arrow,
+.bft-trend-tone-improving .bft-trend-row-pct { color: var(--bft-band-excellent-fg); }
+.bft-trend-tone-declining .bft-trend-row-arrow,
+.bft-trend-tone-declining .bft-trend-row-pct { color: var(--bft-band-critical-fg); }
+
+.bft-trend-row-spark {
+    line-height: 0;
+    flex: 0 0 auto;
+}
+
+/* StatTile — clickable Pending / At risk / Priority tiles. */
+.bft-stat-row {
+    display: flex;
+    gap: 0.4rem;
+    margin-top: 0.625rem;
+}
+
+.bft-stat-tile {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.1rem;
+    padding: 0.5rem 0.625rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    text-align: left;
+    text-decoration: none;
+    font-family: inherit;
+    transition: background 0.12s;
+}
+
+.bft-stat-tile-label {
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    opacity: 0.78;
+}
+
+.bft-stat-tile-value {
+    font-size: 1.1rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.bft-stat-tile-tone-neutral {
+    background: var(--bft-surface-alt);
+    color: var(--bft-text);
+}
+
+.bft-stat-tile-tone-neutral:hover,
+.bft-stat-tile-tone-neutral:focus-visible {
+    background: var(--bft-surface-dim);
+    outline: none;
+}
+
+.bft-stat-tile-tone-warn {
+    background: var(--bft-band-regular-bg);
+    color: var(--bft-band-regular-fg);
+}
+
+.bft-stat-tile-tone-warn:hover,
+.bft-stat-tile-tone-warn:focus-visible {
+    background: #fef3c7;
+    outline: none;
+}
+
+.bft-stat-tile-tone-critical {
+    background: var(--bft-band-critical-bg);
+    color: var(--bft-band-critical-fg);
+}
+
+.bft-stat-tile-tone-critical:hover,
+.bft-stat-tile-tone-critical:focus-visible {
+    background: #fce4d6;
+    outline: none;
+}
+
+/* PeerContext. */
+.bft-peer-context {
+    margin-top: 0.75rem;
+    padding: 0.5rem 0.625rem 0.4rem;
+    border: 1px solid var(--bft-border-soft);
+    border-radius: 6px;
+}
+
+.bft-peer-context-head {
+    font-size: 0.6rem;
+    font-weight: 700;
+    color: var(--bft-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.4rem;
+}
+
+.bft-peer-line {
+    display: grid;
+    grid-template-columns: 70px 1fr auto auto;
+    gap: 0.3rem;
+    align-items: center;
+    padding: 0.2rem 0.3rem;
+    border-radius: 4px;
+}
+
+.bft-peer-line-highlight {
+    background: var(--bft-surface-alt);
+}
+
+.bft-peer-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--bft-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bft-peer-track {
+    width: 100%;
+    height: 5px;
+    background: var(--bft-surface-dim);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.bft-peer-fill {
+    height: 100%;
+    border-radius: 3px;
+}
+
+.bft-peer-score {
+    font-size: 0.72rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.bft-peer-hours {
+    font-size: 0.65rem;
+    color: var(--bft-text-muted);
+}
+
+/* TimelineBar (activity open/close). */
+.bft-timeline-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.65rem;
+    color: var(--bft-text-muted);
+}
+
+.bft-timeline-bar-empty {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+    background: var(--bft-surface-dim);
+    color: var(--bft-text-faint);
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.bft-timeline-bar-date-overdue {
+    color: var(--bft-band-critical-fg);
+    font-weight: 700;
+}
+
+.bft-timeline-bar-track {
+    flex: 1;
+    position: relative;
+    height: 4px;
+    border-radius: 2px;
+    overflow: visible;
+    background: var(--bft-surface-dim);
+}
+
+.bft-timeline-bar-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    border-radius: 2px;
+}
+
+.bft-timeline-bar-thumb {
+    position: absolute;
+    top: -2px;
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    box-shadow: 0 0 0 1.5px #fff;
+}
+
+.bft-timeline-bar-on-track .bft-timeline-bar-track { background: var(--bft-band-excellent-bg); }
+.bft-timeline-bar-on-track .bft-timeline-bar-fill,
+.bft-timeline-bar-on-track .bft-timeline-bar-thumb { background: var(--bft-band-excellent-fg); }
+
+.bft-timeline-bar-soon .bft-timeline-bar-track { background: var(--bft-band-good-bg); }
+.bft-timeline-bar-soon .bft-timeline-bar-fill,
+.bft-timeline-bar-soon .bft-timeline-bar-thumb { background: var(--bft-band-good-fg); }
+
+.bft-timeline-bar-urgent .bft-timeline-bar-track { background: var(--bft-band-regular-bg); }
+.bft-timeline-bar-urgent .bft-timeline-bar-fill,
+.bft-timeline-bar-urgent .bft-timeline-bar-thumb { background: var(--bft-band-regular-fg); }
+
+.bft-timeline-bar-overdue .bft-timeline-bar-track { background: var(--bft-band-critical-bg); }
+.bft-timeline-bar-overdue .bft-timeline-bar-fill,
+.bft-timeline-bar-overdue .bft-timeline-bar-thumb { background: var(--bft-band-critical-fg); }
+
+/* Hero row inside GroupCard. */
+.bft-card-hero {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    margin: 0.5rem 0 0.25rem;
+}
+
+.bft-card-hero-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.bft-card-hero-score-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.25rem;
+}
+
+.bft-card-hero-score {
+    font-size: 1.5rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.04em;
+}
+
+.bft-card-hero-score-of {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--bft-text-muted);
+}
+
+.bft-card-hero-caption {
+    font-size: 0.6rem;
+    color: var(--bft-text-faint);
+    font-weight: 600;
+    margin-top: 0.15rem;
+    letter-spacing: 0.02em;
+}
+
+/* Activities list inside GroupCard. */
+.bft-activities {
+    margin-top: 0.75rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--bft-border-soft);
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.bft-activities-head {
+    font-size: 0.6rem;
+    font-weight: 700;
+    color: var(--bft-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.bft-activity {
+    background: var(--bft-surface-alt);
+    border-radius: 4px;
+    padding: 0.4rem 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.bft-activity-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4rem;
+}
+
+.bft-activity-title {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--bft-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bft-activity-rule-on {
+    font-size: 0.55rem;
+    font-weight: 700;
+    color: var(--bft-band-excellent-fg);
+    background: var(--bft-band-excellent-bg);
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.bft-activity-rule-off {
+    font-size: 0.55rem;
+    font-weight: 700;
+    color: var(--bft-text-muted);
+    background: var(--bft-surface-dim);
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border: 1px dashed var(--bft-border);
+}
+
+/* ------------------------------------------------------------------------
+ * Phase 3D — pending report page atoms.
+ *
+ * Rules are global (no .block_feedback_tracker scope) so they apply on
+ * pages/pending_report.php which sits outside the block wrapper. Tokens
+ * come from the :root block at the top of this file.
+ * ------------------------------------------------------------------------ */
+
+/* Breadcrumb above the title. */
+.bft-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.78rem;
+    margin-bottom: 0.75rem;
+}
+
+.bft-crumb-link {
+    color: var(--bft-text-muted);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.bft-crumb-link:hover,
+.bft-crumb-link:focus-visible {
+    color: var(--bft-text);
+    text-decoration: underline;
+}
+
+.bft-crumb-sep {
+    color: var(--bft-border-soft);
+}
+
+.bft-crumb-current {
+    color: var(--bft-text);
+    font-weight: 600;
+}
+
+/* Title row + overall band chip. */
+.bft-report-title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.bft-report-title-text {
+    min-width: 0;
+}
+
+.bft-report-h1 {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: var(--bft-text);
+    letter-spacing: -0.02em;
+}
+
+.bft-report-subline {
+    margin-top: 0.25rem;
+    font-size: 0.82rem;
+    color: var(--bft-text-muted);
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.bft-report-subline-classes {
+    color: var(--bft-text-muted);
+}
+
+/* Hero metric row — 4 cards (Score / Effective / SLA / Trend). */
+.bft-hero-row {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr 1fr 1fr;
+    gap: 0.625rem;
+    margin-bottom: 0.875rem;
+}
+
+.bft-hero-card {
+    padding: 0.875rem 1rem;
+    border-radius: 10px;
+    background: var(--bft-surface);
+    border: 1px solid var(--bft-border);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-height: 130px;
+    min-width: 0;
+}
+
+.bft-hero-card-wide {
+    /* Stretches across 1.5fr via grid-template; this class is a stable hook
+       for callers that want to apply additional styling. */
+    background: var(--bft-surface);
+}
+
+.bft-hero-card-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--bft-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.bft-hero-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.bft-info-dot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--bft-surface-dim);
+    color: var(--bft-text-muted);
+    font-size: 0.62rem;
+    font-weight: 700;
+    cursor: help;
+    font-family: var(--bft-font-display);
+    letter-spacing: 0;
+}
+
+/* Hero score card — left "wide" tile. */
+.bft-hero-score {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    margin-top: 0.125rem;
+}
+
+.bft-hero-score-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.bft-hero-score-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.25rem;
+}
+
+.bft-hero-score-val {
+    font-size: 2.2rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.05em;
+}
+
+.bft-hero-score-of {
+    font-size: 0.75rem;
+    color: var(--bft-text-muted);
+    font-weight: 700;
+}
+
+.bft-hero-score-note {
+    font-size: 0.7rem;
+    color: var(--bft-text-faint);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+/* Hero KPI tiles (Effective / SLA / Trend). */
+.bft-hero-kpi {
+    display: flex;
+    align-items: baseline;
+    gap: 0.3rem;
+}
+
+.bft-hero-kpi-val {
+    font-size: 1.625rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    display: inline-flex;
+    align-items: center;
+}
+
+.bft-hero-kpi-unit {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--bft-text-muted);
+}
+
+.bft-hero-kpi-sub {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: 0.2rem;
+}
+
+.bft-hero-kpi-sub-label {
+    font-size: 0.6rem;
+    font-weight: 700;
+    color: var(--bft-text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.bft-hero-kpi-sub-value {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--bft-text-muted);
+}
+
+.bft-hero-kpi-chips {
+    display: flex;
+    gap: 0.35rem;
+    margin-top: 0.25rem;
+    flex-wrap: wrap;
+}
+
+.bft-hero-chip {
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 0.18rem 0.5rem;
+    border-radius: 999px;
+    letter-spacing: 0.02em;
+}
+
+.bft-hero-chip-regular {
+    color: var(--bft-band-regular-fg);
+    background: var(--bft-band-regular-bg);
+}
+
+.bft-hero-chip-critical {
+    color: var(--bft-band-critical-fg);
+    background: var(--bft-band-critical-bg);
+}
+
+.bft-hero-spark {
+    margin-top: 0.5rem;
+    line-height: 0;
+}
+
+/* Paused callout — transparency strip. */
+.bft-paused-callout {
+    margin-bottom: 0.875rem;
+    padding: 0.75rem 0.875rem;
+    background: var(--bft-surface-alt);
+    border: 1px solid var(--bft-border-soft);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.bft-paused-callout-swatch {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+    border-radius: 3px;
+    background: repeating-linear-gradient(45deg, #cbd5e1 0 2px, #e2e8f0 2px 4px);
+    border: 1px solid #cbd5e1;
+}
+
+.bft-paused-callout-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.bft-paused-callout-title {
+    font-size: 0.78rem;
+    font-weight: 800;
+    color: var(--bft-text);
+    letter-spacing: 0.01em;
+}
+
+.bft-paused-callout-body {
+    font-size: 0.75rem;
+    color: var(--bft-text-muted);
+    margin-top: 0.15rem;
+    line-height: 1.5;
+}
+
+.bft-paused-callout-view {
+    padding: 0.4rem 0.75rem;
+    border-radius: 6px;
+    background: var(--bft-surface);
+    border: 1px solid var(--bft-border);
+    color: var(--bft-text);
+    font-size: 0.75rem;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.bft-paused-callout-view:hover,
+.bft-paused-callout-view:focus-visible {
+    background: var(--bft-surface-alt);
+    outline: none;
+}
+
+/* Status distribution bar — click a segment to filter. */
+.bft-dist {
+    margin-bottom: 0.875rem;
+    padding: 0.875rem 1rem;
+    background: var(--bft-surface);
+    border-radius: 10px;
+    border: 1px solid var(--bft-border);
+}
+
+.bft-dist-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.625rem;
+}
+
+.bft-dist-title {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--bft-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.bft-dist-hint {
+    font-size: 0.65rem;
+    color: var(--bft-text-faint);
+}
+
+.bft-dist-bar {
+    display: flex;
+    gap: 0.25rem;
+    height: 48px;
+}
+
+.bft-dist-seg {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: flex-start;
+    padding: 0.4rem 0.625rem;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    color: #fff;
+    font-family: inherit;
+    transition: opacity 0.15s;
+    min-width: 0;
+}
+
+.bft-dist-seg-dim {
+    opacity: 0.28;
+}
+
+.bft-dist-seg-excellent { background: var(--bft-band-excellent-fg); }
+.bft-dist-seg-good      { background: var(--bft-band-good-fg); }
+.bft-dist-seg-regular   { background: var(--bft-band-regular-fg); }
+.bft-dist-seg-critical  { background: var(--bft-band-critical-fg); }
+
+.bft-dist-seg-n {
+    font-size: 1.1rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.bft-dist-seg-l {
+    font-size: 0.65rem;
+    font-weight: 700;
+    opacity: 0.95;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+.bft-dist-scale {
+    display: flex;
+    margin-top: 0.4rem;
+    font-size: 0.6rem;
+    color: var(--bft-text-faint);
+    letter-spacing: 0.02em;
+}
+
+.bft-dist-scale-spacer {
+    flex: 1;
+}
+
+/* Segmented filter — used by the status toolbar. */
+.bft-segmented {
+    display: inline-flex;
+    background: var(--bft-surface-dim);
+    border-radius: 6px;
+    padding: 2px;
+}
+
+.bft-segmented-btn {
+    padding: 0.3rem 0.625rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.72rem;
+    font-weight: 700;
+    font-family: inherit;
+    letter-spacing: 0.01em;
+    background: transparent;
+    color: var(--bft-text-muted);
+}
+
+.bft-segmented-btn.is-active {
+    background: var(--bft-text);
+    color: #fff;
+}
+
+.bft-segmented-btn.is-active.bft-segmented-btn-tone-excellent { background: var(--bft-band-excellent-fg); }
+.bft-segmented-btn.is-active.bft-segmented-btn-tone-good      { background: var(--bft-band-good-fg); }
+.bft-segmented-btn.is-active.bft-segmented-btn-tone-regular   { background: var(--bft-band-regular-fg); }
+.bft-segmented-btn.is-active.bft-segmented-btn-tone-critical  { background: var(--bft-band-critical-fg); }
+
+/* Report controls (toolbar) — keep existing widths, just tweak alignment.
+   The existing .bft-report-controls flexbox layout is reused. */
+.bft-report-controls-spacer {
+    flex: 1;
+}
+
+/* Dual-column table cells (Effective + Perceived). */
+.bft-report-effective {
+    font-weight: 800;
+}
+
+.bft-report-perceived {
+    color: var(--bft-text-muted);
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.bft-row-paused-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    font-size: 0.58rem;
+    font-weight: 700;
+    padding: 0.1rem 0.4rem;
+    border-radius: 999px;
+    background: var(--bft-surface-alt);
+    color: var(--bft-text-muted);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border: 1px solid var(--bft-border-soft);
+}
+
+.bft-row-paused-swatch {
+    width: 7px;
+    height: 7px;
+    border-radius: 2px;
+    background: repeating-linear-gradient(45deg, #cbd5e1 0 1.5px, #e2e8f0 1.5px 3px);
+    border: 1px solid #cbd5e1;
+}
+
+/* Mobile responsive — collapse hero grid to 2 columns then 1. */
+@media (max-width: 900px) {
+    .bft-hero-row {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 540px) {
+    .bft-hero-row {
+        grid-template-columns: 1fr;
+    }
+
+    .bft-paused-callout {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
+/* ----------------------------------------------------------------------
+ * Phase 3E — dashboard redesign atoms.
+ *
+ * Decorative palette extensions for the warm hero gradient + insight
+ * card tones. Plum / sand are new tokens scoped to the dashboard.
+ * ---------------------------------------------------------------------- */
+
+:root {
+    --bft-warm-surface: #fdfbf7;
+    --bft-plum-fg: #6d4aac;
+    --bft-plum-bg: #f5f0fb;
+    --bft-sand-fg: #a37a2a;
+    --bft-sand-bg: #fbf6ec;
+}
+
+/* Override the legacy Phase 2D dashboard hero block with a no-op so the
+   new flex-based header takes over. The class name persists to keep the
+   .min.js mount-point selector valid. */
+.bft-dashboard {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    font-family: var(--bft-font-display);
+    padding: 1.5rem 1.75rem 2rem;
+}
+
+/* Header row — brandtag eyebrow, greeting, subline + refresh button. */
+.bft-dashboard-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.bft-dashboard-header-text {
+    min-width: 0;
+}
+
+.bft-dashboard-brandtag {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--bft-text-faint);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.bft-dashboard-h1 {
+    margin: 0.25rem 0 0;
+    font-size: 2.05rem;
+    font-weight: 800;
+    color: var(--bft-text);
+    letter-spacing: -0.04em;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.bft-dashboard-wave {
+    color: var(--bft-plum-fg);
+    display: inline-flex;
+}
+
+.bft-dashboard-subline {
+    margin-top: 0.4rem;
+    font-size: 0.78rem;
+    color: var(--bft-text-muted);
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+}
+
+.bft-dashboard-dot {
+    color: var(--bft-border-soft);
+}
+
+.bft-dashboard-business-chip {
+    color: var(--bft-text-muted);
+}
+
+/* Section eyebrows above the Insights / Priority / Courses blocks. */
+.bft-dashboard-section-eyebrow {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--bft-text-muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 0.625rem;
+}
+
+/* ---------------------- Responsiveness hero (full) ---------------------- */
+.bft-rh {
+    position: relative;
+    display: grid;
+    grid-template-columns: 200px 1fr 240px;
+    gap: 1.75rem;
+    padding: 1.5rem 1.75rem;
+    background: linear-gradient(135deg, var(--bft-warm-surface) 0%, #fff 60%, var(--bft-plum-bg) 100%);
+    border: 1px solid var(--bft-border-soft);
+    border-radius: 18px;
+    overflow: hidden;
+}
+
+.bft-rh-sparkle {
+    position: absolute;
+    opacity: 0.35;
+    color: var(--bft-plum-fg);
+}
+
+.bft-rh-sparkle-1 { top: 18px;    left: 26px; }
+.bft-rh-sparkle-2 { top: 32px;    right: 220px; color: var(--bft-sand-fg); }
+.bft-rh-sparkle-3 { bottom: 22px; left: 200px; }
+
+.bft-rh-collapse {
+    position: absolute;
+    top: 16px;
+    right: 18px;
+    z-index: 2;
+    padding: 0.3rem 0.625rem;
+    border-radius: 6px;
+    background: rgba(109, 74, 172, 0.08);
+    color: var(--bft-plum-fg);
+    border: 1px solid rgba(109, 74, 172, 0.2);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.bft-rh-ring-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.625rem;
+    padding-right: 1.25rem;
+    border-right: 1px dashed var(--bft-border-soft);
+}
+
+.bft-rh-ring-wrap {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.bft-rh-ring-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.125rem;
+}
+
+.bft-rh-score {
+    font-size: 2.4rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.08em;
+}
+
+.bft-rh-score-of {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--bft-text-muted);
+    letter-spacing: 0.02em;
+}
+
+.bft-rh-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.bft-rh-eyebrow {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--bft-plum-fg);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.bft-rh-headline {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--bft-text);
+    letter-spacing: -0.02em;
+    line-height: 1.3;
+}
+
+.bft-rh-body {
+    font-size: 0.78rem;
+    color: var(--bft-text-muted);
+    line-height: 1.55;
+    max-width: 540px;
+}
+
+.bft-rh-mini-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    padding-left: 1.25rem;
+    border-left: 1px dashed var(--bft-border-soft);
+}
+
+.bft-rh-mini {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+}
+
+.bft-rh-mini-divider {
+    height: 1px;
+    background: var(--bft-border-soft);
+}
+
+.bft-rh-mini-label {
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: var(--bft-text-muted);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.bft-rh-mini-val {
+    font-size: 1.375rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.bft-rh-mini-sub {
+    font-size: 0.65rem;
+    color: var(--bft-text-faint);
+}
+
+/* ---------------------- Responsiveness hero (slim) ---------------------- */
+.bft-rh-slim {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    padding: 0.75rem 1.125rem;
+    background: linear-gradient(135deg, var(--bft-warm-surface) 0%, #fff 60%, var(--bft-plum-bg) 100%);
+    border: 1px solid var(--bft-border-soft);
+    border-radius: 14px;
+    min-height: 78px;
+}
+
+.bft-rh-slim-hero {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    flex: 0 0 auto;
+}
+
+.bft-rh-slim-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    line-height: 1;
+}
+
+.bft-rh-slim-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.25rem;
+}
+
+.bft-rh-slim-score {
+    font-size: 1.75rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.06em;
+}
+
+.bft-rh-slim-of {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--bft-text-muted);
+}
+
+.bft-rh-slim-caption {
+    font-size: 0.6rem;
+    font-weight: 700;
+    color: var(--bft-plum-fg);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-top: 0.2rem;
+}
+
+.bft-rh-slim-divider {
+    width: 1px;
+    align-self: stretch;
+    margin: 0.625rem 0;
+    background: var(--bft-border-soft);
+}
+
+.bft-rh-slim-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    flex: 0 0 auto;
+}
+
+.bft-rh-slim-stat-label {
+    font-size: 0.6rem;
+    font-weight: 700;
+    color: var(--bft-text-muted);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.bft-rh-slim-stat-val {
+    font-size: 1.125rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.bft-rh-slim-spacer {
+    flex: 1;
+}
+
+.bft-rh-slim-expand {
+    padding: 0.5rem 0.875rem;
+    border-radius: 8px;
+    background: var(--bft-plum-fg);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    flex: 0 0 auto;
+}
+
+.bft-rh-slim-expand:hover,
+.bft-rh-slim-expand:focus-visible {
+    background: #5a3d8f;
+    outline: none;
+}
+
+/* ------------------------ Insight cards (3-up) ------------------------ */
+.bft-insights-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+}
+
+.bft-insight {
+    padding: 0.875rem 1rem;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+.bft-insight-tone-bright   { background: var(--bft-plum-bg); }
+.bft-insight-tone-climbing { background: var(--bft-band-excellent-bg); }
+.bft-insight-tone-watch    { background: var(--bft-sand-bg); }
+
+.bft-insight-head {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.bft-insight-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.bft-insight-tone-bright   .bft-insight-eyebrow { color: var(--bft-plum-fg); }
+.bft-insight-tone-climbing .bft-insight-eyebrow { color: var(--bft-band-excellent-fg); }
+.bft-insight-tone-watch    .bft-insight-eyebrow { color: var(--bft-sand-fg); }
+
+.bft-insight-title {
+    font-size: 0.875rem;
+    font-weight: 800;
+    color: var(--bft-text);
+    letter-spacing: -0.01em;
+}
+
+.bft-insight-metric {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.25rem;
+}
+
+.bft-insight-metric-value {
+    font-size: 1.625rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.bft-insight-tone-bright   .bft-insight-metric-value { color: var(--bft-plum-fg); }
+.bft-insight-tone-climbing .bft-insight-metric-value { color: var(--bft-band-excellent-fg); }
+.bft-insight-tone-watch    .bft-insight-metric-value { color: var(--bft-sand-fg); }
+
+.bft-insight-metric-suffix {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--bft-text-muted);
+}
+
+.bft-insight-body {
+    margin-top: 0.125rem;
+    font-size: 0.72rem;
+    color: var(--bft-text-muted);
+    line-height: 1.5;
+}
+
+/* -------------------- Priority cards (Grade Now) -------------------- */
+.bft-priority-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.875rem;
+}
+
+.bft-priority-card {
+    padding: 1rem 1.125rem;
+    border: 1px solid var(--bft-border);
+    border-radius: 12px;
+    background: var(--bft-surface);
+    display: flex;
+    flex-direction: column;
+}
+
+.bft-priority-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.bft-priority-idx {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--bft-text-faint);
+}
+
+.bft-priority-title {
+    margin-top: 0.625rem;
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--bft-text);
+    letter-spacing: -0.01em;
+}
+
+.bft-priority-course {
+    margin-top: 0.25rem;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--bft-text-faint);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.bft-priority-student {
+    margin-top: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.bft-priority-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--bft-surface-dim);
+    color: var(--bft-text);
+    font-size: 0.65rem;
+    font-weight: 700;
+    flex: 0 0 auto;
+}
+
+.bft-priority-name {
+    font-size: 0.85rem;
+    color: var(--bft-text);
+}
+
+.bft-priority-waits {
+    display: flex;
+    gap: 1.125rem;
+    margin-top: 0.875rem;
+}
+
+.bft-priority-wait-label {
+    font-size: 0.6rem;
+    font-weight: 700;
+    color: var(--bft-text-muted);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.bft-priority-wait-value {
+    font-size: 1.5rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    margin-top: 0.2rem;
+}
+
+.bft-priority-wait-muted {
+    color: var(--bft-text-muted);
+}
+
+.bft-priority-cta {
+    margin-top: 0.875rem;
+    padding: 0.5rem 0.875rem;
+    border-radius: 8px;
+    background: var(--bft-plum-fg);
+    color: #fff;
+    text-decoration: none;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 0.82rem;
+    align-self: flex-start;
+}
+
+.bft-priority-cta:hover,
+.bft-priority-cta:focus-visible {
+    background: #5a3d8f;
+    color: #fff;
+    outline: none;
+    text-decoration: none;
+}
+
+/* -------------------- Courses table -------------------- */
+.bft-courses-table {
+    border: 1px solid var(--bft-border);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--bft-surface);
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.bft-courses-table thead th {
+    padding: 0.75rem 1.125rem;
+    background: var(--bft-surface-alt);
+    border-bottom: 1px solid var(--bft-border-soft);
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--bft-text-muted);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    text-align: left;
+}
+
+.bft-courses-row td {
+    padding: 0.875rem 1.125rem;
+    border-top: 1px solid var(--bft-border-soft);
+    vertical-align: middle;
+}
+
+.bft-courses-name {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--bft-text);
+    letter-spacing: 0.01em;
+}
+
+.bft-courses-score-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.bft-courses-score-of {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--bft-text-faint);
+}
+
+.bft-courses-num {
+    font-size: 0.9rem;
+    font-feature-settings: "tnum";
+    text-align: right;
+}
+
+.bft-courses-num-alert {
+    color: var(--bft-band-critical-fg);
+    font-weight: 700;
+}
+
+.bft-courses-dim {
+    color: var(--bft-text-faint);
+}
+
+.bft-courses-spark {
+    line-height: 0;
+}
+
+.bft-courses-cta {
+    width: 80px;
+    text-align: right;
+}
+
+.bft-courses-open {
+    display: inline-block;
+    padding: 0.4rem 0.875rem;
+    border-radius: 6px;
+    border: 1px solid var(--bft-border);
+    background: var(--bft-surface);
+    color: var(--bft-text);
+    font-family: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.bft-courses-open:hover,
+.bft-courses-open:focus-visible {
+    background: var(--bft-surface-alt);
+    text-decoration: none;
+    color: var(--bft-text);
+    outline: none;
+}
+
+/* -------------------- Responsive breakpoints -------------------- */
+@media (max-width: 1024px) {
+    .bft-rh {
+        grid-template-columns: 1fr;
+        gap: 1.25rem;
+    }
+    .bft-rh-ring-col,
+    .bft-rh-mini-col {
+        border-left: 0;
+        border-right: 0;
+        padding-left: 0;
+        padding-right: 0;
+    }
+    .bft-rh-mini-col {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    .bft-rh-mini-divider { display: none; }
+    .bft-insights-row,
+    .bft-priority-row {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+    .bft-dashboard {
+        padding: 1rem;
+    }
+    .bft-dashboard-h1 {
+        font-size: 1.5rem;
+    }
+    .bft-insights-row,
+    .bft-priority-row {
+        grid-template-columns: 1fr;
+    }
+    .bft-rh-slim {
+        flex-wrap: wrap;
+    }
+    .bft-rh-slim-divider { display: none; }
 }

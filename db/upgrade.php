@@ -67,5 +67,61 @@ function xmldb_block_feedback_tracker_upgrade($oldversion) {
         );
     }
 
+    // v1.0.1 — seeds the new score_thresholds_band setting so 1.0.0
+    // installs pick up the design defaults without waiting for an admin
+    // to visit the settings page. The set_config() call deliberately
+    // skips set_updatedcallback (which only fires through
+    // admin_setting_*::write_setting), avoiding the bootstrap-guard
+    // path during upgrade.
+    if ($oldversion < 2026060101) {
+        if (get_config('block_feedback_tracker', 'score_thresholds_band') === false) {
+            set_config('score_thresholds_band', '90,70,40', 'block_feedback_tracker');
+        }
+        upgrade_block_savepoint(true, 2026060101, 'feedback_tracker');
+    }
+
+    // v1.0.2 — block-view recomposition. No DB changes; the new Preact
+    // components and CSS tokens ship in code only. The savepoint is here so
+    // sites still get a deterministic upgrade marker.
+    if ($oldversion < 2026060102) {
+        upgrade_block_savepoint(true, 2026060102, 'feedback_tracker');
+    }
+
+    // v1.0.3 — payload extensions (perceived / paused / peer). No schema
+    // changes: perceived_median_hours aliases median_raw_h, paused aggregates
+    // are computed at read time from cday + cpause, peer benchmarks come from
+    // the existing _group rollup. Bump calver so MUC keys roll over and
+    // cached payloads pick up the new keys on first access.
+    if ($oldversion < 2026060103) {
+        \block_feedback_tracker\local\calendar\calendar::bump_version();
+        upgrade_block_savepoint(true, 2026060103, 'feedback_tracker');
+    }
+
+    // v1.0.4 — pending report page redesign. No DB changes; new Preact
+    // components + bootstrap shape extension only. Savepoint here for the
+    // upgrade marker, no cache bump (read-side payload shape unchanged).
+    if ($oldversion < 2026060104) {
+        upgrade_block_savepoint(true, 2026060104, 'feedback_tracker');
+    }
+
+    // v1.0.5 — dashboard redesign + new get_insights WS. The WS slots
+    // into the existing dashboard cache; bump calver so per-user cached
+    // dashboards re-fetch and pick up the new score_band / trend_series
+    // / perceived_median_hours fields from get_dashboard.
+    if ($oldversion < 2026060105) {
+        \block_feedback_tracker\local\calendar\calendar::bump_version();
+        upgrade_block_savepoint(true, 2026060105, 'feedback_tracker');
+    }
+
+    // v1.0.6 — web-service completion. Five new JS write wrappers
+    // (savePauseWindow / deletePauseWindow / saveCalendarDay /
+    // bulkImportCalendar / saveBusinessHours), one new read WS
+    // (get_audit_log, gated by the existing viewaudit capability), and a
+    // drift-check phpunit test. No DB changes; no cache bump (read-side
+    // payload shape unchanged).
+    if ($oldversion < 2026060106) {
+        upgrade_block_savepoint(true, 2026060106, 'feedback_tracker');
+    }
+
     return true;
 }

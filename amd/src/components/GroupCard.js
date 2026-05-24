@@ -14,17 +14,14 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Per-group responsiveness card — composes the six Phase 2A atoms from a
- * single element of the 25-key group_payload shape.
+ * Per-group responsiveness card. Phase 3B recomposition: header strip →
+ * hero (ring + numeric score + caption) → KPI tile row → trend row → stat
+ * tile row → optional peer context → breakdown panel → optional activities.
  *
- * Stateless. The refresh button moved to BlockView (one per block, not one
- * per group), so this is purely presentational; the only locally-stateful
- * piece is the BreakdownPanel inside it, which holds its own open/closed
- * toggle.
- *
- * Props mirror what classes/local/payload/responsiveness_payload.php's
- * `group_payload()` returns; nothing in here transforms shape, so a future
- * payload-shape change ripples here in one place.
+ * Stateless except for whatever local toggles the children own. Props
+ * mirror responsiveness_payload::group_payload() — peer + perceived +
+ * activities fields are optional and the component hides those sections
+ * gracefully until the server starts emitting them in Phase 3C.
  *
  * @module    block_feedback_tracker/components/GroupCard
  * @copyright 2026 Anderson Blaine <anderson@blaine.com.br>
@@ -32,57 +29,23 @@
  */
 
 import {html} from 'block_feedback_tracker/lib/preact';
-import ScoreGauge from 'block_feedback_tracker/components/ScoreGauge';
-import Sparkline from 'block_feedback_tracker/components/Sparkline';
+import ScoreRing from 'block_feedback_tracker/components/ScoreRing';
 import Badge from 'block_feedback_tracker/components/Badge';
-import Counts from 'block_feedback_tracker/components/Counts';
-import MetricsRow from 'block_feedback_tracker/components/MetricsRow';
+import KpiTile from 'block_feedback_tracker/components/KpiTile';
+import TrendRow from 'block_feedback_tracker/components/TrendRow';
+import StatTile from 'block_feedback_tracker/components/StatTile';
+import PeerContext from 'block_feedback_tracker/components/PeerContext';
 import BreakdownPanel from 'block_feedback_tracker/components/BreakdownPanel';
-import {formatHours, formatPercent, formatTrend} from 'block_feedback_tracker/lib/format';
+import TimelineBar from 'block_feedback_tracker/components/TimelineBar';
+import {colourFor} from 'block_feedback_tracker/lib/bands';
 
 /**
- * Build the localised counts row from a group_payload element.
+ * Build the breakdown sub-context if at least one component value is
+ * populated. Mirrors classes/output/responsiveness_card.php::build_breakdown().
  *
  * @param {object} group
  * @param {object} i18n
- * @returns {Array<{label: string, value: number}>}
- */
-const buildCounts = (group, i18n) => [
-    {label: i18n.card_pending,  value: Number(group.pending) || 0},
-    {label: i18n.card_critical, value: Number(group.critical) || 0},
-    {label: i18n.card_overgoal, value: Number(group.overgoal) || 0},
-];
-
-/**
- * Build the localised metrics row from a group_payload element.
- *
- * @param {object} group
- * @param {object} i18n
- * @returns {Array<{label: string, value: string}>}
- */
-const buildMetrics = (group, i18n) => [
-    {label: i18n.card_median_eff, value: formatHours(group.median_eff_h)},
-    {label: i18n.card_compliance, value: formatPercent(group.compliance_pct)},
-    {label: i18n.card_trend,      value: formatTrend(group.trend_pct_30d)},
-];
-
-/**
- * Build the trend-series values array Sparkline expects.
- *
- * @param {Array<{day: string, value: number|null}>|undefined} series
- * @returns {Array<number|null>}
- */
-const buildSeries = (series) => Array.isArray(series)
-    ? series.map((p) => (p && p.value !== null && p.value !== undefined ? Number(p.value) : null))
-    : [];
-
-/**
- * Build the breakdown sub-context if at least one component is populated.
- * Mirrors classes/output/responsiveness_card.php::build_breakdown().
- *
- * @param {object} group
- * @param {object} i18n
- * @param {object} config  Contains `weights` map (compliance, median, ...)
+ * @param {object} config Contains `weights` map (compliance, median, ...).
  * @returns {object|null} Props for BreakdownPanel, or null when no data.
  */
 const buildBreakdown = (group, i18n, config) => {
@@ -134,30 +97,55 @@ const buildBreakdown = (group, i18n, config) => {
 };
 
 /**
- * Build the drilldown URL pointing at the Phase 2C pending-report page.
- * Phase 2A pointed at the legacy group_drilldown.php; the new page is a
- * superset (filters / search / timeline modal) so it replaces it here.
+ * Drilldown URL builder. Optional `bucket` pre-applies the status filter on
+ * the report page (so a StatTile click lands on the right rows directly).
  *
  * @param {number} courseid
  * @param {number} groupid
+ * @param {string} [bucket]
  * @returns {string}
  */
-const buildDrilldownUrl = (courseid, groupid) => {
+const buildDrilldownUrl = (courseid, groupid, bucket) => {
     // eslint-disable-next-line no-undef
     const wwwroot = (typeof M !== 'undefined' && M.cfg && M.cfg.wwwroot) || '';
-    return wwwroot + '/blocks/feedback_tracker/pages/pending_report.php'
-        + '?courseid=' + encodeURIComponent(String(courseid))
-        + '&groupid=' + encodeURIComponent(String(groupid));
+    const params = ['courseid=' + encodeURIComponent(String(courseid)),
+                    'groupid=' + encodeURIComponent(String(groupid))];
+    if (bucket) {
+        params.push('bucket=' + encodeURIComponent(bucket));
+    }
+    return wwwroot + '/blocks/feedback_tracker/pages/pending_report.php?' + params.join('&');
 };
 
 /**
- * One per-group card.
+ * Format hours as "Xh" or "—".
  *
+ * @param {number|null|undefined} h
+ * @returns {string}
+ */
+const fmtHours = (h) => (h === null || h === undefined ? '—' : Math.round(Number(h)));
+
+/**
+ * Format days as "Xd" or "—".
+ *
+ * @param {number|null|undefined} h
+ * @returns {string}
+ */
+const fmtDaysFromHours = (h) => (h === null || h === undefined ? '—' : Math.max(1, Math.round(Number(h) / 24)));
+
+/**
+ * Format compliance percentage as integer "X" (caller adds the % unit).
+ *
+ * @param {number|null|undefined} p
+ * @returns {string}
+ */
+const fmtPct = (p) => (p === null || p === undefined ? '—' : Math.round(Number(p)));
+
+/**
  * @param {object} props
- * @param {object} props.group     One element of payload.groups (25-key shape).
- * @param {number} props.courseid  Course id (for the drilldown URL).
- * @param {object} props.i18n      Localised label map.
- * @param {object} props.config    Block config (weights, sla_goal_hours, ...).
+ * @param {object} props.group      One element of payload.groups.
+ * @param {number} props.courseid   Course id (for drilldown URLs).
+ * @param {object} props.i18n       Localised label map.
+ * @param {object} props.config     Block config (weights, sla_goal_hours, score_thresholds).
  * @returns {object} vnode
  */
 export default function GroupCard({group, courseid, i18n, config}) {
@@ -168,13 +156,24 @@ export default function GroupCard({group, courseid, i18n, config}) {
         ? group.groupname
         : (group.coursename || i18n.card_nogroup);
     const bandLabel = i18n.bands && i18n.bands[band] ? i18n.bands[band] : '';
-    const counts = buildCounts(group, i18n);
-    const metrics = buildMetrics(group, i18n);
-    const series = buildSeries(group.trend_series);
-    const hasSeries = series.some((v) => v !== null);
+    const series = Array.isArray(group.trend_series)
+        ? group.trend_series.map((p) => (p && p.value !== null && p.value !== undefined ? Number(p.value) : null))
+        : [];
     const breakdown = buildBreakdown(group, i18n, config);
-    const drilldownUrl = buildDrilldownUrl(courseid, Number(group.groupid) || 0);
+    const groupid = Number(group.groupid) || 0;
     const goal = config && config.sla_goal_hours ? Number(config.sla_goal_hours) : null;
+
+    // Effective median (business hours) is always present; perceived comes
+    // online in Phase 3C — until then render an em-dash so the slot is
+    // visible but honest.
+    const perceived = group.perceived_median_hours !== undefined && group.perceived_median_hours !== null
+        ? Number(group.perceived_median_hours) : null;
+
+    const pendingHref  = buildDrilldownUrl(courseid, groupid);
+    const overgoalHref = buildDrilldownUrl(courseid, groupid, 'regular');
+    const criticalHref = buildDrilldownUrl(courseid, groupid, 'critical');
+
+    const hasActivities = Array.isArray(group.activities) && group.activities.length > 0;
 
     return html`
         <div class="bft-card">
@@ -182,23 +181,101 @@ export default function GroupCard({group, courseid, i18n, config}) {
                 <strong class="bft-card-title">${title}</strong>
                 <${Badge} band=${band} label=${bandLabel} />
             </div>
-            <div class="bft-card-body">
-                <div class="bft-card-gauge">
-                    <${ScoreGauge} score=${score} band=${band} size=${100} />
-                </div>
-                <div class="bft-card-data">
-                    <${Counts} items=${counts} />
-                    <${MetricsRow} items=${metrics} />
-                    ${hasSeries && html`
-                        <div class="bft-card-sparkline">
-                            <${Sparkline} values=${series} goal=${goal} width=${240} height=${30} />
-                        </div>
-                    `}
-                    ${breakdown && html`<${BreakdownPanel} ...${breakdown} />`}
-                    <div class="bft-card-foot">
-                        <a class="bft-drilldown" href=${drilldownUrl}>${i18n.card_open_drilldown}</a>
+            <div class="bft-card-hero">
+                <${ScoreRing} score=${score} band=${band} size=${52} thickness=${5} />
+                <div class="bft-card-hero-text">
+                    <div class="bft-card-hero-score-row">
+                        <span class=${'bft-card-hero-score bft-mono'
+                            + ' bft-overall-score-tone-' + band}>
+                            ${score === null ? '—' : Math.round(score)}
+                        </span>
+                        <span class="bft-card-hero-score-of bft-mono">/ 100</span>
                     </div>
+                    <span class="bft-card-hero-caption">${i18n.card_score_caption}</span>
                 </div>
+            </div>
+
+            <div class="bft-kpi-row">
+                <${KpiTile}
+                    label=${i18n.card_effective}
+                    value=${fmtHours(group.median_eff_h)}
+                    unit="h"
+                    sub=${i18n.card_effective_sub}
+                    tone=${band} />
+                <${KpiTile}
+                    label=${i18n.card_perceived}
+                    value=${fmtDaysFromHours(perceived)}
+                    unit="d"
+                    sub=${i18n.card_perceived_sub}
+                    tone="muted" />
+                <${KpiTile}
+                    label=${i18n.card_sla}
+                    value=${fmtPct(group.compliance_pct)}
+                    unit="%"
+                    sub=${i18n.card_sla_sub}
+                    tone=${band} />
+            </div>
+
+            <${TrendRow}
+                pct=${group.trend_pct_30d}
+                series=${series}
+                i18n=${i18n}
+                goal=${goal} />
+
+            <div class="bft-stat-row">
+                <${StatTile}
+                    label=${i18n.card_pending}
+                    value=${group.pending}
+                    tone="neutral"
+                    href=${pendingHref} />
+                <${StatTile}
+                    label=${i18n.card_overgoal}
+                    value=${group.overgoal}
+                    tone="warn"
+                    href=${overgoalHref} />
+                <${StatTile}
+                    label=${i18n.card_critical}
+                    value=${group.critical}
+                    tone="critical"
+                    href=${criticalHref} />
+            </div>
+
+            <${PeerContext}
+                you=${score}
+                youband=${band}
+                youhours=${group.median_eff_h}
+                department=${group.peer_department_score}
+                departmenthours=${group.peer_department_hours}
+                top10=${group.peer_top10_score}
+                top10hours=${group.peer_top10_hours}
+                i18n=${i18n} />
+
+            ${breakdown && html`<${BreakdownPanel} ...${breakdown} />`}
+
+            ${hasActivities && html`
+                <div class="bft-activities">
+                    <div class="bft-activities-head">${i18n.card_activities_head}</div>
+                    ${group.activities.map((act) => html`
+                        <div class="bft-activity" key=${'act-' + (act.id || act.cmid || act.name)}>
+                            <div class="bft-activity-row">
+                                <span class="bft-activity-title">${act.name}</span>
+                                ${act.hasrule
+                                    ? html`<span class="bft-activity-rule-on">${i18n.rule_on}</span>`
+                                    : html`<span class="bft-activity-rule-off">${i18n.rule_off}</span>`}
+                            </div>
+                            <${TimelineBar}
+                                opens=${act.opens}
+                                closes=${act.closes}
+                                norulelabel=${i18n.timeline_norule} />
+                        </div>
+                    `)}
+                </div>
+            `}
+
+            <div class="bft-card-foot">
+                <a class="bft-drilldown" href=${pendingHref} style=${'color: ' + colourFor(band) + ';'}>
+                    ${i18n.card_open_drilldown}
+                </a>
             </div>
         </div>
     `;

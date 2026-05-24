@@ -32,13 +32,13 @@ namespace block_feedback_tracker\output;
  * see templates/score_gauge.mustache.
  */
 class score_gauge implements \renderable, \templatable {
-    /** Band → primary colour (matches design mock). */
+    /** Band → primary stroke / chip colour. Kept in lockstep with amd/src/lib/bands.js::BAND_COLOURS. */
     public const BAND_COLOURS = [
-        'excellent' => '#10b981',
-        'good'      => '#f59e0b',
-        'regular'   => '#f97316',
-        'critical'  => '#ef4444',
-        'pending'   => '#94a3b8',
+        'excellent' => '#047857',
+        'good'      => '#0e7490',
+        'regular'   => '#b45309',
+        'critical'  => '#be4b25',
+        'pending'   => '#475569',
     ];
 
     /** @var float|null The responsiveness score. */

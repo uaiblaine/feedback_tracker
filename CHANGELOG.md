@@ -5,6 +5,180 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.6] - 2026-05-24
+
+### Phase 3F — Web-service completion
+
+#### Added
+- New WS `get_audit_log` (`classes/external/get_audit_log.php`) —
+  paginated read of `block_feedback_tracker_log` with optional
+  `courseid` and `actor` filters. Reuses the existing `viewaudit`
+  capability. Returns `{success, total, page, perpage, entries[],
+  lastsynced}`.
+- Five typed JS write wrappers in `amd/src/lib/api.js`:
+  `savePauseWindow`, `deletePauseWindow`, `saveCalendarDay`,
+  `bulkImportCalendar`, `saveBusinessHours`. Each mirrors the server's
+  `execute_parameters()` signature so callers can pass payload-shaped
+  options objects.
+- Read wrapper `getAuditLog()` added to `amd/src/lib/api.js`.
+- Drift-check phpunit test `services_coverage_test.php` — iterates
+  every entry in `db/services.php` and asserts the class exists,
+  extends `external_api`, defines `execute_parameters()` / `execute()`
+  / `execute_returns()`, and references a declared capability.
+
+#### Notes
+- Calendar editor migration to React deferred — the existing
+  `pages/calendar_editor.php` is pure server-rendered moodleform with
+  no JS to migrate. The future React port (documented in
+  `docs/future-features.md`) will adopt the new typed wrappers.
+
+## [1.0.5] - 2026-05-24
+
+### Phase 3E — Dashboard redesign
+
+#### Added
+- New WS `get_insights` (`classes/external/get_insights.php`)
+  returning `{bright_spot, most_improved, gentle_watch}` for the
+  dashboard insight cards. Heuristics: bright spot = top-scoring
+  group, most improved = largest negative `trend_pct_30d`, gentle
+  watch = group with most critical pending. Null insights are omitted
+  from the response. Cached 900s per `(calver, userid)`. Capability:
+  `viewdashboard`.
+- 8 new Preact components: `WaveMark`, `Sparkle`, `InsightCard`,
+  `PriorityCard`, `ResponsivenessHero`, `ResponsivenessHeroSlim`,
+  `ResponsivenessModule` (toggle wrapper, persisted via
+  `localStorage`), `CoursesTable`.
+- `docs/future-features.md` documenting the "On-goal academic days"
+  deferral, audit-log React-view deferral, mobile reflow, woff2
+  self-hosting, and Moodle 5.2 React migration.
+
+#### Changed
+- `DashboardView.js` rewritten — brand-tag → time-aware greeting (with
+  `WaveMark`) → subline → collapsible `ResponsivenessModule` →
+  Insights row → Priority cards → Courses table.
+- `get_dashboard::execute_returns()` extended with per-course
+  `score_band`, `median_eff_h`, `perceived_median_hours`, and
+  `trend_series` (30-day, from `block_feedback_tracker_trend`).
+  `CACHE_KEY_VERSION` bumped to 3.
+- `pages/teacher_dashboard.php` pre-loads insights server-side + emits
+  `greeting_firstname` so the view can build the greeting from local
+  clock.
+- `bootstrap::dashboard_i18n()` extended with ~30 new keys (greetings,
+  insights eyebrows/bodies, priority labels, business-time chip).
+
+## [1.0.4] - 2026-05-24
+
+### Phase 3D — Pending report page redesign
+
+#### Added
+- 4 new Preact components: `PausedCallout` (transparency strip),
+  `StatusDistributionBar` (segmented click-to-filter), `HeroMetricCard`
+  (children-driven hero card chrome), `SegmentedFilter` (pill row
+  with tone-coloured active state).
+- Scope-level hero metrics in `pages/pending_report.php` —
+  `build_pending_report_scope()` helper picks the active group's
+  payload or aggregates across the course when `groupid=0`.
+
+#### Changed
+- `PendingReportView.js` rewritten — breadcrumb → title + overall
+  band chip → 4-card hero (Score / Effective / SLA / Trend) →
+  PausedCallout → StatusDistributionBar → toolbar with segmented
+  status filter → table with dual `Effective` (bold colored) +
+  `Perceived` columns + per-row `paused` tag where
+  `waitinghours − effectivehours > 0.5h`.
+
+## [1.0.3] - 2026-05-24
+
+### Phase 3C — Perceived time + Paused aggregates + Peer data
+
+#### Added
+- New `classes/local/calendar/paused_aggregator.php` —
+  `for_window(courseid, start, end)` returns `{total_days, weekend,
+  holiday, recess}` for the design's transparency callout. Honours
+  `excludeweekends` / `excludeholidays` / `excluderecesses` flags;
+  `schoolday` override cancels weekend classification; manual pauses
+  bucket as recess.
+- New `classes/local/score/peer_stats.php` — `for_exclusion(groupid)`
+  returns `{department_score, department_hours, top10_score,
+  top10_hours}` (p50 / p90 / p10 of group rollups). Returns nulls when
+  sample size < 3 so the JS `PeerContext` hides gracefully.
+- Tests: `tests/local/calendar/paused_aggregator_test.php` (8 cases
+  covering weekends, holiday-overrides-weekend, recess+closed,
+  schoolday cancellation, manual pause, course-scope isolation, empty
+  window, weekend-exclusion disabled).
+
+#### Changed
+- `responsiveness_payload::group_payload()` gains
+  `perceived_median_hours` (alias of existing `median_raw_h`),
+  `paused_days_30d`, `paused_breakdown_30d`,
+  `peer_department_score`, `peer_department_hours`,
+  `peer_top10_score`, `peer_top10_hours`.
+- `get_responsiveness::execute_returns()` mirrors the new fields
+  (strict additive — existing callers ignore unknown keys).
+- Upgrade savepoint bumps `calver` via `calendar::bump_version()` so
+  MUC keys roll over and cached payloads pick up new keys on first
+  read.
+
+## [1.0.2] - 2026-05-24
+
+### Phase 3B — Block view recomposition
+
+#### Added
+- 8 new Preact components in `amd/src/components/`: `ScoreRing`,
+  `KpiTile`, `TrendRow`, `StatTile`, `PeerContext`, `PausedNote`,
+  `TimelineBar`, `OverallBanner`.
+- `OverallBanner` mounted at the top of `BlockView.js` — eyebrow +
+  ScoreRing + score + band pill + `PausedNote`. Overall score is a
+  pending-weighted average across present group scores.
+- Activities list inside each `GroupCard` — per-assignment open/close
+  `TimelineBar` with urgency colouring and "NO RULE" badge for
+  rule-less assignments.
+
+#### Changed
+- `GroupCard.js` recomposed — header strip (course + class name +
+  status chip) → hero row (`ScoreRing` + score + caption) →
+  3-column KPI row (Effective / Perceived / SLA) → `TrendRow`
+  (arrow + verbal label + sparkline) → `StatTile` row (Pending /
+  At risk / Priority — clickable, deep-link to filtered report) →
+  `PeerContext` (optional, hidden when sample too small) →
+  `BreakdownPanel` (kept, collapsed) → activities list.
+- Mustache SSR fallback templates kept structurally identical;
+  visual refresh comes via the CSS tokens introduced in 1.0.1.
+
+## [1.0.1] - 2026-05-24
+
+### Phase 3A — Design tokens & threshold setting
+
+#### Added
+- Admin setting `score_thresholds_band` (CSV `"90,70,40"` default,
+  mirroring the existing `bucket_thresholds_eff` pattern) routing
+  through new helper `responsiveness_calculator::parse_thresholds_band()`.
+  PHP `band_for()` reads from the setting; JS
+  `bandForScore(score, thresholds)` accepts an explicit thresholds
+  arg propagated via `bootstrap::config_bundle()` →
+  `initial.config.score_thresholds`.
+- `:root` CSS token block — surface / border / text / per-band fg+bg
+  pairs / font-family stacks. Per-band tokens are
+  `--bft-band-{slug}-fg` / `-bg`.
+- `.bft-mono` utility class for numeric cells; `--bft-font-display`
+  (Manrope first, system-ui fallback) + `--bft-font-mono`
+  (JetBrains Mono first, ui-monospace fallback).
+
+#### Changed
+- Band palette across PHP (`score_gauge.php::BAND_COLOURS`), JS
+  (`bands.js::BAND_COLOURS`), CSS (badge rules), and gauge stroke now
+  uses the calm "Academic Responsiveness" palette: excellent
+  `#047857`, good `#0e7490` (teal, replacing amber), regular
+  `#b45309`, critical `#be4b25` (softer burnt sienna, replacing
+  pure red), pending `#475569`.
+- Default font-family promoted to Manrope across `.block_feedback_tracker`
+  and `.bft-dashboard`.
+
+#### Notes
+- Self-hosting Manrope + JetBrains Mono woff2 files deferred — design
+  degrades cleanly to system geometric sans for users without the
+  fonts installed.
+
 ## [1.0.0] - 2026-05-23
 
 ### Added — data layer

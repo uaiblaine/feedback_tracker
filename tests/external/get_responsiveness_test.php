@@ -103,6 +103,24 @@ final class get_responsiveness_test extends \advanced_testcase {
          *   100 * (0.4 + 0.25*0.667 + 0.15 + 0.10 + 0.05) ≈ 86.7 → "good".
          */
         $this->assertSame('good', $card['score_band']);
+
+        // Phase 3C — payload includes the new perceived / paused / peer
+        // keys with sensible defaults. perceived_median_hours mirrors
+        // median_raw_h (= waitinghours 24.0 here, the only ledger row).
+        $this->assertArrayHasKey('perceived_median_hours', $card);
+        $this->assertEqualsWithDelta(24.0, $card['perceived_median_hours'], 0.01);
+        $this->assertArrayHasKey('paused_days_30d', $card);
+        $this->assertIsInt($card['paused_days_30d']);
+        $this->assertGreaterThanOrEqual(0, $card['paused_days_30d']);
+        $this->assertArrayHasKey('paused_breakdown_30d', $card);
+        $this->assertArrayHasKey('weekend', $card['paused_breakdown_30d']);
+        $this->assertArrayHasKey('holiday', $card['paused_breakdown_30d']);
+        $this->assertArrayHasKey('recess', $card['paused_breakdown_30d']);
+        // Single-group fixture < MIN_SAMPLE for peer_stats, so peer
+        // benchmarks come back null and the JS PeerContext hides itself.
+        $this->assertArrayHasKey('peer_department_score', $card);
+        $this->assertNull($card['peer_department_score']);
+        $this->assertNull($card['peer_top10_score']);
     }
 
     /**

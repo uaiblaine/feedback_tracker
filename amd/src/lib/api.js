@@ -133,3 +133,103 @@ export const getSchoolComparison = () =>
  */
 export const getGraderPriorityList = ({limit = 10, bucket = ''} = {}) =>
     call('block_feedback_tracker_get_grader_priority_list', {limit, bucket});
+
+/**
+ * Dashboard insights — bright spot, most improved, gentle watch. Each
+ * key is omitted from the response when no row qualifies, so callers
+ * should check for presence (not nullness) before rendering.
+ *
+ * @returns {Promise<object>}
+ */
+export const getInsights = () =>
+    call('block_feedback_tracker_get_insights', {});
+
+/**
+ * Paginated audit-log read. Powers the future React audit-log view;
+ * existing pages/audit_log.php still renders server-side from
+ * block_feedback_tracker_log directly.
+ *
+ * @param {object} [options]
+ * @param {number} [options.page]      0-based page index.
+ * @param {number} [options.perpage]   Page size (max 200).
+ * @param {number} [options.courseid]  Optional course filter (0 = all).
+ * @param {number} [options.actor]     Optional actor userid filter (0 = all).
+ * @returns {Promise<object>}
+ */
+export const getAuditLog = ({page = 0, perpage = 50, courseid = 0, actor = 0} = {}) =>
+    call('block_feedback_tracker_get_audit_log', {page, perpage, courseid, actor});
+
+/* ============================================================================
+ * Write WS wrappers — calendar editor + pause-window management.
+ *
+ * Each wrapper exposes the same field names as the server's
+ * execute_parameters() so callers can pass payload-shaped objects directly.
+ * Errors propagate through the shared call() helper (toast + rethrow).
+ * ========================================================================= */
+
+/**
+ * Upsert a manual pause window (site / course / group scope).
+ *
+ * @param {object} options
+ * @param {number} [options.id]         Existing row id, 0 = new.
+ * @param {string} options.scopelevel   'site' | 'course' | 'group'.
+ * @param {number} options.scopeid      courseid / groupid; 0 for site.
+ * @param {string} [options.reason]     Reason slug; defaults to 'other'.
+ * @param {number} options.timestart    Unix seconds.
+ * @param {number} [options.timeend]    Unix seconds; 0 = open-ended.
+ * @param {string} [options.note]
+ * @returns {Promise<object>}
+ */
+export const savePauseWindow = ({
+    id = 0, scopelevel, scopeid, reason = 'other', timestart, timeend = 0, note = '',
+}) => call('block_feedback_tracker_save_pause_window',
+    {id, scopelevel, scopeid, reason, timestart, timeend, note});
+
+/**
+ * Delete a manual pause window by id. Fires the cal_pause_updated event
+ * server-side which re-enqueues rollups.
+ *
+ * @param {object} options
+ * @param {number} options.id  cpause.id
+ * @returns {Promise<object>}
+ */
+export const deletePauseWindow = ({id}) =>
+    call('block_feedback_tracker_delete_pause_window', {id});
+
+/**
+ * Upsert one calendar-day override. Use daytype = 'remove' to clear a
+ * previously-overridden day back to the weekday default.
+ *
+ * @param {object} options
+ * @param {number} options.daydate   YYYYMMDD integer.
+ * @param {string} options.daytype   'schoolday' | 'holiday' | 'recess' | 'closed' | 'optional' | 'remove'.
+ * @param {string} [options.note]
+ * @returns {Promise<object>}
+ */
+export const saveCalendarDay = ({daydate, daytype, note = ''}) =>
+    call('block_feedback_tracker_save_calendar_day', {daydate, daytype, note});
+
+/**
+ * Bulk-import calendar days from a CSV payload. CSV columns mirror
+ * csv_importer's contract (date,type[,note]).
+ *
+ * @param {object} options
+ * @param {string} options.csv  Raw CSV text.
+ * @returns {Promise<object>}
+ */
+export const bulkImportCalendar = ({csv}) =>
+    call('block_feedback_tracker_bulk_import_calendar', {csv});
+
+/**
+ * Replace the business-hours slots for one weekday. The server clears
+ * existing rows for the dayofweek then inserts the supplied slots in
+ * one atomic transaction.
+ *
+ * @param {object} options
+ * @param {number} options.dayofweek   0..6 (Mon=0).
+ * @param {Array<{starttime: number, endtime: number}>} [options.slots]
+ *                                     Replacement slots; empty list disables the day.
+ * @returns {Promise<object>}
+ */
+export const saveBusinessHours = ({dayofweek, slots = []}) =>
+    call('block_feedback_tracker_save_business_hours', {dayofweek, slots});

@@ -99,6 +99,21 @@ if ($ADMIN->fulltree) {
     );
     $settings->add($s);
 
+    // Score-band thresholds: three CSV cutoffs that map a 0-100 score to one
+    // of the four bands. Defaults 90/70/40 match the design palette. Stored
+    // values are clamped + ordered at read time in
+    // responsiveness_calculator::parse_thresholds_band(); admin can type any
+    // numeric values and the calculator copes.
+    $s = new admin_setting_configtext(
+        $plugin . '/score_thresholds_band',
+        get_string('settings_score_thresholds_band', $plugin),
+        get_string('settings_score_thresholds_band_desc', $plugin),
+        '90,70,40',
+        PARAM_TEXT
+    );
+    $s->set_updatedcallback('block_feedback_tracker_invalidate_rollups');
+    $settings->add($s);
+
     // Heading: Calendar behaviour.
     $settings->add(new admin_setting_heading(
         $plugin . '/calendar_behaviour',

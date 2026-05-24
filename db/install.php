@@ -65,6 +65,10 @@ function xmldb_block_feedback_tracker_install() {
         'bucket_thresholds_eff'      => '24,48,120',
         'bucket_thresholds_raw'      => '24,48,120',
 
+        // Score-band thresholds. CSV of three cutoffs (excellent / good /
+        // regular). Default 90/70/40 matches the design palette.
+        'score_thresholds_band'      => '90,70,40',
+
         // Processing scope. Default OFF: hidden courses are skipped so a
         // fresh install doesn't immediately start tracking archived terms.
         'process_hidden_courses'     => '0',

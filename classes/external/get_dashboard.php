@@ -49,7 +49,7 @@ class get_dashboard extends external_api {
      * before deploying any change to execute()'s WHERE clause or
      * aggregate columns.
      */
-    public const CACHE_KEY_VERSION = 2;
+    public const CACHE_KEY_VERSION = 3;
 
     /**
      * Parameters.
@@ -164,7 +164,9 @@ class get_dashboard extends external_api {
                        SUM(g.pending) AS pending,
                        SUM(g.critical) AS critical,
                        SUM(g.overgoal) AS overgoal,
-                       AVG(g.responsiveness_score) AS avgscore
+                       AVG(g.responsiveness_score) AS avgscore,
+                       AVG(g.median_eff_h) AS median_eff_h,
+                       AVG(g.median_raw_h) AS perceived_median_hours
                   FROM {block_feedback_tracker_group} g
                   JOIN {course} c ON c.id = g.courseid
                  WHERE $where
@@ -174,16 +176,27 @@ class get_dashboard extends external_api {
         $rows = $DB->get_records_sql($sql, $sqlparams);
 
         $courses = [];
+        $courseids = array_map(static fn ($r) => (int) $r->courseid, $rows);
+        $trendseries = self::trend_series_for_courses($courseids);
         foreach ($rows as $r) {
             $avg = $r->avgscore !== null ? (float) $r->avgscore : null;
+            $cid = (int) $r->courseid;
+            $band = $avg !== null
+                ? \block_feedback_tracker\local\score\responsiveness_calculator::band_for($avg)
+                : null;
             $courses[] = [
-                'courseid'  => (int) $r->courseid,
+                'courseid'  => $cid,
                 'coursename' => (string) $r->coursename,
                 'numgroups' => (int) $r->numgroups,
                 'pending'   => (int) $r->pending,
                 'critical'  => (int) $r->critical,
                 'overgoal'  => (int) $r->overgoal,
                 'avgscore'  => $avg !== null ? round($avg, 2) : null,
+                'score_band' => $band,
+                'median_eff_h' => $r->median_eff_h !== null ? round((float) $r->median_eff_h, 2) : null,
+                'perceived_median_hours' => $r->perceived_median_hours !== null
+                    ? round((float) $r->perceived_median_hours, 2) : null,
+                'trend_series' => $trendseries[$cid] ?? [],
             ];
         }
 
@@ -194,6 +207,77 @@ class get_dashboard extends external_api {
         ];
         $cache->set($key, $result);
         return $result;
+    }
+
+    /**
+     * Trend-series fetcher for the courses-table sparkline. Sums effective
+     * median across each course's groups per day for the last 30 days,
+     * aligned to a YYYYMMDD window. Cross-DB safe — uses the same
+     * pattern as responsiveness_payload's per-group fetcher.
+     *
+     * @param int[] $courseids
+     * @return array<int, array<int, array{day:int, value:float|null}>>
+     */
+    private static function trend_series_for_courses(array $courseids): array {
+        global $DB;
+        if (empty($courseids)) {
+            return [];
+        }
+        $window = self::trend_window(30);
+
+        [$insql, $params] = $DB->get_in_or_equal($courseids, SQL_PARAMS_NAMED, 'tc');
+        $params['oldest'] = (int) $window[0];
+        $sql = "SELECT id, courseid, day, medianh_eff
+                  FROM {block_feedback_tracker_trend}
+                 WHERE courseid $insql
+                   AND day >= :oldest";
+        $rows = $DB->get_records_sql($sql, $params);
+
+        // Group rows by (courseid, day) — multiple groupids per course
+        // contribute to the same day; average across groups.
+        $byday = [];
+        foreach ($rows as $r) {
+            $cid = (int) $r->courseid;
+            $day = (int) $r->day;
+            $val = $r->medianh_eff !== null ? (float) $r->medianh_eff : null;
+            if (!isset($byday[$cid][$day])) {
+                $byday[$cid][$day] = [];
+            }
+            if ($val !== null) {
+                $byday[$cid][$day][] = $val;
+            }
+        }
+
+        $out = [];
+        foreach ($courseids as $cid) {
+            $series = [];
+            foreach ($window as $day) {
+                $vals = $byday[$cid][$day] ?? null;
+                $series[] = [
+                    'day'   => $day,
+                    'value' => is_array($vals) && !empty($vals)
+                        ? round(array_sum($vals) / count($vals), 2) : null,
+                ];
+            }
+            $out[$cid] = $series;
+        }
+        return $out;
+    }
+
+    /**
+     * Produce the YYYYMMDD ints for the last $days days in platform tz.
+     *
+     * @param int $days
+     * @return array<int, int>
+     */
+    private static function trend_window(int $days): array {
+        $tz = calendar::timezone();
+        $today = (new \DateTimeImmutable('@' . time()))->setTimezone($tz)->setTime(0, 0, 0);
+        $window = [];
+        for ($i = $days - 1; $i >= 0; $i--) {
+            $window[] = (int) $today->modify("-{$i} days")->format('Ymd');
+        }
+        return $window;
     }
 
     /**
@@ -213,6 +297,18 @@ class get_dashboard extends external_api {
                 'critical'   => new external_value(PARAM_INT, ''),
                 'overgoal'   => new external_value(PARAM_INT, ''),
                 'avgscore'   => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
+                'score_band' => new external_value(PARAM_ALPHA, '', VALUE_DEFAULT, null, NULL_ALLOWED),
+                'median_eff_h' => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
+                'perceived_median_hours' => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
+                'trend_series' => new external_multiple_structure(
+                    new external_single_structure([
+                        'day'   => new external_value(PARAM_INT, ''),
+                        'value' => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
+                    ]),
+                    '',
+                    VALUE_DEFAULT,
+                    []
+                ),
             ])),
         ]);
     }

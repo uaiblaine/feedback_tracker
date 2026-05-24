@@ -80,6 +80,28 @@ class bootstrap {
             'block_sort_priority' => get_string('block_sort_priority', 'block_feedback_tracker'),
             'block_sort_wait' => get_string('block_sort_wait', 'block_feedback_tracker'),
             'block_refresh_error' => get_string('block_refresh_error', 'block_feedback_tracker'),
+            // Phase 3B additions — block recomposition (hero, KPI tiles, trend row, peer, paused note, activities).
+            'card_activities_head' => get_string('card_activities_head', 'block_feedback_tracker'),
+            'card_effective' => get_string('card_effective', 'block_feedback_tracker'),
+            'card_effective_sub' => get_string('card_effective_sub', 'block_feedback_tracker'),
+            'card_perceived' => get_string('card_perceived', 'block_feedback_tracker'),
+            'card_perceived_sub' => get_string('card_perceived_sub', 'block_feedback_tracker'),
+            'card_score_caption' => get_string('card_score_caption', 'block_feedback_tracker'),
+            'card_sla' => get_string('card_sla', 'block_feedback_tracker'),
+            'card_sla_sub' => get_string('card_sla_sub', 'block_feedback_tracker'),
+            'overall_eyebrow' => get_string('overall_eyebrow', 'block_feedback_tracker'),
+            'paused_today_label' => get_string('paused_today_label', 'block_feedback_tracker'),
+            'peer_department' => get_string('peer_department', 'block_feedback_tracker'),
+            'peer_title' => get_string('peer_title', 'block_feedback_tracker'),
+            'peer_top10' => get_string('peer_top10', 'block_feedback_tracker'),
+            'peer_you' => get_string('peer_you', 'block_feedback_tracker'),
+            'rule_off' => get_string('rule_off', 'block_feedback_tracker'),
+            'rule_on' => get_string('rule_on', 'block_feedback_tracker'),
+            'timeline_norule' => get_string('timeline_norule', 'block_feedback_tracker'),
+            'trend_declining' => get_string('trend_declining', 'block_feedback_tracker'),
+            'trend_improving' => get_string('trend_improving', 'block_feedback_tracker'),
+            'trend_stable' => get_string('trend_stable', 'block_feedback_tracker'),
+            'trend_window_label' => get_string('trend_window_label', 'block_feedback_tracker'),
         ];
     }
 
@@ -91,6 +113,8 @@ class bootstrap {
      * @return array
      */
     public static function config_bundle(): array {
+        [$threxcellent, $thrgood, $thrregular] =
+            \block_feedback_tracker\local\score\responsiveness_calculator::parse_thresholds_band();
         return [
             'weights' => [
                 'compliance' => (float) (get_config('block_feedback_tracker', 'weight_compliance') ?: 0.40),
@@ -100,6 +124,11 @@ class bootstrap {
                 'trend'      => (float) (get_config('block_feedback_tracker', 'weight_trend') ?: 0.10),
             ],
             'sla_goal_hours' => (float) (get_config('block_feedback_tracker', 'sla_goal_hours') ?: 24),
+            'score_thresholds' => [
+                'excellent' => $threxcellent,
+                'good'      => $thrgood,
+                'regular'   => $thrregular,
+            ],
         ];
     }
 
@@ -143,6 +172,39 @@ class bootstrap {
             'gradenow_loading' => get_string('gradenow_loading', 'block_feedback_tracker'),
             'gradenow_error' => get_string('gradenow_error', 'block_feedback_tracker'),
             'gradenow_open' => get_string('gradenow_open', 'block_feedback_tracker'),
+            // Phase 3E additions — hero, slim toggle, insights, priority, columns.
+            'dashboard_brandtag' => get_string('dashboard_brandtag', 'block_feedback_tracker'),
+            'dashboard_business_chip' => get_string('dashboard_business_chip', 'block_feedback_tracker'),
+            'dashboard_collapse' => get_string('dashboard_collapse', 'block_feedback_tracker'),
+            'dashboard_expand' => get_string('dashboard_expand', 'block_feedback_tracker'),
+            'dashboard_greeting_afternoon' => get_string('dashboard_greeting_afternoon', 'block_feedback_tracker'),
+            'dashboard_greeting_evening' => get_string('dashboard_greeting_evening', 'block_feedback_tracker'),
+            'dashboard_greeting_morning' => get_string('dashboard_greeting_morning', 'block_feedback_tracker'),
+            'dashboard_hero_body' => get_string('dashboard_hero_body', 'block_feedback_tracker'),
+            'dashboard_hero_eyebrow' => get_string('dashboard_hero_eyebrow', 'block_feedback_tracker'),
+            'dashboard_hero_headline' => get_string('dashboard_hero_headline', 'block_feedback_tracker'),
+            'dashboard_insights_title' => get_string('dashboard_insights_title', 'block_feedback_tracker'),
+            'dashboard_open_course' => get_string('dashboard_open_course', 'block_feedback_tracker'),
+            'dashboard_priority_title' => get_string('dashboard_priority_title', 'block_feedback_tracker'),
+            'dashboard_subline_critical' => get_string('dashboard_subline_critical', 'block_feedback_tracker'),
+            'dashboard_subline_waiting' => get_string('dashboard_subline_waiting', 'block_feedback_tracker'),
+            'hero_effective_eyebrow' => get_string('hero_effective_eyebrow', 'block_feedback_tracker'),
+            'hero_effective_unit' => get_string('hero_effective_unit', 'block_feedback_tracker'),
+            'hero_perceived_label' => get_string('hero_perceived_label', 'block_feedback_tracker'),
+            'hero_perceived_unit' => get_string('hero_perceived_unit', 'block_feedback_tracker'),
+            'hero_sla_eyebrow' => get_string('hero_sla_eyebrow', 'block_feedback_tracker'),
+            'hero_trend_eyebrow' => get_string('hero_trend_eyebrow', 'block_feedback_tracker'),
+            'hero_trend_unit' => get_string('hero_trend_unit', 'block_feedback_tracker'),
+            'insight_brightspot_body' => get_string('insight_brightspot_body', 'block_feedback_tracker'),
+            'insight_brightspot_eyebrow' => get_string('insight_brightspot_eyebrow', 'block_feedback_tracker'),
+            'insight_gentlewatch_body' => get_string('insight_gentlewatch_body', 'block_feedback_tracker'),
+            'insight_gentlewatch_eyebrow' => get_string('insight_gentlewatch_eyebrow', 'block_feedback_tracker'),
+            'insight_mostimproved_body' => get_string('insight_mostimproved_body', 'block_feedback_tracker'),
+            'insight_mostimproved_eyebrow' => get_string('insight_mostimproved_eyebrow', 'block_feedback_tracker'),
+            'pendingreport_col_effective' => get_string('pendingreport_col_effective', 'block_feedback_tracker'),
+            'pendingreport_col_perceived' => get_string('pendingreport_col_perceived', 'block_feedback_tracker'),
+            'priority_open' => get_string('priority_open', 'block_feedback_tracker'),
+            'trend_window_label' => get_string('trend_window_label', 'block_feedback_tracker'),
         ];
     }
 
@@ -195,6 +257,41 @@ class bootstrap {
             'pause_reason_coursepaused' => get_string('pause_reason_coursepaused', 'block_feedback_tracker'),
             'pause_reason_grouppaused' => get_string('pause_reason_grouppaused', 'block_feedback_tracker'),
             'pause_reason_sitepaused' => get_string('pause_reason_sitepaused', 'block_feedback_tracker'),
+            // Phase 3D additions — hero metrics, paused callout, status distribution, segmented filter.
+            'distribution_hint' => get_string('distribution_hint', 'block_feedback_tracker'),
+            'distribution_scale_max' => get_string('distribution_scale_max', 'block_feedback_tracker'),
+            'distribution_title' => get_string('distribution_title', 'block_feedback_tracker'),
+            'hero_effective_eyebrow' => get_string('hero_effective_eyebrow', 'block_feedback_tracker'),
+            'hero_effective_tip' => get_string('hero_effective_tip', 'block_feedback_tracker'),
+            'hero_effective_unit' => get_string('hero_effective_unit', 'block_feedback_tracker'),
+            'hero_perceived_label' => get_string('hero_perceived_label', 'block_feedback_tracker'),
+            'hero_perceived_tip' => get_string('hero_perceived_tip', 'block_feedback_tracker'),
+            'hero_perceived_unit' => get_string('hero_perceived_unit', 'block_feedback_tracker'),
+            'hero_score_eyebrow' => get_string('hero_score_eyebrow', 'block_feedback_tracker'),
+            'hero_score_note' => get_string('hero_score_note', 'block_feedback_tracker'),
+            'hero_score_tip' => get_string('hero_score_tip', 'block_feedback_tracker'),
+            'hero_sla_atrisk' => get_string('hero_sla_atrisk', 'block_feedback_tracker'),
+            'hero_sla_critical' => get_string('hero_sla_critical', 'block_feedback_tracker'),
+            'hero_sla_eyebrow' => get_string('hero_sla_eyebrow', 'block_feedback_tracker'),
+            'hero_sla_tip' => get_string('hero_sla_tip', 'block_feedback_tracker'),
+            'hero_sla_unit' => get_string('hero_sla_unit', 'block_feedback_tracker'),
+            'hero_trend_eyebrow' => get_string('hero_trend_eyebrow', 'block_feedback_tracker'),
+            'hero_trend_tip' => get_string('hero_trend_tip', 'block_feedback_tracker'),
+            'hero_trend_unit' => get_string('hero_trend_unit', 'block_feedback_tracker'),
+            'paused_breakdown_holiday' => get_string('paused_breakdown_holiday', 'block_feedback_tracker'),
+            'paused_breakdown_recess' => get_string('paused_breakdown_recess', 'block_feedback_tracker'),
+            'paused_breakdown_weekend' => get_string('paused_breakdown_weekend', 'block_feedback_tracker'),
+            'paused_callout_days' => get_string('paused_callout_days', 'block_feedback_tracker'),
+            'paused_callout_explain' => get_string('paused_callout_explain', 'block_feedback_tracker'),
+            'paused_callout_title' => get_string('paused_callout_title', 'block_feedback_tracker'),
+            'paused_callout_view' => get_string('paused_callout_view', 'block_feedback_tracker'),
+            'pendingreport_breadcrumb_block' => get_string('pendingreport_breadcrumb_block', 'block_feedback_tracker'),
+            'pendingreport_col_effective' => get_string('pendingreport_col_effective', 'block_feedback_tracker'),
+            'pendingreport_col_perceived' => get_string('pendingreport_col_perceived', 'block_feedback_tracker'),
+            'pendingreport_crumb_current' => get_string('pendingreport_crumb_current', 'block_feedback_tracker'),
+            'pendingreport_filter_class_label' => get_string('pendingreport_filter_class_label', 'block_feedback_tracker'),
+            'pendingreport_row_paused' => get_string('pendingreport_row_paused', 'block_feedback_tracker'),
+            'pendingreport_row_paused_tip' => get_string('pendingreport_row_paused_tip', 'block_feedback_tracker'),
         ];
     }
 }

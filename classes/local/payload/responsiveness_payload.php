@@ -27,6 +27,8 @@ declare(strict_types=1);
 namespace block_feedback_tracker\local\payload;
 
 use block_feedback_tracker\local\calendar\calendar;
+use block_feedback_tracker\local\calendar\paused_aggregator;
+use block_feedback_tracker\local\score\peer_stats;
 
 /**
  * Builds the responsiveness payload (groups array + lastsynced) without
@@ -92,6 +94,13 @@ class responsiveness_payload {
         // Pre-compute the last-30-days window once for trend lookups.
         $trendwindow = self::trend_window(30);
 
+        // Course-level paused aggregate for the last 30 days. One call
+        // per render — the design's PausedNote + report-page callout
+        // share the same numbers.
+        $now = time();
+        $pausedwindowstart = $now - 30 * 86400;
+        $pausedaggregate = paused_aggregator::for_window($courseid, $pausedwindowstart, $now);
+
         $payloadgroups = [];
         foreach ($rollups as $r) {
             $gid = (int) $r->groupid;
@@ -106,7 +115,8 @@ class responsiveness_payload {
                 $name = $groupnames[$gid] ?? sprintf('Group #%d', $gid);
             }
             $series = self::trend_series_for_group($courseid, $gid, $trendwindow);
-            $payloadgroups[] = self::group_payload($gid, $name, $course, $r, $series);
+            $peer = peer_stats::for_exclusion($gid);
+            $payloadgroups[] = self::group_payload($gid, $name, $course, $r, $series, $pausedaggregate, $peer);
         }
 
         $result = [
@@ -123,11 +133,18 @@ class responsiveness_payload {
     /**
      * Build one group card payload from a rollup row.
      *
+     * Optional Phase 3C parameters ($pausedaggregate, $peer) are nullable
+     * so unit tests that build a payload from a bare rollup row still work
+     * without wiring the aggregator + peer_stats. for_course() always
+     * passes both.
+     *
      * @param int $groupid Group ID.
      * @param string $groupname Group name.
      * @param \stdClass $course Course object.
      * @param \stdClass $row Rollup row.
      * @param array $trendseries Last-30-day median values.
+     * @param array<string, int>|null $pausedaggregate Output of paused_aggregator::for_window().
+     * @param array<string, float|null>|null $peer Output of peer_stats::for_exclusion().
      * @return array
      */
     public static function group_payload(
@@ -135,8 +152,13 @@ class responsiveness_payload {
         string $groupname,
         \stdClass $course,
         \stdClass $row,
-        array $trendseries = []
+        array $trendseries = [],
+        ?array $pausedaggregate = null,
+        ?array $peer = null
     ): array {
+        $pausedaggregate = $pausedaggregate ?? ['total_days' => 0, 'weekend' => 0, 'holiday' => 0, 'recess' => 0];
+        $peer = $peer ?? ['department_score' => null, 'department_hours' => null,
+                          'top10_score' => null, 'top10_hours' => null];
         return [
             'groupid'              => $groupid,
             'groupname'            => $groupname,
@@ -152,6 +174,11 @@ class responsiveness_payload {
             'median_raw_h'         => $row->median_raw_h !== null ? (float) $row->median_raw_h : null,
             'p90_raw_h'            => $row->p90_raw_h !== null ? (float) $row->p90_raw_h : null,
             'max_raw_h'            => $row->max_raw_h !== null ? (float) $row->max_raw_h : null,
+            // Phase 3C — design's "Perceived" KPI; same data source as
+            // median_raw_h, renamed for the user-facing language layer.
+            // We keep median_raw_h around for back-compat with any caller
+            // already binding the old key.
+            'perceived_median_hours' => $row->median_raw_h !== null ? (float) $row->median_raw_h : null,
             'responsiveness_score' => $row->responsiveness_score !== null ? (float) $row->responsiveness_score : null,
             'score_band'           => $row->score_band !== null ? (string) $row->score_band : null,
             'comp_compliance'      => isset($row->comp_compliance) && $row->comp_compliance !== null
@@ -171,6 +198,18 @@ class responsiveness_payload {
             'nextpause_note'       => $row->nextpause_note !== null ? (string) $row->nextpause_note : null,
             'lastpause_endts'      => $row->lastpause_endts !== null ? (int) $row->lastpause_endts : null,
             'lastpause_reason'     => $row->lastpause_reason !== null ? (string) $row->lastpause_reason : null,
+            // Phase 3C — paused-window transparency aggregate (course scope).
+            'paused_days_30d'      => (int) $pausedaggregate['total_days'],
+            'paused_breakdown_30d' => [
+                'weekend' => (int) $pausedaggregate['weekend'],
+                'holiday' => (int) $pausedaggregate['holiday'],
+                'recess'  => (int) $pausedaggregate['recess'],
+            ],
+            // Phase 3C — peer comparison (excluding this group).
+            'peer_department_score' => $peer['department_score'] !== null ? (float) $peer['department_score'] : null,
+            'peer_department_hours' => $peer['department_hours'] !== null ? (float) $peer['department_hours'] : null,
+            'peer_top10_score'      => $peer['top10_score'] !== null ? (float) $peer['top10_score'] : null,
+            'peer_top10_hours'      => $peer['top10_hours'] !== null ? (float) $peer['top10_hours'] : null,
         ];
     }
 
