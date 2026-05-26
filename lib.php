@@ -180,3 +180,30 @@ function block_feedback_tracker_reset_data(bool $reenablebackfill = false): arra
 
     return $counts;
 }
+
+/**
+ * Per-user preferences this plugin exposes via the core
+ * user-preferences API.
+ *
+ * Moodle calls this callback before letting `core_user_update_user_preferences`
+ * write any preference whose name starts with `block_feedback_tracker_`;
+ * unlisted preferences are rejected. The permission callback restricts
+ * writes to the user's own row — admins can't accidentally toggle the
+ * dashboard hero on someone else's behalf through the WS.
+ *
+ * @return array<string, array{type:int, null:int, default:string, permissioncallback:callable}>
+ */
+function block_feedback_tracker_user_preferences(): array {
+    return [
+        // v1.0.8 — collapsed state for the teacher dashboard's combined
+        // Responsiveness hero + Insights block. Stored as a stringified
+        // boolean ('0' | '1') because that's what the core preferences
+        // API serialises to.
+        'block_feedback_tracker_dashboard_collapsed' => [
+            'type'    => PARAM_BOOL,
+            'null'    => NULL_NOT_ALLOWED,
+            'default' => '0',
+            'permissioncallback' => [\core_user::class, 'is_current_user'],
+        ],
+    ];
+}

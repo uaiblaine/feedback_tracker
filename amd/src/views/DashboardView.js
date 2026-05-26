@@ -43,6 +43,11 @@ import WaveMark from 'block_feedback_tracker/components/WaveMark';
 import {getDashboard, getGraderPriorityList, getInsights}
     from 'block_feedback_tracker/lib/api';
 import {bandForScore} from 'block_feedback_tracker/lib/bands';
+import {setUserPreference} from 'core_user/repository';
+import Notification from 'core/notification';
+
+/** Moodle user-preference name persisting the hero+insights collapse state. */
+const PREF_DASHBOARD_COLLAPSED = 'block_feedback_tracker_dashboard_collapsed';
 
 /**
  * Aggregate per-course rows into a single hero score + total counters.
@@ -177,6 +182,14 @@ export default function DashboardView({initial}) {
     const [gradenow, setGradenow] = useState(initial.gradenow || null);
     const [gradenowError, setGradenowError] = useState(null);
     const [insights, setInsights] = useState(initial.insights || null);
+    /*
+     * v1.0.8 — collapsed state for the combined Responsiveness hero +
+     * Insights block. Initial value comes from the user preference
+     * preloaded by teacher_dashboard.php so the first paint already
+     * matches the user's saved choice; toggling writes back through
+     * core_user/repository::setUserPreference().
+     */
+    const [collapsed, setCollapsed] = useState(Boolean(initial.dashboard_collapsed));
 
     const sorted = useMemo(() => sortCourses(courses, sortKey, sortOrder), [courses, sortKey, sortOrder]);
     const totals = useMemo(() => aggregate(courses), [courses]);
@@ -188,6 +201,24 @@ export default function DashboardView({initial}) {
         || i18n.dashboard_hero_greeting
         || 'Hi there, {$a->firstname}';
     const greeting = greetingTemplate.replace('{$a->firstname}', initial.greeting_firstname || '');
+
+    /**
+     * Toggle the hero+insights collapsed state. Optimistic — local state
+     * flips immediately so the UI is responsive; the preference write is
+     * fire-and-forget. On failure we revert state and route the error
+     * through core/notification so the user knows the choice didn't
+     * persist (page reload would show the old value).
+     *
+     * @param {boolean} next
+     */
+    const handleToggleCollapsed = (next) => {
+        setCollapsed(next);
+        setUserPreference(PREF_DASHBOARD_COLLAPSED, next ? '1' : '0')
+            .catch((e) => {
+                setCollapsed(!next);
+                Notification.exception(e);
+            });
+    };
 
     /**
      * Refresh courses + grade-now + insights in parallel.
@@ -291,9 +322,14 @@ export default function DashboardView({initial}) {
 
             ${error && html`<div class="bft-error" role="alert">${error}</div>`}
 
-            <${ResponsivenessModule} heroprops=${heroprops} />
+            <${ResponsivenessModule}
+                collapsed=${collapsed}
+                onToggle=${handleToggleCollapsed}
+                heroprops=${heroprops} />
 
-            ${insights && (insights.bright_spot || insights.most_improved || insights.gentle_watch) && html`
+            ${!collapsed
+                && insights
+                && (insights.bright_spot || insights.most_improved || insights.gentle_watch) && html`
                 <section class="bft-dashboard-insights">
                     <div class="bft-dashboard-section-eyebrow">
                         ${i18n.dashboard_insights_title || 'Insights'}

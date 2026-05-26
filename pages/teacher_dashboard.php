@@ -91,6 +91,16 @@ try {
 // per-course aggregate, not the site-wide benchmarks.
 $cancompare = has_capability('block/feedback_tracker:viewschoolcomparison', $sysctx);
 
+// v1.0.8 — persist the dashboard hero+insights collapse state per user
+// via the core preferences API. Default '0' (expanded) matches a new
+// user's expectation that the rich hero is visible on first visit.
+// Preference declared in lib.php::block_feedback_tracker_user_preferences().
+$dashboardcollapsed = (bool) get_user_preferences(
+    'block_feedback_tracker_dashboard_collapsed',
+    '0',
+    (int) $USER->id
+);
+
 $initial = [
     'userid' => (int) $USER->id,
     // The legacy greeting key stays for back-compat with any caller that
@@ -106,6 +116,7 @@ $initial = [
     'gradenow' => $gradenow,
     'insights' => $insights,
     'cancompare' => $cancompare,
+    'dashboard_collapsed' => $dashboardcollapsed,
     'i18n' => array_merge(
         \block_feedback_tracker\local\output\bootstrap::i18n_bundle(),
         \block_feedback_tracker\local\output\bootstrap::dashboard_i18n()

@@ -51,11 +51,18 @@ use core_privacy\local\request\writer;
  * pause windows are recomputed on demand from the calendar engine
  * (get_pause_timeline). They're derived data, not stored personal data,
  * so they aren't declared here.
+ *
+ * User preferences (v1.0.8+):
+ *  - block_feedback_tracker_dashboard_collapsed — declared via
+ *    user_preference_provider. Deletion is handled by Moodle's core
+ *    privacy machinery (no plugin-side delete path needed for
+ *    preferences declared this way).
  */
 class provider implements
     \core_privacy\local\metadata\provider,
     \core_privacy\local\request\core_userlist_provider,
-    \core_privacy\local\request\plugin\provider {
+    \core_privacy\local\request\plugin\provider,
+    \core_privacy\local\request\user_preference_provider {
     /**
      * Describe what the plugin stores.
      *
@@ -100,7 +107,42 @@ class provider implements
             'privacy:metadata:log'
         );
 
+        // v1.0.8 — dashboard hero+insights collapse state. Declared via
+        // the user-preference channel so subject-access exports include
+        // the value and core can auto-delete it on user deletion.
+        $collection->add_user_preference(
+            'block_feedback_tracker_dashboard_collapsed',
+            'privacy:metadata:preference:dashboard_collapsed'
+        );
+
         return $collection;
+    }
+
+    /**
+     * Export every plugin user-preference held against $userid into the
+     * privacy writer's preferences bucket. The collapse state is
+     * surfaced as a localised human-readable label rather than the raw
+     * '0' / '1' string the API stores.
+     *
+     * @param int $userid
+     * @return void
+     */
+    public static function export_user_preferences(int $userid): void {
+        $name = 'block_feedback_tracker_dashboard_collapsed';
+        $value = get_user_preferences($name, null, $userid);
+        if ($value === null) {
+            return;
+        }
+        $iscollapsed = (string) $value === '1';
+        $description = $iscollapsed
+            ? get_string('privacy:preference:dashboard_collapsed_collapsed', 'block_feedback_tracker')
+            : get_string('privacy:preference:dashboard_collapsed_expanded', 'block_feedback_tracker');
+        writer::export_user_preference(
+            'block_feedback_tracker',
+            $name,
+            (string) $value,
+            $description
+        );
     }
 
     /**
