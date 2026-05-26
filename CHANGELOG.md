@@ -5,6 +5,59 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.8] - 2026-05-26
+
+### Phase 4B — Combined hero+insights collapse + user-preference persistence
+
+#### Added
+- `block_feedback_tracker_user_preferences()` in `lib.php` declares the
+  `block_feedback_tracker_dashboard_collapsed` preference (PARAM_BOOL,
+  default `'0'`, permission callback `\core_user::is_current_user`).
+  Wires the plugin into Moodle's core
+  [user-preferences API](https://moodledev.io/docs/5.2/apis/core/preference)
+  so `core_user_update_user_preferences` accepts writes to this key.
+- `pages/teacher_dashboard.php` preloads the preference via
+  `get_user_preferences()` and emits it as `initial.dashboard_collapsed`
+  in the bootstrap JSON — first paint matches the user's saved choice
+  with no WS round-trip.
+- Privacy provider now implements
+  `\core_privacy\local\request\user_preference_provider`. The new
+  preference is declared via `$collection->add_user_preference()` in
+  `get_metadata()` and surfaces in subject-access exports through
+  `export_user_preferences()` with localised "collapsed" / "expanded"
+  descriptions. Deletion is handled by Moodle's core privacy
+  machinery — no plugin-side delete path needed for preferences
+  declared this way.
+- New privacy lang strings:
+  `privacy:metadata:preference:dashboard_collapsed`,
+  `privacy:preference:dashboard_collapsed_collapsed`,
+  `privacy:preference:dashboard_collapsed_expanded` (en + pt_br).
+- Privacy provider tests gain two coverage methods:
+  `test_export_user_preferences_writes_dashboard_collapsed` (verifies
+  the value lands in the writer's preferences bucket) and
+  `test_export_user_preferences_is_noop_when_unset`.
+
+#### Changed
+- The Responsiveness hero and Insights section now collapse together
+  under a single toggle. Previously the hero had its own
+  collapsed/expanded state and the Insights row was always visible.
+- `ResponsivenessModule.js` is now a controlled presentational
+  component: parent owns the state, module receives `collapsed` +
+  `onToggle` props. Removed the `bft.dashboard.hero.collapsed`
+  `localStorage` round-trip.
+- `DashboardView` lifts the collapsed state, gates the Insights
+  section on `!collapsed`, and persists toggles through
+  `core_user/repository::setUserPreference()` with optimistic local
+  update + revert-on-failure.
+
+#### Notes
+- Existing `localStorage` keys from v1.0.5–1.0.7 are now orphaned but
+  harmless — no cleanup needed. Users get the server-side default
+  (`expanded`) on first visit after upgrade.
+- Permission callback restricts writes to the user's own preference
+  row — admins can't toggle the dashboard hero on someone else's
+  behalf through the WS.
+
 ## [1.0.7] - 2026-05-25
 
 ### Phase 4A — Trend-term refinements (Lever 1 + Lever 3)

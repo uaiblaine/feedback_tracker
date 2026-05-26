@@ -119,6 +119,40 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
     }
 
     /**
+     * The dashboard_collapsed user preference is declared in metadata
+     * and surfaces via export_user_preferences() with a localised
+     * human-readable description. v1.0.8 — covers the new
+     * user_preference_provider implementation.
+     */
+    public function test_export_user_preferences_writes_dashboard_collapsed(): void {
+        $this->resetAfterTest();
+        $user = $this->getDataGenerator()->create_user();
+        set_user_preference('block_feedback_tracker_dashboard_collapsed', '1', $user);
+
+        provider::export_user_preferences((int) $user->id);
+
+        $writer = writer::with_context(\context_system::instance());
+        $this->assertTrue($writer->has_any_data());
+        $prefs = $writer->get_user_preferences('block_feedback_tracker');
+        $this->assertObjectHasProperty('block_feedback_tracker_dashboard_collapsed', $prefs);
+        $this->assertSame('1', $prefs->block_feedback_tracker_dashboard_collapsed->value);
+    }
+
+    /**
+     * No preference set → export is a no-op (nothing written to the
+     * writer for that user).
+     */
+    public function test_export_user_preferences_is_noop_when_unset(): void {
+        $this->resetAfterTest();
+        $user = $this->getDataGenerator()->create_user();
+
+        provider::export_user_preferences((int) $user->id);
+
+        $writer = writer::with_context(\context_system::instance());
+        $this->assertFalse($writer->has_any_data());
+    }
+
+    /**
      * Seed one user with one ledger row in a course; reuses the course id if
      * provided. Returns [courseid, user].
      *

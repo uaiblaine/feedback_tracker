@@ -14,66 +14,38 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Wraps the dashboard hero in a full ↔ slim toggle. The slim variant
- * collapses the hero to the height of the old streak banner, revealing
- * the Insights row and Grade Now cards without a scroll.
+ * Renders the dashboard hero in either its full or slim variant.
  *
- * Hold state in localStorage so the user's choice persists across page
- * loads — the design's interaction is meant to be a long-lived
- * preference, not a per-visit toggle.
+ * Pure presentational component as of v1.0.8 — the parent
+ * (DashboardView) owns the collapsed state because the Insights
+ * section needs to react to the same toggle. The module just maps
+ * `collapsed` to a hero variant and routes the user's click to the
+ * parent's `onToggle` callback.
+ *
+ * Persistence moved server-side to a Moodle user preference; the
+ * localStorage round-trip used in v1.0.5–1.0.7 is gone.
  *
  * @module    block_feedback_tracker/components/ResponsivenessModule
  * @copyright 2026 Anderson Blaine <anderson@blaine.com.br>
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-import {html, useState, useEffect} from 'block_feedback_tracker/lib/preact';
+import {html} from 'block_feedback_tracker/lib/preact';
 import ResponsivenessHero from 'block_feedback_tracker/components/ResponsivenessHero';
 import ResponsivenessHeroSlim from 'block_feedback_tracker/components/ResponsivenessHeroSlim';
 
-const STORAGE_KEY = 'bft.dashboard.hero.collapsed';
-
 /**
  * @param {object} props
- * @param {object} props.heroprops   Forwarded to both hero variants.
+ * @param {boolean} props.collapsed              True = slim, false = full.
+ * @param {(next: boolean) => void} props.onToggle Receives the next collapsed value.
+ * @param {object} props.heroprops               Forwarded to both hero variants.
  * @returns {object} vnode
  */
-export default function ResponsivenessModule({heroprops}) {
-    const [collapsed, setCollapsed] = useState(false);
-
-    // Read once from localStorage; the SSR / first paint always shows the
-    // full hero (better default for first-time visitors).
-    useEffect(() => {
-        try {
-            if (window.localStorage && window.localStorage.getItem(STORAGE_KEY) === '1') {
-                setCollapsed(true);
-            }
-        } catch (e) {
-            // localStorage can be blocked (Safari private mode etc.) — ignore.
-        }
-    }, []);
-
-    const persist = (value) => {
-        try {
-            if (window.localStorage) {
-                window.localStorage.setItem(STORAGE_KEY, value ? '1' : '0');
-            }
-        } catch (e) {
-            // Ignore storage write failures.
-        }
-    };
-
-    const handleCollapse = () => {
-        setCollapsed(true);
-        persist(true);
-    };
-    const handleExpand = () => {
-        setCollapsed(false);
-        persist(false);
-    };
-
+export default function ResponsivenessModule({collapsed, onToggle, heroprops}) {
     if (collapsed) {
-        return html`<${ResponsivenessHeroSlim} ...${heroprops} onExpand=${handleExpand} />`;
+        return html`<${ResponsivenessHeroSlim} ...${heroprops}
+            onExpand=${() => onToggle(false)} />`;
     }
-    return html`<${ResponsivenessHero} ...${heroprops} onCollapse=${handleCollapse} />`;
+    return html`<${ResponsivenessHero} ...${heroprops}
+        onCollapse=${() => onToggle(true)} />`;
 }

@@ -132,5 +132,15 @@ function xmldb_block_feedback_tracker_upgrade($oldversion) {
         upgrade_block_savepoint(true, 2026060107, 'feedback_tracker');
     }
 
+    // v1.0.8 — combined hero+insights collapse state persisted via the
+    // core user-preferences API. No schema change; the preference key
+    // (block_feedback_tracker_dashboard_collapsed) is declared in
+    // lib.php::block_feedback_tracker_user_preferences() and gets a
+    // server-side default of '0' so existing users see the expanded
+    // hero on first visit after upgrade.
+    if ($oldversion < 2026060108) {
+        upgrade_block_savepoint(true, 2026060108, 'feedback_tracker');
+    }
+
     return true;
 }
