@@ -43,8 +43,83 @@ final class responsiveness_calculator_test extends \advanced_testcase {
 
         $r = responsiveness_calculator::compute([]);
 
-        $this->assertSame(95.0, $r['score']);
+        /*
+         * v1.0.7 — with no trend data, the trend term is dropped and the
+         * remaining four weights renormalise to sum 1.0. Every other term
+         * defaults charitably to 1.0, so a brand-new course can legitimately
+         * hit 100. Before 1.0.7 the trend term substituted 0.5 (neutral),
+         * silently capping the maximum at 95.
+         */
+        $this->assertSame(100.0, $r['score']);
         $this->assertSame('excellent', $r['band']);
+        $this->assertNull(
+            $r['components']['trend'],
+            'Trend component should be null when no trend data is available.'
+        );
+    }
+
+    /**
+     * When trendpct is null the trend weight gets dropped and the other
+     * four weights renormalise proportionally. With default weights
+     * 0.40/0.25/0.15/0.10/0.10, dropping trend rescales the kept terms
+     * by 1/0.90 ≈ 1.111. A configuration with every term at 1.0
+     * therefore stays at 100.0 — verifying the renormalisation invariant.
+     */
+    public function test_no_trend_renormalises_weights(): void {
+        $this->resetAfterTest();
+        $this->seed_defaults();
+
+        $r = responsiveness_calculator::compute([
+            'compliance_pct' => 100.0,
+            'median_eff_h'   => 0.0,
+            'critical'       => 0,
+            'pending'        => 0,
+            'numgraded30d'   => 100,
+            // No trend_pct_30d — first 30 days of a course.
+        ]);
+
+        $this->assertSame(100.0, $r['score']);
+        $this->assertNull($r['components']['trend']);
+    }
+
+    /**
+     * effective_weights() drops unavailable terms and renormalises the
+     * keepers to sum 1.0. Smoke test the helper directly.
+     */
+    public function test_effective_weights_drops_and_renormalises(): void {
+        $weights = ['compliance' => 0.40, 'median' => 0.25, 'critical' => 0.15,
+                    'pending' => 0.10, 'trend' => 0.10];
+
+        // Trend dropped — other four scale up by 1/0.90.
+        $e = responsiveness_calculator::effective_weights($weights, [
+            'compliance' => true, 'median' => true, 'critical' => true,
+            'pending' => true, 'trend' => false,
+        ]);
+        $this->assertSame(0.0, $e['trend']);
+        $this->assertEqualsWithDelta(0.40 / 0.90, $e['compliance'], 0.0001);
+        $this->assertEqualsWithDelta(0.25 / 0.90, $e['median'], 0.0001);
+        $this->assertEqualsWithDelta(0.15 / 0.90, $e['critical'], 0.0001);
+        $this->assertEqualsWithDelta(0.10 / 0.90, $e['pending'], 0.0001);
+        $this->assertEqualsWithDelta(
+            1.0,
+            array_sum($e),
+            0.0001,
+            'Effective weights must sum to 1.0 when at least one term is available.'
+        );
+
+        // Every term available — pass-through.
+        $f = responsiveness_calculator::effective_weights($weights, [
+            'compliance' => true, 'median' => true, 'critical' => true,
+            'pending' => true, 'trend' => true,
+        ]);
+        $this->assertSame($weights, $f);
+
+        // Degenerate case — nothing available, every weight zero.
+        $g = responsiveness_calculator::effective_weights($weights, [
+            'compliance' => false, 'median' => false, 'critical' => false,
+            'pending' => false, 'trend' => false,
+        ]);
+        $this->assertSame(0.0, array_sum($g));
     }
 
     /**

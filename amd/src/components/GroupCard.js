@@ -63,27 +63,51 @@ const buildBreakdown = (group, i18n, config) => {
         pending:    i18n.breakdown_pending,
         trend:      i18n.breakdown_trend,
     };
-    const present = Object.values(components).filter((v) => v !== null && v !== undefined);
-    if (present.length === 0) {
+    const presentkeys = Object.keys(components).filter(
+        (k) => components[k] !== null && components[k] !== undefined
+    );
+    if (presentkeys.length === 0) {
         return null;
     }
-    const weights = (config && config.weights) || {};
+    const adminweights = (config && config.weights) || {};
+    /*
+     * Renormalise the admin-configured weights to only the terms that
+     * carry data, mirroring the PHP responsiveness_calculator::
+     * effective_weights() helper. Without this the displayed weights
+     * wouldn't sum to 1.0 when the trend term is excluded — the table
+     * is supposed to explain the score, so the maths must agree.
+     */
+    const keepsum = presentkeys.reduce(
+        (s, k) => s + Number(adminweights[k] || 0), 0
+    );
+    const effective = {};
+    Object.keys(components).forEach((k) => {
+        const w = Number(adminweights[k] || 0);
+        effective[k] = presentkeys.indexOf(k) !== -1 && keepsum > 0 ? w / keepsum : 0;
+    });
     let totalpts = 0;
     let totalmax = 0;
-    const rows = Object.keys(components).map((key) => {
+    const rows = presentkeys.map((key) => {
         const value = components[key];
-        const weight = Number(weights[key] || 0);
+        const weight = effective[key];
         const maxpts = weight * 100;
-        const pts = value !== null && value !== undefined ? Number(value) * maxpts : 0;
+        const pts = Number(value) * maxpts;
         totalpts += pts;
         totalmax += maxpts;
         return {
             label:     labels[key],
-            valuestr:  value !== null && value !== undefined ? Number(value).toFixed(2) : '—',
+            valuestr:  Number(value).toFixed(2),
             weightstr: weight.toFixed(2),
             ptsstr:    pts.toFixed(1) + ' / ' + maxpts.toFixed(1),
         };
     });
+    const excluded = Object.keys(components).filter((k) => presentkeys.indexOf(k) === -1);
+    let footnote = '';
+    if (excluded.length > 0) {
+        const names = excluded.map((k) => labels[k]).join(', ');
+        footnote = (i18n.breakdown_excluded_prefix || 'Excluded — insufficient data:')
+            + ' ' + names + '.';
+    }
     return {
         summary:   i18n.breakdown_summary,
         strterm:   i18n.breakdown_term,
@@ -93,6 +117,7 @@ const buildBreakdown = (group, i18n, config) => {
         strtotal:  i18n.breakdown_total,
         rows,
         totalstr:  totalpts.toFixed(1) + ' / ' + totalmax.toFixed(1),
+        footnote,
     };
 };
 

@@ -195,14 +195,53 @@ class get_insights extends external_api {
     }
 
     /**
-     * Most improved — the group with the largest negative trend_pct_30d
-     * (because negative trend = effective hours dropped = improvement).
-     * Returns null when no group has trend data.
+     * Most improved — preferring sharp week-over-week recoveries
+     * (momentum) when present, falling back to the largest negative
+     * trend_pct_30d otherwise.
+     *
+     * Momentum lives on the dashboard only — it never feeds the score.
+     * The intent is to recognise a new teacher who inherits a low-scoring
+     * class and turns it around in days, before the slower 30-day trend
+     * has caught up. The picked row carries a `momentum` flag so the JS
+     * InsightCard can swap eyebrow text and tone.
      *
      * @param array $rows
      * @return array|null
      */
     private static function pick_most_improved(array $rows): ?array {
+        $thresh = \block_feedback_tracker\local\score\responsiveness_calculator::MOMENTUM_TRIGGER_PCT;
+
+        // First pass: any group with sharp momentum wins, no matter what the
+        // 30-day trend looks like. We compute momentum on-demand per row;
+        // get_insights() is itself cached 15 min so per-render cost stays
+        // bounded.
+        $best = null;
+        $bestpct = 0.0;
+        foreach ($rows as $r) {
+            $pct = \block_feedback_tracker\local\score\responsiveness_calculator::momentum_pct(
+                (int) $r->courseid,
+                (int) $r->groupid
+            );
+            if ($pct === null || $pct >= $thresh) {
+                continue;
+            }
+            if ($best === null || $pct < $bestpct) {
+                $best = $r;
+                $bestpct = $pct;
+            }
+        }
+        if ($best !== null) {
+            return [
+                'courseid'      => (int) $best->courseid,
+                'coursename'    => (string) $best->coursename,
+                'groupid'       => (int) $best->groupid,
+                'metric_value'  => '+' . (string) round(abs($bestpct)) . '%',
+                'metric_suffix' => 'this week',
+                'momentum'      => true,
+            ];
+        }
+
+        // Fallback: largest 30-day improvement.
         $trended = array_values(array_filter(
             $rows,
             static fn ($r) => $r->trend_pct_30d !== null && (float) $r->trend_pct_30d < -2.0
@@ -215,13 +254,13 @@ class get_insights extends external_api {
         });
         $top = $trended[0];
         $pct = (float) $top->trend_pct_30d;
-        // Surface improvement as a positive number (UX-friendly framing).
         return [
-            'courseid'     => (int) $top->courseid,
-            'coursename'   => (string) $top->coursename,
-            'groupid'      => (int) $top->groupid,
-            'metric_value' => '+' . (string) round(abs($pct)) . '%',
+            'courseid'      => (int) $top->courseid,
+            'coursename'    => (string) $top->coursename,
+            'groupid'       => (int) $top->groupid,
+            'metric_value'  => '+' . (string) round(abs($pct)) . '%',
             'metric_suffix' => '',
+            'momentum'      => false,
         ];
     }
 
@@ -266,6 +305,11 @@ class get_insights extends external_api {
             'groupid'       => new external_value(PARAM_INT, ''),
             'metric_value'  => new external_value(PARAM_TEXT, ''),
             'metric_suffix' => new external_value(PARAM_TEXT, ''),
+            // v1.0.7 — true when this row was picked from week-over-week
+            // momentum rather than the 30-day trend. Optional so the
+            // bright_spot / gentle_watch picks (which never set it) stay
+            // shape-compatible.
+            'momentum'      => new external_value(PARAM_BOOL, '', VALUE_OPTIONAL),
         ], '', VALUE_OPTIONAL);
         return new external_single_structure([
             'success'       => new external_value(PARAM_BOOL, ''),

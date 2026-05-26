@@ -57,6 +57,10 @@ class responsiveness_calculator {
     public const DEFAULT_SLA_GOAL_HOURS = 24.0;
     /** Default pending soft cap (used when numgraded30d is small). */
     public const PENDING_SOFT_CAP_MIN = 20;
+    /** Minimum grades per week required to compute a meaningful momentum signal. */
+    public const MOMENTUM_MIN_GRADES = 5;
+    /** Momentum threshold (%) below which the dashboard prefers it over the 30-day trend. */
+    public const MOMENTUM_TRIGGER_PCT = -40.0;
 
     /**
      * Compute the score.
@@ -98,18 +102,40 @@ class responsiveness_calculator {
         $softcap = max($numgraded, self::PENDING_SOFT_CAP_MIN);
         $pendingterm = self::clamp01(1.0 - $pending / $softcap);
 
+        /*
+         * v1.0.7 — adaptive trend weight. When the rollup has no prior
+         * 30-day window to compare against (typically: course just started),
+         * trendpct is null. Previously we substituted 0.5 (neutral) which
+         * dragged a fresh-course's theoretical maximum from 100 to 95.
+         * Now we mark the term unavailable, drop weight_trend, and
+         * renormalise the remaining weights so the score can legitimately
+         * reach 100. The breakdown panel skips the trend row entirely
+         * when the term is null — see GroupCard.buildBreakdown().
+         */
         $trend = $trendpct === null
-            ? 0.5
+            ? null
             : self::clamp01(0.5 - $trendpct / 200.0);
 
-        $score = 100.0 * (
-            $weights['compliance'] * $compliance
-            + $weights['median'] * $median
-            + $weights['critical'] * $criticalterm
-            + $weights['pending'] * $pendingterm
-            + $weights['trend'] * $trend
-        );
-        $score = round(max(0.0, min(100.0, $score)), 2);
+        $available = [
+            'compliance' => true,
+            'median'     => true,
+            'critical'   => true,
+            'pending'    => true,
+            'trend'      => $trend !== null,
+        ];
+        $effective = self::effective_weights($weights, $available);
+        $contribs = [
+            'compliance' => $compliance,
+            'median'     => $median,
+            'critical'   => $criticalterm,
+            'pending'    => $pendingterm,
+            'trend'      => $trend ?? 0.0,
+        ];
+        $score = 0.0;
+        foreach ($effective as $key => $w) {
+            $score += $w * $contribs[$key];
+        }
+        $score = round(max(0.0, min(100.0, 100.0 * $score)), 2);
 
         return [
             'score' => $score,
@@ -119,9 +145,123 @@ class responsiveness_calculator {
                 'median'     => round($median, 4),
                 'critical'   => round($criticalterm, 4),
                 'pending'    => round($pendingterm, 4),
-                'trend'      => round($trend, 4),
+                'trend'      => $trend === null ? null : round($trend, 4),
             ],
         ];
+    }
+
+    /**
+     * Week-over-week change in median effective hours for one group, used
+     * by the dashboard's "Momentum" insight to celebrate sharp recoveries
+     * (e.g. a new teacher inheriting a low-scoring class who turns it
+     * around in days).
+     *
+     * Both windows are 7-day calendar slices ending at `$now`:
+     *   - recent window: grades within (now - 7d, now]
+     *   - prior  window: grades within (now - 14d, now - 7d]
+     *
+     * Returns the % change of the recent median vs the prior median.
+     * Negative = improving (faster turnaround). Returns null when either
+     * window has fewer than {@see self::MOMENTUM_MIN_GRADES} grades —
+     * small samples produce noise rather than signal.
+     *
+     * This is read-only from the ledger; no caching, no schema. The
+     * caller (get_insights) is itself cached for 15 minutes, so per-render
+     * cost is bounded.
+     *
+     * @param int $courseid
+     * @param int $groupid
+     * @param int|null $now
+     * @return float|null
+     */
+    public static function momentum_pct(int $courseid, int $groupid, ?int $now = null): ?float {
+        global $DB;
+
+        $now = $now ?? time();
+        $weeksec = 7 * 86400;
+        $recentstart = $now - $weeksec;
+        $priorstart = $now - 2 * $weeksec;
+
+        $recentvals = self::weekly_effective_hours($courseid, $groupid, $recentstart, $now);
+        if (count($recentvals) < self::MOMENTUM_MIN_GRADES) {
+            return null;
+        }
+        $priorvals = self::weekly_effective_hours($courseid, $groupid, $priorstart, $recentstart);
+        if (count($priorvals) < self::MOMENTUM_MIN_GRADES) {
+            return null;
+        }
+        $recentmedian = \block_feedback_tracker\local\sla\stats::median($recentvals);
+        $priormedian = \block_feedback_tracker\local\sla\stats::median($priorvals);
+        if ($priormedian === null || $priormedian <= 0.0) {
+            return null;
+        }
+        return round(100.0 * ($recentmedian - $priormedian) / $priormedian, 2);
+    }
+
+    /**
+     * Fetch effective-hours values for grades in [$start, $end) for one
+     * (course, group). Used by {@see self::momentum_pct()}.
+     *
+     * @param int $courseid
+     * @param int $groupid
+     * @param int $start
+     * @param int $end
+     * @return array<int, float>
+     */
+    private static function weekly_effective_hours(int $courseid, int $groupid, int $start, int $end): array {
+        global $DB;
+        $rows = $DB->get_records_select(
+            'block_feedback_tracker_sub',
+            'courseid = :courseid AND groupid = :groupid'
+                . ' AND timegraded IS NOT NULL'
+                . ' AND timegraded >= :start AND timegraded < :end',
+            [
+                'courseid' => $courseid,
+                'groupid'  => $groupid,
+                'start'    => $start,
+                'end'      => $end,
+            ],
+            '',
+            'id, effectivehours'
+        );
+        $out = [];
+        foreach ($rows as $r) {
+            if ($r->effectivehours !== null) {
+                $out[] = (float) $r->effectivehours;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Compute effective per-term weights given which terms have data.
+     *
+     * Terms flagged `false` in $available are dropped (weight = 0) and the
+     * remaining weights are renormalised proportionally to sum 1.0. When
+     * every term is available, the input weights pass through unchanged.
+     * When every term is unavailable, every effective weight is 0 — the
+     * caller is responsible for guarding against this degenerate case.
+     *
+     * @param array<string, float> $weights    Admin-configured weights (already normalised by load_weights()).
+     * @param array<string, bool>  $available  Per-term availability flags.
+     * @return array<string, float>            Renormalised weights, same keys as $weights.
+     */
+    public static function effective_weights(array $weights, array $available): array {
+        $keepsum = 0.0;
+        foreach ($weights as $k => $w) {
+            if (!empty($available[$k])) {
+                $keepsum += (float) $w;
+            }
+        }
+        $out = [];
+        foreach ($weights as $k => $w) {
+            if (empty($available[$k]) || $keepsum <= 0.0) {
+                $out[$k] = 0.0;
+            } else {
+                $out[$k] = ((float) $w) / $keepsum;
+            }
+        }
+        return $out;
     }
 
     /**

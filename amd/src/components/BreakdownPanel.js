@@ -48,10 +48,12 @@ import {html, useState} from 'block_feedback_tracker/lib/preact';
  * @param {string} props.strtotal
  * @param {Array<BreakdownRow>} props.rows
  * @param {string} props.totalstr
+ * @param {string} [props.footnote]  Shown below the table when set; explains
+ *                                   any excluded-by-insufficient-data terms.
  * @returns {object} vnode
  */
 export default function BreakdownPanel({
-    summary, strterm, strvalue, strweight, strpts, strtotal, rows, totalstr,
+    summary, strterm, strvalue, strweight, strpts, strtotal, rows, totalstr, footnote,
 }) {
     const [open, setOpen] = useState(false);
     return html`
@@ -89,6 +91,9 @@ export default function BreakdownPanel({
                         </tr>
                     </tfoot>
                 </table>
+            `}
+            ${open && footnote && html`
+                <div class="bft-breakdown-footnote">${footnote}</div>
             `}
         </div>
     `;

@@ -311,11 +311,15 @@ export default function DashboardView({initial}) {
                         ${insights.most_improved && html`
                             <${InsightCard}
                                 tone="climbing"
-                                eyebrow=${i18n.insight_mostimproved_eyebrow || 'Most improved'}
+                                eyebrow=${insights.most_improved.momentum
+                                    ? (i18n.insight_momentum_eyebrow || "This week's momentum")
+                                    : (i18n.insight_mostimproved_eyebrow || 'Most improved')}
                                 title=${insights.most_improved.coursename}
                                 metric_value=${insights.most_improved.metric_value}
                                 metric_suffix=${insights.most_improved.metric_suffix}
-                                body=${i18n.insight_mostimproved_body || ''} />
+                                body=${insights.most_improved.momentum
+                                    ? (i18n.insight_momentum_body || '')
+                                    : (i18n.insight_mostimproved_body || '')} />
                         `}
                         ${insights.gentle_watch && html`
                             <${InsightCard}
