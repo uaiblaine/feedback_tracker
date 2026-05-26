@@ -285,6 +285,14 @@
     font-weight: 700;
 }
 
+.bft-breakdown-footnote {
+    margin-top: 0.4rem;
+    font-size: 0.7rem;
+    color: var(--bft-text-muted);
+    font-style: italic;
+    line-height: 1.4;
+}
+
 .block_feedback_tracker .bft-drilldown {
     font-size: 0.85rem;
 }

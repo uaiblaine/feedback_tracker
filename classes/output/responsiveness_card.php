@@ -182,25 +182,43 @@ class responsiveness_card implements \renderable, \templatable {
             'pending'    => $p['comp_pending'] ?? null,
             'trend'      => $p['comp_trend'] ?? null,
         ];
-        if (count(array_filter($components, static fn($v) => $v !== null)) === 0) {
+        $present = array_keys(array_filter($components, static fn($v) => $v !== null));
+        if (empty($present)) {
             return null;
         }
-        $weights = responsiveness_calculator::load_weights();
+        $adminweights = responsiveness_calculator::load_weights();
+        // v1.0.7 — renormalise weights against the terms that carry data so
+        // the breakdown's weight + points columns match the score the
+        // calculator actually produced. Mirrors the JS-side math in
+        // GroupCard::buildBreakdown().
+        $available = array_fill_keys(array_keys($components), false);
+        foreach ($present as $k) {
+            $available[$k] = true;
+        }
+        $effective = responsiveness_calculator::effective_weights($adminweights, $available);
         $rows = [];
         $totalpts = 0.0;
         $totalmax = 0.0;
-        foreach ($components as $key => $value) {
-            $weight = (float) ($weights[$key] ?? 0.0);
+        foreach ($present as $key) {
+            $value = (float) $components[$key];
+            $weight = (float) $effective[$key];
             $maxpts = $weight * 100.0;
-            $pts = $value !== null ? (float) $value * $maxpts : 0.0;
+            $pts = $value * $maxpts;
             $totalpts += $pts;
             $totalmax += $maxpts;
             $rows[] = [
                 'label'     => self::breakdown_label($key),
-                'valuestr'  => $value !== null ? format_float($value, 2) : '—',
+                'valuestr'  => format_float($value, 2),
                 'weightstr' => format_float($weight, 2),
                 'ptsstr'    => format_float($pts, 1) . ' / ' . format_float($maxpts, 1),
             ];
+        }
+        $excluded = array_diff(array_keys($components), $present);
+        $footnote = '';
+        if (!empty($excluded)) {
+            $names = array_map(static fn($k) => self::breakdown_label($k), $excluded);
+            $footnote = get_string('breakdown_excluded_prefix', 'block_feedback_tracker')
+                . ' ' . implode(', ', $names) . '.';
         }
         return [
             'summary'   => get_string('breakdown_summary', 'block_feedback_tracker'),
@@ -211,6 +229,7 @@ class responsiveness_card implements \renderable, \templatable {
             'strtotal'  => get_string('breakdown_total', 'block_feedback_tracker'),
             'rows'      => $rows,
             'totalstr'  => format_float($totalpts, 1) . ' / ' . format_float($totalmax, 1),
+            'footnote'  => $footnote,
         ];
     }
 

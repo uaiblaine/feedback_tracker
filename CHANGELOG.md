@@ -5,6 +5,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.7] - 2026-05-25
+
+### Phase 4A — Trend-term refinements (Lever 1 + Lever 3)
+
+#### Added
+- `responsiveness_calculator::effective_weights($weights, $available)` —
+  drops unavailable terms and renormalises the kept weights to sum 1.0.
+  Used by both `compute()` and the breakdown panel so the displayed
+  weights match what actually contributed to the score.
+- `responsiveness_calculator::momentum_pct($courseid, $groupid, $now)` —
+  week-over-week % change in median effective hours for one group.
+  Returns null when either 7-day window has fewer than 5 grades.
+- `insight_momentum_eyebrow` / `insight_momentum_body` lang strings
+  (en + pt_br) for the dashboard momentum copy.
+- `breakdown_excluded_prefix` lang string (en + pt_br) for the new
+  breakdown footnote.
+- `.bft-breakdown-footnote` CSS rule.
+
+#### Changed
+- `responsiveness_calculator::compute()` — when the rollup has no prior
+  30-day window (`trend_pct_30d === null`), the trend term is now
+  dropped instead of substituted with 0.5. The other four weights
+  renormalise to sum 1.0, so a brand-new course can legitimately
+  reach 100. Previously a fresh course's theoretical maximum was 95.
+- `components.trend` is now `null` (not `0.5`) when no trend data is
+  available — the breakdown panel skips the row and prints a footnote
+  explaining the exclusion.
+- `responsiveness_card::build_breakdown()` mirrors the JS-side math:
+  renormalised weights, excluded-rows footnote.
+- `get_insights::pick_most_improved()` — first checks for sharp
+  week-over-week momentum (`momentum_pct < -40%` with ≥5 grades each
+  week); falls back to the existing 30-day heuristic. The returned
+  row carries an optional `momentum` boolean so the JS InsightCard
+  can swap eyebrow text + body.
+- `DashboardView` consumes the `momentum` flag and renders either the
+  "This week's momentum" or "Most improved" copy.
+
+#### Notes
+- No schema change, no calver bump — payload shape is additive
+  (`momentum` is `VALUE_OPTIONAL`), score component shape is
+  unchanged (trend was already declared `NULL_ALLOWED`).
+- Momentum recognition is dashboard-only — the score formula never
+  sees the week-over-week signal, so the headline number stays
+  transparent and explainable.
+- Weekly-weighted trend in the score formula (Lever 2) was
+  considered for this release; deferred to v1.1.0 so the 95-cap fix
+  can soak first before changing what `trend_pct_30d` itself means.
+
 ## [1.0.6] - 2026-05-24
 
 ### Phase 3F — Web-service completion

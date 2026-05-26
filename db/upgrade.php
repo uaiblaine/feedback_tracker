@@ -123,5 +123,14 @@ function xmldb_block_feedback_tracker_upgrade($oldversion) {
         upgrade_block_savepoint(true, 2026060106, 'feedback_tracker');
     }
 
+    // v1.0.7 — trend-term refinements (adaptive w_trend + dashboard
+    // momentum). No DB changes. Existing rollup rows still have
+    // comp_trend = 0.5 from prior versions; they'll converge to null on
+    // the natural recompute cycle (event observers / drain queue) and
+    // don't need a forced recompute here.
+    if ($oldversion < 2026060107) {
+        upgrade_block_savepoint(true, 2026060107, 'feedback_tracker');
+    }
+
     return true;
 }
