@@ -300,7 +300,7 @@ class rollup_service {
                 't1' => calendar::DAYTYPE_HOLIDAY,
                 't2' => calendar::DAYTYPE_RECESS,
                 't3' => calendar::DAYTYPE_CLOSED,
-                // v1.0.9 — optional days surface as paused too. Sub-day
+                // V1.0.9 — optional days surface as paused too. Sub-day
                 // event rows resolve their start to ymd + starttime*60 so
                 // PausedNote can show "Paused 16:00-18:00: {label}".
                 't4' => calendar::DAYTYPE_OPTIONAL,
@@ -364,7 +364,7 @@ class rollup_service {
                 't1' => calendar::DAYTYPE_HOLIDAY,
                 't2' => calendar::DAYTYPE_RECESS,
                 't3' => calendar::DAYTYPE_CLOSED,
-                // v1.0.9 — optional days surface as paused too.
+                // V1.0.9 — optional days surface as paused too.
                 't4' => calendar::DAYTYPE_OPTIONAL,
             ],
             'daydate DESC',

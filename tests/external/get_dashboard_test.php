@@ -209,7 +209,7 @@ final class get_dashboard_test extends \advanced_testcase {
     public function test_band_filter_narrows_courses(): void {
         $this->resetAfterTest();
         $this->seed_config();
-        // group_access has a static $memo keyed "courseid:userid" that
+        // Group_access has a static $memo keyed "courseid:userid" that
         // survives resetAfterTest. On MariaDB course / user IDs recycle
         // after table truncation, so a prior test's memo entry could
         // collide and serve a stale visible_group_ids() result that

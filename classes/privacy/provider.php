@@ -107,7 +107,7 @@ class provider implements
             'privacy:metadata:log'
         );
 
-        // v1.0.8 — dashboard hero+insights collapse state. Declared via
+        // V1.0.8 — dashboard hero+insights collapse state. Declared via
         // the user-preference channel so subject-access exports include
         // the value and core can auto-delete it on user deletion.
         $collection->add_user_preference(

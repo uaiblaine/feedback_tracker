@@ -187,7 +187,7 @@ class responsiveness_card implements \renderable, \templatable {
             return null;
         }
         $adminweights = responsiveness_calculator::load_weights();
-        // v1.0.7 — renormalise weights against the terms that carry data so
+        // V1.0.7 — renormalise weights against the terms that carry data so
         // the breakdown's weight + points columns match the score the
         // calculator actually produced. Mirrors the JS-side math in
         // GroupCard::buildBreakdown().
