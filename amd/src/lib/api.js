@@ -198,16 +198,22 @@ export const deletePauseWindow = ({id}) =>
 
 /**
  * Upsert one calendar-day override. Use daytype = 'remove' to clear a
- * previously-overridden day back to the weekday default.
+ * previously-overridden day back to the weekday default. When daytype
+ * is 'optional', `starttime` + `endtime` (minutes since midnight) can be
+ * passed to create a sub-day event window; both null / omitted means a
+ * legacy full-day optional rule.
  *
  * @param {object} options
- * @param {number} options.daydate   YYYYMMDD integer.
- * @param {string} options.daytype   'schoolday' | 'holiday' | 'recess' | 'closed' | 'optional' | 'remove'.
+ * @param {number} options.daydate     YYYYMMDD integer.
+ * @param {string} options.daytype     'schoolday' | 'holiday' | 'recess' | 'closed' | 'optional' | 'remove'.
  * @param {string} [options.note]
+ * @param {number|null} [options.starttime]  Minutes since midnight (0-1439); null = full-day.
+ * @param {number|null} [options.endtime]    Minutes since midnight (1-1440); null = full-day.
  * @returns {Promise<object>}
  */
-export const saveCalendarDay = ({daydate, daytype, note = ''}) =>
-    call('block_feedback_tracker_save_calendar_day', {daydate, daytype, note});
+export const saveCalendarDay = ({daydate, daytype, note = '', starttime = null, endtime = null}) =>
+    call('block_feedback_tracker_save_calendar_day',
+        {daydate, daytype, note, starttime, endtime});
 
 /**
  * Bulk-import calendar days from a CSV payload. CSV columns mirror

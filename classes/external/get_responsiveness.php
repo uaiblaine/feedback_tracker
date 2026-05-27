@@ -143,6 +143,18 @@ class get_responsiveness extends external_api {
                 'holiday' => new external_value(PARAM_INT, ''),
                 'recess'  => new external_value(PARAM_INT, ''),
             ]),
+            // v1.0.9 — sub-day optional events sidecar.
+            'paused_events_30d' => new external_multiple_structure(
+                new external_single_structure([
+                    'date'      => new external_value(PARAM_INT, 'YYYYMMDD'),
+                    'starttime' => new external_value(PARAM_INT, 'Minutes since midnight'),
+                    'endtime'   => new external_value(PARAM_INT, 'Minutes since midnight'),
+                    'label'     => new external_value(PARAM_RAW, 'Pre-sanitised event label'),
+                ]),
+                '',
+                VALUE_DEFAULT,
+                []
+            ),
             'peer_department_score' => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
             'peer_department_hours' => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
             'peer_top10_score'      => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),

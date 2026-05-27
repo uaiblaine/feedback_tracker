@@ -29,13 +29,16 @@
 import {html} from 'block_feedback_tracker/lib/preact';
 
 /**
- * Build the "X weekend days · Y holidays · Z recess days" body line.
+ * Build the "X weekend days · Y holidays · Z recess days · N events" body
+ * line. Events get an inline summary with the most recent label so admins
+ * see what the paused windows actually were.
  *
  * @param {object} breakdown {weekend, holiday, recess}
+ * @param {Array<{label:string}>} events
  * @param {object} i18n
  * @returns {string}
  */
-const buildBreakdownLine = (breakdown, i18n) => {
+const buildBreakdownLine = (breakdown, events, i18n) => {
     const parts = [];
     if (breakdown.weekend > 0) {
         parts.push(breakdown.weekend + ' ' + (i18n.paused_breakdown_weekend || 'weekend days'));
@@ -46,6 +49,18 @@ const buildBreakdownLine = (breakdown, i18n) => {
     if (breakdown.recess > 0) {
         parts.push(breakdown.recess + ' ' + (i18n.paused_breakdown_recess || 'recess days'));
     }
+    if (Array.isArray(events) && events.length > 0) {
+        const n = events.length;
+        const word = n === 1
+            ? (i18n.paused_callout_event_singular || 'event')
+            : (i18n.paused_callout_event_plural || 'events');
+        // Surface the most recent label so admins see what the paused
+        // window actually was. Labels are pre-sanitised server-side via
+        // format_string() — safe to render as text.
+        const latest = events[events.length - 1];
+        const label = latest && latest.label ? latest.label : '';
+        parts.push(n + ' ' + word + (label ? ' (' + label + ')' : ''));
+    }
     return parts.join(' · ');
 };
 
@@ -53,17 +68,19 @@ const buildBreakdownLine = (breakdown, i18n) => {
  * @param {object} props
  * @param {number} props.totaldays      Aggregated paused-day count.
  * @param {object} props.breakdown      {weekend, holiday, recess} counts.
+ * @param {Array<object>} [props.events] Sub-day optional events sidecar.
  * @param {object} props.i18n           Label bundle.
  * @param {() => void} [props.onView]   Optional click handler for "View calendar".
  * @returns {object|null} vnode
  */
-export default function PausedCallout({totaldays, breakdown, i18n, onView}) {
+export default function PausedCallout({totaldays, breakdown, events, i18n, onView}) {
     const days = Number(totaldays) || 0;
-    if (days <= 0) {
+    const evlist = Array.isArray(events) ? events : [];
+    if (days <= 0 && evlist.length === 0) {
         return null;
     }
     const brk = breakdown || {weekend: 0, holiday: 0, recess: 0};
-    const body = buildBreakdownLine(brk, i18n);
+    const body = buildBreakdownLine(brk, evlist, i18n);
     return html`
         <div class="bft-paused-callout">
             <span class="bft-paused-callout-swatch" aria-hidden="true"></span>

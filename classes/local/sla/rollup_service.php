@@ -293,21 +293,28 @@ class rollup_service {
 
         $cdays = $DB->get_records_select(
             'block_feedback_tracker_cday',
-            'daydate > :today AND daydate <= :horizon AND daytype IN (:t1, :t2, :t3)',
+            'daydate >= :today AND daydate <= :horizon AND daytype IN (:t1, :t2, :t3, :t4)',
             [
                 'today'   => $todayymd,
                 'horizon' => $horizonymd,
                 't1' => calendar::DAYTYPE_HOLIDAY,
                 't2' => calendar::DAYTYPE_RECESS,
                 't3' => calendar::DAYTYPE_CLOSED,
+                // v1.0.9 — optional days surface as paused too. Sub-day
+                // event rows resolve their start to ymd + starttime*60 so
+                // PausedNote can show "Paused 16:00-18:00: {label}".
+                't4' => calendar::DAYTYPE_OPTIONAL,
             ],
             'daydate ASC',
-            'id, daydate, daytype, note',
+            'id, daydate, daytype, starttime, endtime, note',
             0,
-            5
+            10
         );
         foreach ($cdays as $row) {
-            $ts = self::ymd_to_ts((int) $row->daydate, $tz);
+            $daystart = self::ymd_to_ts((int) $row->daydate, $tz);
+            $issubday = (string) $row->daytype === calendar::DAYTYPE_OPTIONAL
+                && $row->starttime !== null;
+            $ts = $issubday ? $daystart + ((int) $row->starttime) * 60 : $daystart;
             if ($ts > $now) {
                 $candidates[] = [$ts, (string) $row->daytype, $row->note !== null ? (string) $row->note : null];
             }
@@ -350,22 +357,28 @@ class rollup_service {
 
         $cdays = $DB->get_records_select(
             'block_feedback_tracker_cday',
-            'daydate >= :lookback AND daydate < :today AND daytype IN (:t1, :t2, :t3)',
+            'daydate >= :lookback AND daydate <= :today AND daytype IN (:t1, :t2, :t3, :t4)',
             [
                 'lookback' => $lookbackymd,
                 'today'    => $todayymd,
                 't1' => calendar::DAYTYPE_HOLIDAY,
                 't2' => calendar::DAYTYPE_RECESS,
                 't3' => calendar::DAYTYPE_CLOSED,
+                // v1.0.9 — optional days surface as paused too.
+                't4' => calendar::DAYTYPE_OPTIONAL,
             ],
             'daydate DESC',
-            'id, daydate, daytype',
+            'id, daydate, daytype, starttime, endtime',
             0,
-            5
+            10
         );
         foreach ($cdays as $row) {
-            $startts = self::ymd_to_ts((int) $row->daydate, $tz);
-            $endts = $startts + 86400;
+            $daystart = self::ymd_to_ts((int) $row->daydate, $tz);
+            $issubday = (string) $row->daytype === calendar::DAYTYPE_OPTIONAL
+                && $row->starttime !== null && $row->endtime !== null;
+            $endts = $issubday
+                ? $daystart + ((int) $row->endtime) * 60
+                : $daystart + 86400;
             if ($endts <= $now) {
                 $candidates[] = [$endts, (string) $row->daytype];
             }

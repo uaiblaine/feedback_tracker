@@ -55,6 +55,22 @@ class save_calendar_day extends external_api {
                 'schoolday|holiday|recess|closed|optional|remove'
             ),
             'note'    => new external_value(PARAM_TEXT, 'Free-text note', VALUE_DEFAULT, ''),
+            // v1.0.9 — sub-day event window. Only meaningful when
+            // daytype = 'optional'. Both null = legacy full-day rule.
+            'starttime' => new external_value(
+                PARAM_INT,
+                'Event start (minutes since midnight 0..1439); null = full-day rule',
+                VALUE_DEFAULT,
+                null,
+                NULL_ALLOWED
+            ),
+            'endtime' => new external_value(
+                PARAM_INT,
+                'Event end (minutes since midnight 1..1440); null = full-day rule',
+                VALUE_DEFAULT,
+                null,
+                NULL_ALLOWED
+            ),
         ]);
     }
 
@@ -64,17 +80,28 @@ class save_calendar_day extends external_api {
      * @param int $daydate
      * @param string $daytype
      * @param string $note
+     * @param int|null $starttime
+     * @param int|null $endtime
      * @return array
      */
-    public static function execute(int $daydate, string $daytype, string $note = ''): array {
+    public static function execute(
+        int $daydate,
+        string $daytype,
+        string $note = '',
+        ?int $starttime = null,
+        ?int $endtime = null
+    ): array {
         global $DB, $USER;
 
         $params = self::validate_parameters(self::execute_parameters(), [
             'daydate' => $daydate, 'daytype' => $daytype, 'note' => $note,
+            'starttime' => $starttime, 'endtime' => $endtime,
         ]);
         $daydate = (int) $params['daydate'];
         $daytype = strtolower(trim((string) $params['daytype']));
         $note = trim((string) $params['note']);
+        $starttime = $params['starttime'] !== null ? (int) $params['starttime'] : null;
+        $endtime   = $params['endtime']   !== null ? (int) $params['endtime']   : null;
 
         $sysctx = \context_system::instance();
         self::validate_context($sysctx);
@@ -93,6 +120,27 @@ class save_calendar_day extends external_api {
             throw new \invalid_parameter_exception('Invalid daytype: ' . $daytype);
         }
 
+        // Time-window inputs are only valid when daytype = optional, and
+        // must be both-set-or-both-null with start < end. Force null on
+        // any other daytype so stale values from a previous "optional"
+        // save don't bleed through.
+        if ($daytype !== calendar::DAYTYPE_OPTIONAL) {
+            $starttime = null;
+            $endtime = null;
+        } else if ($starttime === null xor $endtime === null) {
+            throw new \invalid_parameter_exception('starttime and endtime must both be set or both null');
+        } else if ($starttime !== null && $endtime !== null) {
+            if ($starttime < 0 || $starttime > 1439) {
+                throw new \invalid_parameter_exception('starttime out of range 0..1439');
+            }
+            if ($endtime < 1 || $endtime > 1440) {
+                throw new \invalid_parameter_exception('endtime out of range 1..1440');
+            }
+            if ($starttime >= $endtime) {
+                throw new \invalid_parameter_exception('starttime must be less than endtime');
+            }
+        }
+
         $existing = $DB->get_record('block_feedback_tracker_cday', ['daydate' => $daydate], 'id');
         $now = time();
 
@@ -105,6 +153,8 @@ class save_calendar_day extends external_api {
             $record = (object) [
                 'daydate'      => $daydate,
                 'daytype'      => $daytype,
+                'starttime'    => $starttime,
+                'endtime'      => $endtime,
                 'note'         => $note !== '' ? $note : null,
                 'usermodified' => (int) $USER->id,
                 'timemodified' => $now,

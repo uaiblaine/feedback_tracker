@@ -122,6 +122,7 @@ function build_pending_report_scope(array $groups, int $activegroupid): ?array {
                     'paused_days_30d'      => $g['paused_days_30d'] ?? 0,
                     'paused_breakdown_30d' => $g['paused_breakdown_30d']
                         ?? ['weekend' => 0, 'holiday' => 0, 'recess' => 0],
+                    'paused_events_30d'    => $g['paused_events_30d'] ?? [],
                     'total_pending'        => (int) ($g['pending'] ?? 0),
                     'total_critical'       => (int) ($g['critical'] ?? 0),
                     'total_overgoal'       => (int) ($g['overgoal'] ?? 0),
@@ -186,6 +187,7 @@ function build_pending_report_scope(array $groups, int $activegroupid): ?array {
         'paused_breakdown_30d' => is_array($first)
             ? ($first['paused_breakdown_30d'] ?? ['weekend' => 0, 'holiday' => 0, 'recess' => 0])
             : ['weekend' => 0, 'holiday' => 0, 'recess' => 0],
+        'paused_events_30d'    => is_array($first) ? ($first['paused_events_30d'] ?? []) : [],
         'total_pending'        => $totalpending,
         'total_critical'       => $totalcritical,
         'total_overgoal'       => $totalovergoal,

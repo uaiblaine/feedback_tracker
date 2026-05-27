@@ -137,6 +137,37 @@ class academic_time {
                     $windowinterval = [[$windowstart, $windowend]];
 
                     $active = interval_math::intersect($windowinterval, $bhabsolute);
+
+                    // v1.0.9 — sub-day optional event window. The day is
+                    // otherwise active per its weekly rule (see
+                    // day_rule_resolver), but the event window must be
+                    // subtracted from active intervals and recorded as a
+                    // pause with reason='optional' so PausedNote can
+                    // surface the event label.
+                    if (!empty($rule['optional_window'])) {
+                        $eventabs = self::business_hours_absolute(
+                            $day,
+                            [[(int) $rule['optional_window']['startmin'],
+                              (int) $rule['optional_window']['endmin']]]
+                        );
+                        if (!empty($eventabs)) {
+                            $eventoverlap = interval_math::intersect($active, $eventabs);
+                            if (!empty($eventoverlap)) {
+                                $active = interval_math::subtract($active, $eventabs);
+                                foreach ($eventoverlap as $iv) {
+                                    $pauses[] = [
+                                        'reason'     => 'optional',
+                                        'timestart'  => $iv[0],
+                                        'timeend'    => $iv[1],
+                                        'scopelevel' => null,
+                                        'scopeid'    => null,
+                                        'note'       => $rule['optional_window']['note'] ?? null,
+                                    ];
+                                }
+                            }
+                        }
+                    }
+
                     foreach ($active as $iv) {
                         $activeintervals[] = $iv;
                     }
@@ -251,8 +282,13 @@ class academic_time {
             case calendar::DAYTYPE_RECESS:
                 return 'recess';
             case calendar::DAYTYPE_CLOSED:
-            case calendar::DAYTYPE_OPTIONAL:
                 return 'closed';
+            case calendar::DAYTYPE_OPTIONAL:
+                // v1.0.9 — full-day optional gets its own pause reason so
+                // PausedNote can render the event-style note instead of
+                // collapsing into a generic 'closed' chip. Sub-day optional
+                // never reaches this branch (is_active=true above).
+                return 'optional';
             default:
                 return $rule['is_weekend'] ? 'weekend' : 'outofhours';
         }

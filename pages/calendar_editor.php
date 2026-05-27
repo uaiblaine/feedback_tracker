@@ -81,7 +81,9 @@ try {
         \block_feedback_tracker\external\save_calendar_day::execute(
             (int) $data->daydate,
             (string) $data->daytype,
-            (string) ($data->note ?? '')
+            (string) ($data->note ?? ''),
+            isset($data->starttime) && $data->starttime !== null ? (int) $data->starttime : null,
+            isset($data->endtime)   && $data->endtime   !== null ? (int) $data->endtime   : null
         );
         $notice = get_string('caleditor_day_saved', 'block_feedback_tracker');
         redirect($PAGE->url, $notice, null, \core\notification::SUCCESS);
@@ -180,7 +182,7 @@ $days = $DB->get_records(
     'block_feedback_tracker_cday',
     null,
     'daydate ASC',
-    'id, daydate, daytype, note',
+    'id, daydate, daytype, starttime, endtime, note',
     0,
     100
 );
@@ -191,10 +193,24 @@ foreach ($days as $d) {
         'daydate' => $d->daydate,
         'sesskey' => sesskey(),
     ]);
+    // v1.0.9 — render the localised daytype label (was the raw slug).
+    // For sub-day optional rows, append the HH:MM-HH:MM window so the
+    // editor's day list shows "Optional · 16:00-18:00".
+    $typecell = \block_feedback_tracker\local\calendar\calendar::daytype_label((string) $d->daytype);
+    if ((string) $d->daytype === \block_feedback_tracker\local\calendar\calendar::DAYTYPE_OPTIONAL
+        && $d->starttime !== null
+        && $d->endtime !== null) {
+        $sh = (int) ((int) $d->starttime / 60);
+        $sm = ((int) $d->starttime) % 60;
+        $eh = (int) ((int) $d->endtime / 60);
+        $em = ((int) $d->endtime) % 60;
+        $typecell .= ' · '
+            . sprintf('%02d:%02d', $sh, $sm) . '-' . sprintf('%02d:%02d', $eh, $em);
+    }
     $dayrows[] = [
         'cells' => [
             (string) $d->daydate,
-            (string) $d->daytype,
+            $typecell,
             (string) ($d->note ?? ''),
         ],
         'deleteurl'  => $delurl->out(false),

@@ -88,23 +88,85 @@ const overallScore = (groups, thresholds) => {
 };
 
 /**
+ * Format minutes-since-midnight as HH:MM (24-hour).
+ *
+ * @param {number} min
+ * @returns {string}
+ */
+const fmtMin = (min) => {
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+};
+
+/**
+ * Best-effort localiser for a pause-reason slug. Falls back to the slug
+ * itself when the i18n bundle doesn't carry the key. Mirrors the
+ * `pause_reason_*` family already shipped in pending_report_i18n().
+ *
+ * @param {string} reason
+ * @param {object} i18n
+ * @returns {string}
+ */
+const reasonLabel = (reason, i18n) => {
+    const key = 'pause_reason_' + reason;
+    return i18n[key] || reason;
+};
+
+/**
  * Pull the "paused current" + "next paused" strings from the most relevant
  * group's payload (any non-empty group works — the calendar is platform-wide).
  *
+ * v1.0.9 — when nextpause_reason === 'optional', surface the event label
+ * (carried in nextpause_note) and, when nextpause_ts falls within today,
+ * render the HH:MM-HH:MM window. The sub-day window endpoints come from
+ * the paused_events_30d sidecar on the same group payload.
+ *
  * @param {Array<object>} groups
+ * @param {object} i18n
  * @returns {{current: string|null, next: string|null}}
  */
-const pausedSummary = (groups) => {
+const pausedSummary = (groups, i18n) => {
     if (!Array.isArray(groups)) {
         return {current: null, next: null};
     }
+    const todayYmd = (() => {
+        const d = new Date();
+        return d.getFullYear() * 10000
+            + (d.getMonth() + 1) * 100
+            + d.getDate();
+    })();
     for (const g of groups) {
-        const current = g.lastpause_reason
-            ? String(g.lastpause_reason)
-            : null;
-        const next = g.nextpause_reason
-            ? String(g.nextpause_reason)
-            : null;
+        const lastreason = g.lastpause_reason ? String(g.lastpause_reason) : null;
+        const nextreason = g.nextpause_reason ? String(g.nextpause_reason) : null;
+        if (!lastreason && !nextreason) {
+            continue;
+        }
+        let current = lastreason ? reasonLabel(lastreason, i18n) : null;
+        let next = nextreason ? reasonLabel(nextreason, i18n) : null;
+
+        // Sub-day optional events: enrich with HH:MM-HH:MM + label.
+        if (nextreason === 'optional' && Array.isArray(g.paused_events_30d)) {
+            const upcoming = g.paused_events_30d.find((e) =>
+                Number(e.date) === todayYmd
+                || (g.nextpause_ts !== undefined
+                    && g.nextpause_ts !== null
+                    && Number(e.date) >= todayYmd));
+            if (upcoming) {
+                const window = fmtMin(Number(upcoming.starttime)) + '-' + fmtMin(Number(upcoming.endtime));
+                next = window + (upcoming.label ? ': ' + upcoming.label : '')
+                    + (g.nextpause_note ? '' : '');
+            } else if (g.nextpause_note) {
+                next = (next || reasonLabel('optional', i18n)) + ': ' + g.nextpause_note;
+            }
+        }
+        if (lastreason === 'optional' && g.lastpause_reason && g.lastpause_endts) {
+            // Past full-day optional rows just carry the localised label;
+            // sub-day events that have already ended drop off the surface
+            // (no need to call them out as "ended").
+            current = reasonLabel('optional', i18n);
+        }
+
         if (current || next) {
             return {current, next};
         }
@@ -136,7 +198,7 @@ export default function BlockView({initial}) {
         () => overallScore(groups, config && config.score_thresholds),
         [groups, config]
     );
-    const paused = useMemo(() => pausedSummary(groups), [groups]);
+    const paused = useMemo(() => pausedSummary(groups, i18n), [groups, i18n]);
     const overallBandLabel = i18n.bands && i18n.bands[overall.band] ? i18n.bands[overall.band] : '';
 
     const handleRefresh = async () => {

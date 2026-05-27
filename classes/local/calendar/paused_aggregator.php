@@ -37,8 +37,16 @@ namespace block_feedback_tracker\local\calendar;
  *               exclusion is enabled, AND no schoolday override exists in
  *               {block_feedback_tracker_cday}.
  *  - holiday  — daytype = 'holiday'.
- *  - recess   — daytype = 'recess' OR 'closed' OR any active manual pause
+ *  - recess   — daytype = 'recess' OR 'closed' OR full-day 'optional'
+ *               (no time window) OR any active manual pause
  *               (from {block_feedback_tracker_cpause}) covers the day.
+ *
+ * Sub-day optional events (daytype = 'optional' with starttime + endtime
+ * set) do NOT count as a recess "day" — they're hour-scale, not day-
+ * scale. They surface in the `events` sidecar list with their window +
+ * label so the report-page callout can render
+ *   "… · 1 event (⚽ Brasil vs França)"
+ * alongside the day-bucket counts.
  *
  * A "schoolday" override in {block_feedback_tracker_cday} cancels the
  * weekend classification — admins explicitly opting a Saturday into the
@@ -52,17 +60,18 @@ class paused_aggregator {
      * @param int $courseid Course context for manual-pause scoping; 0 for site-wide.
      * @param int $start    Unix seconds; inclusive lower bound.
      * @param int $end      Unix seconds; exclusive upper bound. Must be > $start.
-     * @return array{total_days:int, weekend:int, holiday:int, recess:int}
+     * @return array{total_days:int, weekend:int, holiday:int, recess:int, events:array<int, array{date:int, starttime:int, endtime:int, label:string}>}
      */
     public static function for_window(int $courseid, int $start, int $end): array {
         if ($end <= $start) {
-            return ['total_days' => 0, 'weekend' => 0, 'holiday' => 0, 'recess' => 0];
+            return ['total_days' => 0, 'weekend' => 0, 'holiday' => 0, 'recess' => 0, 'events' => []];
         }
 
         $tz = calendar::timezone();
         $excludeweekends = calendar::excludeweekends();
         $excludeholidays = calendar::excludeholidays();
         $excluderecesses = calendar::excluderecesses();
+        $sysctx = \context_system::instance();
 
         // Walk each day in the window in the platform timezone. Window is
         // small (typically 30 days) so per-day iteration is cheap.
@@ -78,7 +87,7 @@ class paused_aggregator {
             $cur = $cur->modify('+1 day');
         }
         if (empty($dayymds)) {
-            return ['total_days' => 0, 'weekend' => 0, 'holiday' => 0, 'recess' => 0];
+            return ['total_days' => 0, 'weekend' => 0, 'holiday' => 0, 'recess' => 0, 'events' => []];
         }
 
         $overrides = self::day_overrides($dayymds);
@@ -87,24 +96,51 @@ class paused_aggregator {
         $weekend = 0;
         $holiday = 0;
         $recess = 0;
+        $events = [];
 
         foreach ($days as $ymd => $dow) {
             $override = $overrides[$ymd] ?? null;
             $isweekend = $excludeweekends && calendar::is_weekend($dow);
+            $type = $override['daytype'] ?? null;
 
             // schoolday overrides cancel the weekend classification.
-            if ($override === 'schoolday') {
+            if ($type === calendar::DAYTYPE_SCHOOLDAY) {
                 $isweekend = false;
             }
 
-            // Priority: holiday > recess/closed/manual-pause > weekend.
-            if ($override === 'holiday' && $excludeholidays) {
+            // Priority: holiday > recess/closed/full-day-optional/manual-pause > weekend.
+            if ($type === calendar::DAYTYPE_HOLIDAY && $excludeholidays) {
                 $holiday++;
                 continue;
             }
-            if (($override === 'recess' || $override === 'closed') && $excluderecesses) {
+            if (($type === calendar::DAYTYPE_RECESS || $type === calendar::DAYTYPE_CLOSED) && $excluderecesses) {
                 $recess++;
                 continue;
+            }
+            if ($type === calendar::DAYTYPE_OPTIONAL) {
+                // Sub-day event vs full-day optional.
+                $optstart = $override['starttime'];
+                $optend = $override['endtime'];
+                if ($optstart !== null && $optend !== null) {
+                    // Sub-day — surface in the events sidecar but do NOT
+                    // bump the recess bucket (it's hour-scale, not day).
+                    $events[] = [
+                        'date'      => (int) $ymd,
+                        'starttime' => (int) $optstart,
+                        'endtime'   => (int) $optend,
+                        'label'     => format_string(
+                            (string) ($override['note'] ?? ''),
+                            true,
+                            ['context' => $sysctx]
+                        ),
+                    ];
+                } else if ($excluderecesses) {
+                    // Full-day optional — fold into the recess bucket.
+                    $recess++;
+                    continue;
+                }
+                // Fall through — sub-day events still get the weekend
+                // check applied below in case the day is a Saturday.
             }
             if (self::ymd_in_pause_span($ymd, $tz, $pausespans)) {
                 $recess++;
@@ -120,14 +156,18 @@ class paused_aggregator {
             'weekend'    => $weekend,
             'holiday'    => $holiday,
             'recess'     => $recess,
+            'events'     => $events,
         ];
     }
 
     /**
-     * Fetch the day-override types for the supplied YYYYMMDD ints.
+     * Fetch the day-override rows for the supplied YYYYMMDD ints. Returns
+     * a per-day shape carrying daytype + starttime / endtime / note so
+     * for_window() can distinguish sub-day optional events from full-day
+     * rules.
      *
      * @param int[] $ymds
-     * @return array<int, string> Map of ymd → daytype.
+     * @return array<int, array{daytype:string, starttime:?int, endtime:?int, note:?string}>
      */
     private static function day_overrides(array $ymds): array {
         global $DB;
@@ -140,11 +180,16 @@ class paused_aggregator {
             "daydate $insql",
             $params,
             '',
-            'id, daydate, daytype'
+            'id, daydate, daytype, starttime, endtime, note'
         );
         $out = [];
         foreach ($rows as $r) {
-            $out[(int) $r->daydate] = (string) $r->daytype;
+            $out[(int) $r->daydate] = [
+                'daytype'   => (string) $r->daytype,
+                'starttime' => $r->starttime !== null ? (int) $r->starttime : null,
+                'endtime'   => $r->endtime   !== null ? (int) $r->endtime   : null,
+                'note'      => $r->note      !== null ? (string) $r->note   : null,
+            ];
         }
         return $out;
     }

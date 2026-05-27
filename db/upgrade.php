@@ -42,6 +42,7 @@ defined('MOODLE_INTERNAL') || die();
  * @throws upgrade_exception When an unsupported pre-v1 version is detected.
  */
 function xmldb_block_feedback_tracker_upgrade($oldversion) {
+    global $DB;
     /*
      * Fresh installs land here with $oldversion = 0 (the install hook
      * sets the version *after* this function returns). Returning true
@@ -140,6 +141,47 @@ function xmldb_block_feedback_tracker_upgrade($oldversion) {
     // hero on first visit after upgrade.
     if ($oldversion < 2026060108) {
         upgrade_block_savepoint(true, 2026060108, 'feedback_tracker');
+    }
+
+    // v1.0.9 — sub-day optional event windows. Two nullable columns
+    // on {block_feedback_tracker_cday} for minutes-since-midnight
+    // start / end. Both null = legacy full-day rule (existing rows are
+    // unaffected). Calver bump invalidates cached payloads so the new
+    // paused_events_30d sidecar shows up on next read.
+    if ($oldversion < 2026060109) {
+        $dbman = $DB->get_manager();
+        $table = new xmldb_table('block_feedback_tracker_cday');
+
+        $field = new xmldb_field(
+            'starttime',
+            XMLDB_TYPE_INTEGER,
+            '4',
+            XMLDB_UNSIGNED,
+            null,
+            null,
+            null,
+            'daytype'
+        );
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        $field = new xmldb_field(
+            'endtime',
+            XMLDB_TYPE_INTEGER,
+            '4',
+            XMLDB_UNSIGNED,
+            null,
+            null,
+            null,
+            'starttime'
+        );
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        \block_feedback_tracker\local\calendar\calendar::bump_version();
+        upgrade_block_savepoint(true, 2026060109, 'feedback_tracker');
     }
 
     return true;

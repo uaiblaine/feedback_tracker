@@ -156,7 +156,7 @@ class responsiveness_payload {
         ?array $pausedaggregate = null,
         ?array $peer = null
     ): array {
-        $pausedaggregate = $pausedaggregate ?? ['total_days' => 0, 'weekend' => 0, 'holiday' => 0, 'recess' => 0];
+        $pausedaggregate = $pausedaggregate ?? ['total_days' => 0, 'weekend' => 0, 'holiday' => 0, 'recess' => 0, 'events' => []];
         $peer = $peer ?? ['department_score' => null, 'department_hours' => null,
                           'top10_score' => null, 'top10_hours' => null];
         return [
@@ -205,6 +205,17 @@ class responsiveness_payload {
                 'holiday' => (int) $pausedaggregate['holiday'],
                 'recess'  => (int) $pausedaggregate['recess'],
             ],
+            // v1.0.9 — sub-day optional events sidecar list. Each entry
+            // is {date: YYYYMMDD, starttime: min, endtime: min, label: str}.
+            // Label is already format_string()-sanitised by paused_aggregator.
+            'paused_events_30d' => is_array($pausedaggregate['events'] ?? null)
+                ? array_map(static fn ($e) => [
+                    'date'      => (int) $e['date'],
+                    'starttime' => (int) $e['starttime'],
+                    'endtime'   => (int) $e['endtime'],
+                    'label'     => (string) $e['label'],
+                ], $pausedaggregate['events'])
+                : [],
             // Phase 3C — peer comparison (excluding this group).
             'peer_department_score' => $peer['department_score'] !== null ? (float) $peer['department_score'] : null,
             'peer_department_hours' => $peer['department_hours'] !== null ? (float) $peer['department_hours'] : null,
