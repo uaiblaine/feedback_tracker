@@ -8,7 +8,7 @@
  * lockstep with classes/output/score_gauge.php::BAND_COLOURS and
  * amd/src/lib/bands.js::BAND_COLOURS. */
 :root {
-    --bft-surface: #ffffff;
+    --bft-surface: #fff;
     --bft-surface-alt: #f7f8fa;
     --bft-surface-dim: #f1f3f6;
     --bft-border: #e5e7eb;
@@ -894,11 +894,21 @@ table.bft-sortable th.bft-sort-desc::after {
     letter-spacing: -0.04em;
 }
 
-.bft-overall-score-tone-excellent { color: var(--bft-band-excellent-fg); }
-.bft-overall-score-tone-good      { color: var(--bft-band-good-fg); }
-.bft-overall-score-tone-regular   { color: var(--bft-band-regular-fg); }
-.bft-overall-score-tone-critical  { color: var(--bft-band-critical-fg); }
-.bft-overall-score-tone-pending   { color: var(--bft-band-pending-fg); }
+.bft-overall-score-tone-excellent {
+    color: var(--bft-band-excellent-fg);
+}
+.bft-overall-score-tone-good {
+    color: var(--bft-band-good-fg);
+}
+.bft-overall-score-tone-regular {
+    color: var(--bft-band-regular-fg);
+}
+.bft-overall-score-tone-critical {
+    color: var(--bft-band-critical-fg);
+}
+.bft-overall-score-tone-pending {
+    color: var(--bft-band-pending-fg);
+}
 
 .bft-overall-score-of {
     font-size: 0.7rem;
@@ -984,11 +994,21 @@ table.bft-sortable th.bft-sort-desc::after {
     font-weight: 500;
 }
 
-.bft-kpi-tile-tone-excellent .bft-kpi-tile-value { color: var(--bft-band-excellent-fg); }
-.bft-kpi-tile-tone-good      .bft-kpi-tile-value { color: var(--bft-band-good-fg); }
-.bft-kpi-tile-tone-regular   .bft-kpi-tile-value { color: var(--bft-band-regular-fg); }
-.bft-kpi-tile-tone-critical  .bft-kpi-tile-value { color: var(--bft-band-critical-fg); }
-.bft-kpi-tile-tone-muted     .bft-kpi-tile-value { color: var(--bft-text-muted); }
+.bft-kpi-tile-tone-excellent .bft-kpi-tile-value {
+    color: var(--bft-band-excellent-fg);
+}
+.bft-kpi-tile-tone-good .bft-kpi-tile-value {
+    color: var(--bft-band-good-fg);
+}
+.bft-kpi-tile-tone-regular .bft-kpi-tile-value {
+    color: var(--bft-band-regular-fg);
+}
+.bft-kpi-tile-tone-critical .bft-kpi-tile-value {
+    color: var(--bft-band-critical-fg);
+}
+.bft-kpi-tile-tone-muted .bft-kpi-tile-value {
+    color: var(--bft-text-muted);
+}
 
 /* TrendRow. */
 .bft-trend-row {
@@ -1036,12 +1056,18 @@ table.bft-sortable th.bft-sort-desc::after {
     margin-left: 0.1rem;
 }
 
-.bft-trend-tone-stable    .bft-trend-row-arrow,
-.bft-trend-tone-stable    .bft-trend-row-pct { color: var(--bft-text-muted); }
+.bft-trend-tone-stable .bft-trend-row-arrow,
+.bft-trend-tone-stable .bft-trend-row-pct {
+    color: var(--bft-text-muted);
+}
 .bft-trend-tone-improving .bft-trend-row-arrow,
-.bft-trend-tone-improving .bft-trend-row-pct { color: var(--bft-band-excellent-fg); }
+.bft-trend-tone-improving .bft-trend-row-pct {
+    color: var(--bft-band-excellent-fg);
+}
 .bft-trend-tone-declining .bft-trend-row-arrow,
-.bft-trend-tone-declining .bft-trend-row-pct { color: var(--bft-band-critical-fg); }
+.bft-trend-tone-declining .bft-trend-row-pct {
+    color: var(--bft-band-critical-fg);
+}
 
 .bft-trend-row-spark {
     line-height: 0;
@@ -1236,21 +1262,37 @@ table.bft-sortable th.bft-sort-desc::after {
     box-shadow: 0 0 0 1.5px #fff;
 }
 
-.bft-timeline-bar-on-track .bft-timeline-bar-track { background: var(--bft-band-excellent-bg); }
+.bft-timeline-bar-on-track .bft-timeline-bar-track {
+    background: var(--bft-band-excellent-bg);
+}
 .bft-timeline-bar-on-track .bft-timeline-bar-fill,
-.bft-timeline-bar-on-track .bft-timeline-bar-thumb { background: var(--bft-band-excellent-fg); }
+.bft-timeline-bar-on-track .bft-timeline-bar-thumb {
+    background: var(--bft-band-excellent-fg);
+}
 
-.bft-timeline-bar-soon .bft-timeline-bar-track { background: var(--bft-band-good-bg); }
+.bft-timeline-bar-soon .bft-timeline-bar-track {
+    background: var(--bft-band-good-bg);
+}
 .bft-timeline-bar-soon .bft-timeline-bar-fill,
-.bft-timeline-bar-soon .bft-timeline-bar-thumb { background: var(--bft-band-good-fg); }
+.bft-timeline-bar-soon .bft-timeline-bar-thumb {
+    background: var(--bft-band-good-fg);
+}
 
-.bft-timeline-bar-urgent .bft-timeline-bar-track { background: var(--bft-band-regular-bg); }
+.bft-timeline-bar-urgent .bft-timeline-bar-track {
+    background: var(--bft-band-regular-bg);
+}
 .bft-timeline-bar-urgent .bft-timeline-bar-fill,
-.bft-timeline-bar-urgent .bft-timeline-bar-thumb { background: var(--bft-band-regular-fg); }
+.bft-timeline-bar-urgent .bft-timeline-bar-thumb {
+    background: var(--bft-band-regular-fg);
+}
 
-.bft-timeline-bar-overdue .bft-timeline-bar-track { background: var(--bft-band-critical-bg); }
+.bft-timeline-bar-overdue .bft-timeline-bar-track {
+    background: var(--bft-band-critical-bg);
+}
 .bft-timeline-bar-overdue .bft-timeline-bar-fill,
-.bft-timeline-bar-overdue .bft-timeline-bar-thumb { background: var(--bft-band-critical-fg); }
+.bft-timeline-bar-overdue .bft-timeline-bar-thumb {
+    background: var(--bft-band-critical-fg);
+}
 
 /* Hero row inside GroupCard. */
 .bft-card-hero {
@@ -1717,10 +1759,18 @@ table.bft-sortable th.bft-sort-desc::after {
     opacity: 0.28;
 }
 
-.bft-dist-seg-excellent { background: var(--bft-band-excellent-fg); }
-.bft-dist-seg-good      { background: var(--bft-band-good-fg); }
-.bft-dist-seg-regular   { background: var(--bft-band-regular-fg); }
-.bft-dist-seg-critical  { background: var(--bft-band-critical-fg); }
+.bft-dist-seg-excellent {
+    background: var(--bft-band-excellent-fg);
+}
+.bft-dist-seg-good {
+    background: var(--bft-band-good-fg);
+}
+.bft-dist-seg-regular {
+    background: var(--bft-band-regular-fg);
+}
+.bft-dist-seg-critical {
+    background: var(--bft-band-critical-fg);
+}
 
 .bft-dist-seg-n {
     font-size: 1.1rem;
@@ -1774,10 +1824,18 @@ table.bft-sortable th.bft-sort-desc::after {
     color: #fff;
 }
 
-.bft-segmented-btn.is-active.bft-segmented-btn-tone-excellent { background: var(--bft-band-excellent-fg); }
-.bft-segmented-btn.is-active.bft-segmented-btn-tone-good      { background: var(--bft-band-good-fg); }
-.bft-segmented-btn.is-active.bft-segmented-btn-tone-regular   { background: var(--bft-band-regular-fg); }
-.bft-segmented-btn.is-active.bft-segmented-btn-tone-critical  { background: var(--bft-band-critical-fg); }
+.bft-segmented-btn.is-active.bft-segmented-btn-tone-excellent {
+    background: var(--bft-band-excellent-fg);
+}
+.bft-segmented-btn.is-active.bft-segmented-btn-tone-good {
+    background: var(--bft-band-good-fg);
+}
+.bft-segmented-btn.is-active.bft-segmented-btn-tone-regular {
+    background: var(--bft-band-regular-fg);
+}
+.bft-segmented-btn.is-active.bft-segmented-btn-tone-critical {
+    background: var(--bft-band-critical-fg);
+}
 
 /* Report controls (toolbar) — keep existing widths, just tweak alignment.
    The existing .bft-report-controls flexbox layout is reused. */
@@ -1972,9 +2030,19 @@ table.bft-sortable th.bft-sort-desc::after {
     color: var(--bft-plum-fg);
 }
 
-.bft-rh-sparkle-1 { top: 18px;    left: 26px; }
-.bft-rh-sparkle-2 { top: 32px;    right: 220px; color: var(--bft-sand-fg); }
-.bft-rh-sparkle-3 { bottom: 22px; left: 200px; }
+.bft-rh-sparkle-1 {
+    top: 18px;
+    left: 26px;
+}
+.bft-rh-sparkle-2 {
+    top: 32px;
+    right: 220px;
+    color: var(--bft-sand-fg);
+}
+.bft-rh-sparkle-3 {
+    bottom: 22px;
+    left: 200px;
+}
 
 .bft-rh-collapse {
     position: absolute;
@@ -2225,9 +2293,15 @@ table.bft-sortable th.bft-sort-desc::after {
     gap: 0.375rem;
 }
 
-.bft-insight-tone-bright   { background: var(--bft-plum-bg); }
-.bft-insight-tone-climbing { background: var(--bft-band-excellent-bg); }
-.bft-insight-tone-watch    { background: var(--bft-sand-bg); }
+.bft-insight-tone-bright {
+    background: var(--bft-plum-bg);
+}
+.bft-insight-tone-climbing {
+    background: var(--bft-band-excellent-bg);
+}
+.bft-insight-tone-watch {
+    background: var(--bft-sand-bg);
+}
 
 .bft-insight-head {
     display: flex;
@@ -2245,9 +2319,15 @@ table.bft-sortable th.bft-sort-desc::after {
     text-transform: uppercase;
 }
 
-.bft-insight-tone-bright   .bft-insight-eyebrow { color: var(--bft-plum-fg); }
-.bft-insight-tone-climbing .bft-insight-eyebrow { color: var(--bft-band-excellent-fg); }
-.bft-insight-tone-watch    .bft-insight-eyebrow { color: var(--bft-sand-fg); }
+.bft-insight-tone-bright .bft-insight-eyebrow {
+    color: var(--bft-plum-fg);
+}
+.bft-insight-tone-climbing .bft-insight-eyebrow {
+    color: var(--bft-band-excellent-fg);
+}
+.bft-insight-tone-watch .bft-insight-eyebrow {
+    color: var(--bft-sand-fg);
+}
 
 .bft-insight-title {
     font-size: 0.875rem;
@@ -2268,9 +2348,15 @@ table.bft-sortable th.bft-sort-desc::after {
     line-height: 1;
 }
 
-.bft-insight-tone-bright   .bft-insight-metric-value { color: var(--bft-plum-fg); }
-.bft-insight-tone-climbing .bft-insight-metric-value { color: var(--bft-band-excellent-fg); }
-.bft-insight-tone-watch    .bft-insight-metric-value { color: var(--bft-sand-fg); }
+.bft-insight-tone-bright .bft-insight-metric-value {
+    color: var(--bft-plum-fg);
+}
+.bft-insight-tone-climbing .bft-insight-metric-value {
+    color: var(--bft-band-excellent-fg);
+}
+.bft-insight-tone-watch .bft-insight-metric-value {
+    color: var(--bft-sand-fg);
+}
 
 .bft-insight-metric-suffix {
     font-size: 0.7rem;
@@ -2514,7 +2600,9 @@ table.bft-sortable th.bft-sort-desc::after {
         flex-wrap: wrap;
         gap: 1rem;
     }
-    .bft-rh-mini-divider { display: none; }
+    .bft-rh-mini-divider {
+        display: none;
+    }
     .bft-insights-row,
     .bft-priority-row {
         grid-template-columns: 1fr 1fr;
@@ -2535,5 +2623,7 @@ table.bft-sortable th.bft-sort-desc::after {
     .bft-rh-slim {
         flex-wrap: wrap;
     }
-    .bft-rh-slim-divider { display: none; }
+    .bft-rh-slim-divider {
+        display: none;
+    }
 }

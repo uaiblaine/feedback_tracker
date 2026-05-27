@@ -195,7 +195,7 @@ function block_feedback_tracker_reset_data(bool $reenablebackfill = false): arra
  */
 function block_feedback_tracker_user_preferences(): array {
     return [
-        // v1.0.8 — collapsed state for the teacher dashboard's combined
+        // V1.0.8 — collapsed state for the teacher dashboard's combined
         // Responsiveness hero + Insights block. Stored as a stringified
         // boolean ('0' | '1') because that's what the core preferences
         // API serialises to.

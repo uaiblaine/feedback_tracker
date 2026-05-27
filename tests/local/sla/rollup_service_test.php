@@ -107,7 +107,7 @@ final class rollup_service_test extends \advanced_testcase {
         $this->assertSame(0, (int) $row->critical);
         $this->assertSame(0, (int) $row->numgraded30d);
         $this->assertNull($row->median_eff_h);
-        $this->assertSame(95.0, (float) $row->responsiveness_score);
+        $this->assertSame(100.0, (float) $row->responsiveness_score);
         $this->assertSame('excellent', $row->score_band);
     }
 

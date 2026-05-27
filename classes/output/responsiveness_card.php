@@ -35,10 +35,10 @@ use block_feedback_tracker\local\score\responsiveness_calculator;
  */
 class responsiveness_card implements \renderable, \templatable {
     /** @var int The course ID. */
-    public readonly int $courseid;
+    public int $courseid;
 
     /** @var array One element of the responsiveness payload `groups` array. */
-    public readonly array $payload;
+    public array $payload;
 
     /**
      * Constructor for responsiveness_card.

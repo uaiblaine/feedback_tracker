@@ -42,13 +42,13 @@ class score_gauge implements \renderable, \templatable {
     ];
 
     /** @var float|null The responsiveness score. */
-    public readonly ?float $score;
+    public ?float $score;
 
     /** @var string|null The responsiveness band. */
-    public readonly ?string $band;
+    public ?string $band;
 
     /** @var int The gauge circle size. */
-    public readonly int $size;
+    public int $size;
 
     /**
      * Constructor for the score gauge.

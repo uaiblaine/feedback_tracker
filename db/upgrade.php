@@ -22,7 +22,7 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
+
 
 /**
  * v1.0.0 baseline — fresh installations only.
@@ -68,7 +68,7 @@ function xmldb_block_feedback_tracker_upgrade($oldversion) {
         );
     }
 
-    // v1.0.1 — seeds the new score_thresholds_band setting so 1.0.0
+    // V1.0.1 — seeds the new score_thresholds_band setting so 1.0.0
     // installs pick up the design defaults without waiting for an admin
     // to visit the settings page. The set_config() call deliberately
     // skips set_updatedcallback (which only fires through
@@ -81,14 +81,14 @@ function xmldb_block_feedback_tracker_upgrade($oldversion) {
         upgrade_block_savepoint(true, 2026060101, 'feedback_tracker');
     }
 
-    // v1.0.2 — block-view recomposition. No DB changes; the new Preact
+    // V1.0.2 — block-view recomposition. No DB changes; the new Preact
     // components and CSS tokens ship in code only. The savepoint is here so
     // sites still get a deterministic upgrade marker.
     if ($oldversion < 2026060102) {
         upgrade_block_savepoint(true, 2026060102, 'feedback_tracker');
     }
 
-    // v1.0.3 — payload extensions (perceived / paused / peer). No schema
+    // V1.0.3 — payload extensions (perceived / paused / peer). No schema
     // changes: perceived_median_hours aliases median_raw_h, paused aggregates
     // are computed at read time from cday + cpause, peer benchmarks come from
     // the existing _group rollup. Bump calver so MUC keys roll over and
@@ -98,14 +98,14 @@ function xmldb_block_feedback_tracker_upgrade($oldversion) {
         upgrade_block_savepoint(true, 2026060103, 'feedback_tracker');
     }
 
-    // v1.0.4 — pending report page redesign. No DB changes; new Preact
+    // V1.0.4 — pending report page redesign. No DB changes; new Preact
     // components + bootstrap shape extension only. Savepoint here for the
     // upgrade marker, no cache bump (read-side payload shape unchanged).
     if ($oldversion < 2026060104) {
         upgrade_block_savepoint(true, 2026060104, 'feedback_tracker');
     }
 
-    // v1.0.5 — dashboard redesign + new get_insights WS. The WS slots
+    // V1.0.5 — dashboard redesign + new get_insights WS. The WS slots
     // into the existing dashboard cache; bump calver so per-user cached
     // dashboards re-fetch and pick up the new score_band / trend_series
     // / perceived_median_hours fields from get_dashboard.
@@ -114,7 +114,7 @@ function xmldb_block_feedback_tracker_upgrade($oldversion) {
         upgrade_block_savepoint(true, 2026060105, 'feedback_tracker');
     }
 
-    // v1.0.6 — web-service completion. Five new JS write wrappers
+    // V1.0.6 — web-service completion. Five new JS write wrappers
     // (savePauseWindow / deletePauseWindow / saveCalendarDay /
     // bulkImportCalendar / saveBusinessHours), one new read WS
     // (get_audit_log, gated by the existing viewaudit capability), and a
@@ -124,7 +124,7 @@ function xmldb_block_feedback_tracker_upgrade($oldversion) {
         upgrade_block_savepoint(true, 2026060106, 'feedback_tracker');
     }
 
-    // v1.0.7 — trend-term refinements (adaptive w_trend + dashboard
+    // V1.0.7 — trend-term refinements (adaptive w_trend + dashboard
     // momentum). No DB changes. Existing rollup rows still have
     // comp_trend = 0.5 from prior versions; they'll converge to null on
     // the natural recompute cycle (event observers / drain queue) and
@@ -133,7 +133,7 @@ function xmldb_block_feedback_tracker_upgrade($oldversion) {
         upgrade_block_savepoint(true, 2026060107, 'feedback_tracker');
     }
 
-    // v1.0.8 — combined hero+insights collapse state persisted via the
+    // V1.0.8 — combined hero+insights collapse state persisted via the
     // core user-preferences API. No schema change; the preference key
     // (block_feedback_tracker_dashboard_collapsed) is declared in
     // lib.php::block_feedback_tracker_user_preferences() and gets a
@@ -143,7 +143,7 @@ function xmldb_block_feedback_tracker_upgrade($oldversion) {
         upgrade_block_savepoint(true, 2026060108, 'feedback_tracker');
     }
 
-    // v1.0.9 — sub-day optional event windows. Two nullable columns
+    // V1.0.9 — sub-day optional event windows. Two nullable columns
     // on {block_feedback_tracker_cday} for minutes-since-midnight
     // start / end. Both null = legacy full-day rule (existing rows are
     // unaffected). Calver bump invalidates cached payloads so the new
@@ -184,7 +184,7 @@ function xmldb_block_feedback_tracker_upgrade($oldversion) {
         upgrade_block_savepoint(true, 2026060109, 'feedback_tracker');
     }
 
-    // v1.0.10 — patch the PHP 8.x "implicit float→int" deprecation in
+    // V1.0.10 — patch the PHP 8.x "implicit float→int" deprecation in
     // paused_aggregator::ymd_in_pause_span. Code-only fix, no schema or
     // cache impact — the savepoint exists for the upgrade marker so any
     // sites that picked up 1.0.9 on PHP 8.1+ converge cleanly to 1.0.10
@@ -193,7 +193,7 @@ function xmldb_block_feedback_tracker_upgrade($oldversion) {
         upgrade_block_savepoint(true, 2026060110, 'feedback_tracker');
     }
 
-    // v1.0.11 — UX patch: event time + date in PausedCallout, event
+    // V1.0.11 — UX patch: event time + date in PausedCallout, event
     // sidecar surfaced in block PausedNote, "Recent event" chip on the
     // teacher dashboard. JS-only and lang-strings — no DB or cache
     // impact. Savepoint here for the upgrade marker.
