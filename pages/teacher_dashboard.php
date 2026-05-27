@@ -86,6 +86,24 @@ try {
     debugging('block_feedback_tracker: insights fetch failed: ' . $e->getMessage());
 }
 
+// v1.0.11 — site-scope events sidecar so the dashboard subline can
+// surface the most recent named optional event. The calendar is
+// site-wide, so a single aggregator pass at courseid=0 reaches every
+// event an admin has configured. Window matches the per-group payload
+// (last 30 days) for symmetry with the block + report.
+$events = [];
+try {
+    $now = time();
+    $aggregate = \block_feedback_tracker\local\calendar\paused_aggregator::for_window(
+        0,
+        $now - 30 * 86400,
+        $now
+    );
+    $events = $aggregate['events'] ?? [];
+} catch (\Throwable $e) {
+    debugging('block_feedback_tracker: dashboard events fetch failed: ' . $e->getMessage());
+}
+
 // Whether to expose the comparison overlay — gated by its own capability so
 // teachers with viewdashboard but not viewschoolcomparison only see the
 // per-course aggregate, not the site-wide benchmarks.
@@ -115,6 +133,7 @@ $initial = [
     'dashboard' => $dashboard,
     'gradenow' => $gradenow,
     'insights' => $insights,
+    'events' => $events,
     'cancompare' => $cancompare,
     'dashboard_collapsed' => $dashboardcollapsed,
     'i18n' => array_merge(

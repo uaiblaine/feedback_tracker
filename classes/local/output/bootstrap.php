@@ -176,6 +176,8 @@ class bootstrap {
             // Phase 3E additions — hero, slim toggle, insights, priority, columns.
             'dashboard_brandtag' => get_string('dashboard_brandtag', 'block_feedback_tracker'),
             'dashboard_business_chip' => get_string('dashboard_business_chip', 'block_feedback_tracker'),
+            'dashboard_event_chip_label' => get_string('dashboard_event_chip_label', 'block_feedback_tracker'),
+            'dashboard_event_chip_tooltip' => get_string('dashboard_event_chip_tooltip', 'block_feedback_tracker'),
             'dashboard_collapse' => get_string('dashboard_collapse', 'block_feedback_tracker'),
             'dashboard_expand' => get_string('dashboard_expand', 'block_feedback_tracker'),
             'dashboard_greeting_afternoon' => get_string('dashboard_greeting_afternoon', 'block_feedback_tracker'),

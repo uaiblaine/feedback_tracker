@@ -193,5 +193,13 @@ function xmldb_block_feedback_tracker_upgrade($oldversion) {
         upgrade_block_savepoint(true, 2026060110, 'feedback_tracker');
     }
 
+    // v1.0.11 — UX patch: event time + date in PausedCallout, event
+    // sidecar surfaced in block PausedNote, "Recent event" chip on the
+    // teacher dashboard. JS-only and lang-strings — no DB or cache
+    // impact. Savepoint here for the upgrade marker.
+    if ($oldversion < 2026060111) {
+        upgrade_block_savepoint(true, 2026060111, 'feedback_tracker');
+    }
+
     return true;
 }
