@@ -164,7 +164,7 @@ final class backfill_history_test extends \advanced_testcase {
     public function test_master_auto_disables_when_no_processable_courses(): void {
         $this->resetAfterTest();
         $this->seed_calendar();
-        // course_access has a static $allmemo that survives resetAfterTest
+        // Course_access has a static $allmemo that survives resetAfterTest
         // (PHP statics are out of scope for Moodle's DB rollback). If a
         // prior test populated it with a non-empty list, this test would
         // wrongly see "processable courses exist" and skip the
@@ -433,7 +433,7 @@ final class backfill_history_test extends \advanced_testcase {
      */
     private function build_submissions(int $count): int {
         $course = $this->getDataGenerator()->create_course();
-        // course_access::is_processable() needs a course-context block,
+        // Course_access::is_processable() needs a course-context block,
         // otherwise the dispatcher skips every row. Reset the memo too,
         // because earlier tests may have cached the no-block (false)
         // result for a recycled courseid.

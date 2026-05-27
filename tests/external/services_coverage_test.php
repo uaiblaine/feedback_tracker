@@ -116,7 +116,7 @@ final class services_coverage_test extends \advanced_testcase {
      */
     private static function load_functions(): array {
         $functions = [];
-        require __DIR__ . '/../../db/services.php';
+        require(__DIR__ . '/../../db/services.php');
         return $functions;
     }
 
@@ -127,7 +127,7 @@ final class services_coverage_test extends \advanced_testcase {
      */
     private static function load_capabilities(): array {
         $capabilities = [];
-        require __DIR__ . '/../../db/access.php';
+        require(__DIR__ . '/../../db/access.php');
         return $capabilities;
     }
 

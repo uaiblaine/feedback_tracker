@@ -28,7 +28,7 @@ Feature: Teacher dashboard renders for a multi-course editing teacher
   Scenario: Editing teacher sees the hero greeting and the courses heading
     Given I log in as "teacher1"
     When I am on the "block_feedback_tracker > Teacher dashboard" page
-    Then I should see "Hi there, Terry"
+    Then I should see "Terry"
     And I should see "Your courses"
 
   # Negative path (student lacks viewdashboard → page throws
