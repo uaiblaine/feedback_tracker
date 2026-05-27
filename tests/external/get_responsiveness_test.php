@@ -116,6 +116,9 @@ final class get_responsiveness_test extends \advanced_testcase {
         $this->assertArrayHasKey('weekend', $card['paused_breakdown_30d']);
         $this->assertArrayHasKey('holiday', $card['paused_breakdown_30d']);
         $this->assertArrayHasKey('recess', $card['paused_breakdown_30d']);
+        // v1.0.9 — sub-day optional events sidecar; empty by default.
+        $this->assertArrayHasKey('paused_events_30d', $card);
+        $this->assertIsArray($card['paused_events_30d']);
         // Single-group fixture < MIN_SAMPLE for peer_stats, so peer
         // benchmarks come back null and the JS PeerContext hides itself.
         $this->assertArrayHasKey('peer_department_score', $card);

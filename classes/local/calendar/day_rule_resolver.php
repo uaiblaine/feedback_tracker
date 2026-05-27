@@ -45,9 +45,16 @@ class day_rule_resolver {
     /**
      * Resolve the rule for one date.
      *
+     * v1.0.9 — when the row is a sub-day optional event (daytype=optional
+     * AND both starttime + endtime set), the day is considered active for
+     * the weekly schedule and the event window surfaces in the rule under
+     * `optional_window`. academic_time subtracts that window from active
+     * intervals later. Full-day optional (both columns null) keeps the
+     * pre-1.0.9 behaviour — `is_active = false`.
+     *
      * @param int $daydate YYYYMMDD as int.
      * @param int $dayofweek 0=Mon..6=Sun (ISO 8601).
-     * @return array{type:string, dayofweek:int, is_weekend:bool, business_hours:array, is_active:bool, day_note:?string}
+     * @return array{type:string, dayofweek:int, is_weekend:bool, business_hours:array, is_active:bool, day_note:?string, optional_window:?array{startmin:int,endmin:int,note:?string}}
      */
     public static function for_date(int $daydate, int $dayofweek): array {
         $calver = calendar::current_version();
@@ -64,10 +71,12 @@ class day_rule_resolver {
         $cdayrow = $DB->get_record(
             'block_feedback_tracker_cday',
             ['daydate' => $daydate],
-            'daytype, note'
+            'daytype, starttime, endtime, note'
         );
         $type = $cdayrow ? (string) $cdayrow->daytype : calendar::DAYTYPE_IMPLICIT;
         $note = $cdayrow ? ($cdayrow->note !== null ? (string) $cdayrow->note : null) : null;
+        $starttime = ($cdayrow && $cdayrow->starttime !== null) ? (int) $cdayrow->starttime : null;
+        $endtime   = ($cdayrow && $cdayrow->endtime   !== null) ? (int) $cdayrow->endtime   : null;
 
         $isweekend = calendar::is_weekend($dayofweek);
         if (calendar::enablebusinesshours()) {
@@ -75,7 +84,23 @@ class day_rule_resolver {
         } else {
             $businesshours = [[0, 24 * 60]];
         }
+
+        $optionalwindow = null;
         $isactive = calendar::is_active_day($type, $isweekend);
+        if ($type === calendar::DAYTYPE_OPTIONAL
+            && $starttime !== null && $endtime !== null
+            && $endtime > $starttime) {
+            // Sub-day event: the day is otherwise active per the weekly
+            // rule (treat weekend exclusion identically to a normal
+            // implicit day); the event window itself is subtracted later
+            // by academic_time::effective_hours_between().
+            $optionalwindow = [
+                'startmin' => $starttime,
+                'endmin'   => $endtime,
+                'note'     => $note,
+            ];
+            $isactive = !($isweekend && calendar::excludeweekends());
+        }
 
         $rule = [
             'type' => $type,
@@ -84,6 +109,7 @@ class day_rule_resolver {
             'business_hours' => $businesshours,
             'is_active' => $isactive,
             'day_note' => $note,
+            'optional_window' => $optionalwindow,
         ];
 
         effective_day_cache::set($daydate, $rule);

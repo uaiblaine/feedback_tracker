@@ -26,6 +26,8 @@ declare(strict_types=1);
 
 namespace block_feedback_tracker\form;
 
+use block_feedback_tracker\local\calendar\calendar;
+
 defined('MOODLE_INTERNAL') || die();
 
 global $CFG;
@@ -33,8 +35,19 @@ require_once($CFG->libdir . '/formslib.php');
 
 /**
  * Upserts one row in {block_feedback_tracker_cday}.
+ *
+ * v1.0.9 — when daytype = 'optional', three additional fields are revealed:
+ *  - starttime (HH:MM)
+ *  - endtime   (HH:MM)
+ *  - note      (event name, already on the form for every daytype)
+ *
+ * The HH:MM values are post-processed in get_data() to minutes-since-
+ * midnight ints so the WS layer doesn't need its own time parser.
  */
 class calendar_day_form extends \moodleform {
+    /** Regex for an HH:MM input (24-hour clock). */
+    public const TIME_REGEX = '/^([0-1]?\d|2[0-3]):[0-5]\d$/';
+
     /**
      * Form definition.
      */
@@ -51,15 +64,41 @@ class calendar_day_form extends \moodleform {
         $mform->setType('daydate', PARAM_INT);
         $mform->addRule('daydate', null, 'required', null, 'client');
 
+        // Reuse calendar::daytype_label() so the form's dropdown stays
+        // in lockstep with the day-list display in calendar_editor.php.
         $types = [
-            'schoolday' => get_string('caleditor_type_schoolday', $plugin),
-            'holiday'   => get_string('caleditor_type_holiday', $plugin),
-            'recess'    => get_string('caleditor_type_recess', $plugin),
-            'closed'    => get_string('caleditor_type_closed', $plugin),
-            'optional'  => get_string('caleditor_type_optional', $plugin),
+            calendar::DAYTYPE_SCHOOLDAY => calendar::daytype_label(calendar::DAYTYPE_SCHOOLDAY),
+            calendar::DAYTYPE_HOLIDAY   => calendar::daytype_label(calendar::DAYTYPE_HOLIDAY),
+            calendar::DAYTYPE_RECESS    => calendar::daytype_label(calendar::DAYTYPE_RECESS),
+            calendar::DAYTYPE_CLOSED    => calendar::daytype_label(calendar::DAYTYPE_CLOSED),
+            calendar::DAYTYPE_OPTIONAL  => calendar::daytype_label(calendar::DAYTYPE_OPTIONAL),
         ];
         $mform->addElement('select', 'daytype', get_string('caleditor_col_type', $plugin), $types);
         $mform->setDefault('daytype', 'holiday');
+
+        // v1.0.9 — sub-day event window. Only meaningful when daytype is
+        // 'optional'; hideIf hides the inputs otherwise. Leaving both
+        // empty preserves the legacy "full-day optional" semantics.
+        $mform->addElement(
+            'text',
+            'starttime',
+            get_string('caleditor_starttime', $plugin),
+            ['size' => 6, 'placeholder' => 'HH:MM']
+        );
+        $mform->setType('starttime', PARAM_TEXT);
+        $mform->hideIf('starttime', 'daytype', 'neq', calendar::DAYTYPE_OPTIONAL);
+
+        $mform->addElement(
+            'text',
+            'endtime',
+            get_string('caleditor_endtime', $plugin),
+            ['size' => 6, 'placeholder' => 'HH:MM']
+        );
+        $mform->setType('endtime', PARAM_TEXT);
+        $mform->hideIf('endtime', 'daytype', 'neq', calendar::DAYTYPE_OPTIONAL);
+        $mform->addElement('static', 'caleditor_event_window_help_static', '',
+            get_string('caleditor_event_window_help', $plugin));
+        $mform->hideIf('caleditor_event_window_help_static', 'daytype', 'neq', calendar::DAYTYPE_OPTIONAL);
 
         $mform->addElement(
             'text',
@@ -76,7 +115,7 @@ class calendar_day_form extends \moodleform {
     }
 
     /**
-     * Reject malformed dates.
+     * Reject malformed dates and time windows.
      *
      * @param array $data
      * @param array $files
@@ -95,6 +134,62 @@ class calendar_day_form extends \moodleform {
                 $errors['daydate'] = get_string('caleditor_err_baddate', 'block_feedback_tracker');
             }
         }
+
+        // v1.0.9 — validate the optional time window. Either both empty
+        // (full-day optional) or both set with start < end.
+        if (($data['daytype'] ?? '') === calendar::DAYTYPE_OPTIONAL) {
+            $start = trim((string) ($data['starttime'] ?? ''));
+            $end = trim((string) ($data['endtime'] ?? ''));
+            if ($start !== '' || $end !== '') {
+                if ($start === '' || $end === '') {
+                    $errors['endtime'] = get_string('caleditor_err_window_partial', 'block_feedback_tracker');
+                } else if (!preg_match(self::TIME_REGEX, $start)) {
+                    $errors['starttime'] = get_string('caleditor_err_badtime', 'block_feedback_tracker');
+                } else if (!preg_match(self::TIME_REGEX, $end)) {
+                    $errors['endtime'] = get_string('caleditor_err_badtime', 'block_feedback_tracker');
+                } else if (self::hhmm_to_minutes($start) >= self::hhmm_to_minutes($end)) {
+                    $errors['endtime'] = get_string('caleditor_err_window_order', 'block_feedback_tracker');
+                }
+            }
+        }
         return $errors;
+    }
+
+    /**
+     * Post-process: convert HH:MM strings to minutes-since-midnight ints
+     * before the form data reaches the WS layer. Empty strings become
+     * nulls so the cday row reverts to full-day semantics.
+     *
+     * @return \stdClass|null
+     */
+    public function get_data() {
+        $data = parent::get_data();
+        if ($data === null) {
+            return null;
+        }
+        if (($data->daytype ?? '') === calendar::DAYTYPE_OPTIONAL) {
+            $start = trim((string) ($data->starttime ?? ''));
+            $end = trim((string) ($data->endtime ?? ''));
+            $data->starttime = $start === '' ? null : self::hhmm_to_minutes($start);
+            $data->endtime = $end === '' ? null : self::hhmm_to_minutes($end);
+        } else {
+            // Force null on non-optional daytypes — the WS otherwise
+            // silently accepts stale time-window values left over from
+            // a previous "optional" selection.
+            $data->starttime = null;
+            $data->endtime = null;
+        }
+        return $data;
+    }
+
+    /**
+     * Convert an HH:MM string to minutes since midnight.
+     *
+     * @param string $hhmm
+     * @return int
+     */
+    private static function hhmm_to_minutes(string $hhmm): int {
+        [$h, $m] = explode(':', $hhmm);
+        return ((int) $h) * 60 + (int) $m;
     }
 }

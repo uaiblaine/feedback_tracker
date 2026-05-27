@@ -91,6 +91,53 @@ final class paused_aggregator_test extends \advanced_testcase {
         $this->assertSame(0, $result['holiday']);
     }
 
+    public function test_full_day_optional_buckets_as_recess(): void {
+        $this->resetAfterTest();
+        $this->seed_calendar();
+
+        global $DB;
+        // Mon 2026-05-18 marked as full-day optional (no time window).
+        $DB->insert_record('block_feedback_tracker_cday', (object) [
+            'daydate' => 20260518, 'daytype' => 'optional',
+            'starttime' => null, 'endtime' => null,
+            'note' => null, 'timecreated' => time(), 'timemodified' => time(),
+        ]);
+
+        $start = (new \DateTimeImmutable('2026-05-18', new \DateTimeZone('UTC')))->getTimestamp();
+        $end = (new \DateTimeImmutable('2026-06-01', new \DateTimeZone('UTC')))->getTimestamp();
+        $result = paused_aggregator::for_window(0, $start, $end);
+
+        $this->assertSame(1, $result['recess']);
+        $this->assertSame([], $result['events']);
+    }
+
+    public function test_sub_day_optional_event_appears_in_events_sidecar(): void {
+        $this->resetAfterTest();
+        $this->seed_calendar();
+
+        global $DB;
+        // Mon 2026-05-18 optional with 16:00-18:00 window — Brasil vs França.
+        $DB->insert_record('block_feedback_tracker_cday', (object) [
+            'daydate' => 20260518, 'daytype' => 'optional',
+            'starttime' => 16 * 60, 'endtime' => 18 * 60,
+            'note' => 'Brasil vs Franca',
+            'timecreated' => time(), 'timemodified' => time(),
+        ]);
+
+        $start = (new \DateTimeImmutable('2026-05-18', new \DateTimeZone('UTC')))->getTimestamp();
+        $end = (new \DateTimeImmutable('2026-06-01', new \DateTimeZone('UTC')))->getTimestamp();
+        $result = paused_aggregator::for_window(0, $start, $end);
+
+        // Sub-day event must NOT inflate the recess bucket.
+        $this->assertSame(0, $result['recess']);
+        $this->assertCount(1, $result['events']);
+        $event = $result['events'][0];
+        $this->assertSame(20260518, $event['date']);
+        $this->assertSame(16 * 60, $event['starttime']);
+        $this->assertSame(18 * 60, $event['endtime']);
+        $this->assertSame('Brasil vs Franca', $event['label']);
+    }
+
     public function test_schoolday_override_cancels_weekend(): void {
         $this->resetAfterTest();
         $this->seed_calendar();

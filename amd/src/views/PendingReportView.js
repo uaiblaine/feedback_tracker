@@ -402,6 +402,7 @@ export default function PendingReportView({initial}) {
                 <${PausedCallout}
                     totaldays=${scope.paused_days_30d || 0}
                     breakdown=${scope.paused_breakdown_30d || {}}
+                    events=${scope.paused_events_30d || []}
                     i18n=${i18n} />
             `}
 

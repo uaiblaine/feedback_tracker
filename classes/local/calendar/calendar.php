@@ -167,6 +167,36 @@ class calendar {
     }
 
     /**
+     * Localised display label for a daytype slug.
+     *
+     * Centralised here so the dropdown options in
+     * `classes/form/calendar_day_form.php` and the day-list column in
+     * `pages/calendar_editor.php` always agree. Uses a literal switch
+     * (not a `get_string('caleditor_type_' . $daytype, ...)` concat) to
+     * keep the PHPDoc string-checker happy — dynamic string IDs aren't
+     * statically verifiable.
+     *
+     * @param string $daytype One of self::DAYTYPE_* values.
+     * @return string Localised label, or the raw slug if unrecognised.
+     */
+    public static function daytype_label(string $daytype): string {
+        switch ($daytype) {
+            case self::DAYTYPE_SCHOOLDAY:
+                return get_string('caleditor_type_schoolday', 'block_feedback_tracker');
+            case self::DAYTYPE_HOLIDAY:
+                return get_string('caleditor_type_holiday', 'block_feedback_tracker');
+            case self::DAYTYPE_RECESS:
+                return get_string('caleditor_type_recess', 'block_feedback_tracker');
+            case self::DAYTYPE_CLOSED:
+                return get_string('caleditor_type_closed', 'block_feedback_tracker');
+            case self::DAYTYPE_OPTIONAL:
+                return get_string('caleditor_type_optional', 'block_feedback_tracker');
+            default:
+                return $daytype;
+        }
+    }
+
+    /**
      * Decide whether a day is "active" for effective-time accumulation.
      *
      * Active days accumulate within their business-hours window; inactive

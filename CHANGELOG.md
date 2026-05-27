@@ -5,6 +5,74 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.9] - 2026-05-27
+
+### Phase 4C — Optional days and named sub-day events
+
+#### Added
+- `block_feedback_tracker_cday` schema gains nullable `starttime` and
+  `endtime` columns (minutes since midnight). Both null = legacy full-day
+  rule. When set on a `daytype = 'optional'` row, they describe a sub-day
+  event window inside an otherwise active schoolday.
+- `calendar::daytype_label()` static helper — single source of truth for
+  the localised label of every daytype slug. Reused by
+  `calendar_day_form.php` (dropdown options) and
+  `pages/calendar_editor.php` (day-list column).
+- `day_rule_resolver::for_date()` returns a new `optional_window` key on
+  the rule shape when a sub-day event is present
+  (`{startmin, endmin, note}`). Full-day optional rows keep their
+  `is_active=false` behaviour.
+- `academic_time::effective_hours_between()` subtracts the optional
+  event window from the day's active intervals and records a synthetic
+  pause with `reason='optional'` and the event label as `note`.
+- `paused_aggregator::for_window()` grew an `events` sidecar list
+  (`[{date, starttime, endtime, label}]`). Sub-day events surface
+  there without inflating the `recess` day-bucket; full-day optional
+  rows fold into the `recess` bucket as before.
+- Payload + WS additive: `paused_events_30d` array on
+  `responsiveness_payload::group_payload()` and
+  `get_responsiveness::execute_returns()`.
+- `save_calendar_day` WS gained nullable `starttime` / `endtime` params
+  with range + ordering validation. JS wrapper
+  `api.js::saveCalendarDay()` accepts the new options.
+- Calendar-day form (`calendar_day_form.php`) reveals HH:MM start/end
+  inputs when `daytype = 'optional'`. Both-set-or-both-empty is enforced;
+  values round-trip through `get_data()` as minutes-since-midnight.
+- PausedNote (block view) and PausedCallout (report page) recognise the
+  new `optional` pause reason: PausedNote renders
+  `"Paused 16:00-18:00: ⚽ Brasil vs França"`; PausedCallout's body
+  line adds `"… · 1 event (⚽ Brasil vs França)"`. Event labels are
+  pre-sanitised server-side via `format_string()` so emoji + unicode
+  pass through cleanly while HTML is escaped.
+- Calendar editor day list: localised label via the new helper +
+  `"Optional · 16:00-18:00"` suffix for sub-day rows.
+- New tests:
+  - `paused_aggregator_test::test_full_day_optional_buckets_as_recess`
+  - `paused_aggregator_test::test_sub_day_optional_event_appears_in_events_sidecar`
+  - `day_rule_resolver_test::test_sub_day_optional_event_surfaces_window`
+  - Extended `get_responsiveness_test` to assert `paused_events_30d`
+    shape.
+
+#### Changed
+- `pause_reason_for_day()` in `academic_time` now distinguishes
+  full-day `optional` from `closed`, returning a dedicated `'optional'`
+  reason so PausedNote can render the event-style note rather than
+  collapsing into a generic closed chip.
+- `next_pause_indicator()` / `last_pause_indicator()` SQL filters
+  include `DAYTYPE_OPTIONAL`; sub-day rows resolve their timestamps to
+  `ymd + starttime*60` so the indicator points at the actual window.
+- Upgrade savepoint at `2026060109` runs `$dbman->add_field()` for both
+  new columns and bumps `calver` via `calendar::bump_version()` so
+  cached payloads roll over and downstream views pick up the events
+  sidecar on first read.
+
+#### Notes
+- Schema additions are nullable; existing cday rows continue to work as
+  full-day rules with both columns null.
+- Sub-day events do NOT bump the `recess` bucket count — they're
+  hour-scale, not day-scale. The dedicated `events` sidecar list
+  surfaces them for the UI to render alongside the bucket counts.
+
 ## [1.0.8] - 2026-05-26
 
 ### Phase 4B — Combined hero+insights collapse + user-preference persistence

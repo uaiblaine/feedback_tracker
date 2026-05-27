@@ -117,6 +117,32 @@ final class day_rule_resolver_test extends \advanced_testcase {
         $rule = day_rule_resolver::for_date(20260518, 0);
 
         $this->assertFalse($rule['is_active']);
+        $this->assertNull($rule['optional_window']);
+    }
+
+    public function test_sub_day_optional_event_surfaces_window(): void {
+        $this->resetAfterTest();
+        $this->seed_calendar();
+
+        global $DB;
+        // Mon 2026-05-18 — optional 16:00-18:00, "Brasil vs Franca".
+        $DB->insert_record('block_feedback_tracker_cday', (object) [
+            'daydate' => 20260518, 'daytype' => 'optional',
+            'starttime' => 16 * 60, 'endtime' => 18 * 60,
+            'note' => 'Brasil vs Franca',
+            'timecreated' => time(), 'timemodified' => time(),
+        ]);
+        day_rule_resolver::reset_memo();
+
+        $rule = day_rule_resolver::for_date(20260518, 0);
+
+        // Day is otherwise active per the weekly schedule.
+        $this->assertTrue($rule['is_active']);
+        $this->assertSame('optional', $rule['type']);
+        $this->assertNotNull($rule['optional_window']);
+        $this->assertSame(16 * 60, $rule['optional_window']['startmin']);
+        $this->assertSame(18 * 60, $rule['optional_window']['endmin']);
+        $this->assertSame('Brasil vs Franca', $rule['optional_window']['note']);
     }
 
     public function test_holiday_becomes_active_when_holidays_not_excluded(): void {
