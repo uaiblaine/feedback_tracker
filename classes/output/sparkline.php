@@ -35,16 +35,16 @@ namespace block_feedback_tracker\output;
  */
 class sparkline implements \renderable, \templatable {
     /** @var array<int, float|null> Ordered (oldest → newest) values. */
-    public readonly array $values;
+    public array $values;
 
     /** @var float|null Optional goal-line value. */
-    public readonly ?float $goal;
+    public ?float $goal;
 
     /** @var int SVG width in px. */
-    public readonly int $width;
+    public int $width;
 
     /** @var int SVG height in px. */
-    public readonly int $height;
+    public int $height;
 
     /**
      * Constructor for sparkline.

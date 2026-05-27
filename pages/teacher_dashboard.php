@@ -86,7 +86,7 @@ try {
     debugging('block_feedback_tracker: insights fetch failed: ' . $e->getMessage());
 }
 
-// v1.0.11 — site-scope events sidecar so the dashboard subline can
+// V1.0.11 — site-scope events sidecar so the dashboard subline can
 // surface the most recent named optional event. The calendar is
 // site-wide, so a single aggregator pass at courseid=0 reaches every
 // event an admin has configured. Window matches the per-group payload
@@ -109,7 +109,7 @@ try {
 // per-course aggregate, not the site-wide benchmarks.
 $cancompare = has_capability('block/feedback_tracker:viewschoolcomparison', $sysctx);
 
-// v1.0.8 — persist the dashboard hero+insights collapse state per user
+// V1.0.8 — persist the dashboard hero+insights collapse state per user
 // via the core preferences API. Default '0' (expanded) matches a new
 // user's expectation that the rich hero is visible on first visit.
 // Preference declared in lib.php::block_feedback_tracker_user_preferences().
@@ -121,9 +121,11 @@ $dashboardcollapsed = (bool) get_user_preferences(
 
 $initial = [
     'userid' => (int) $USER->id,
-    // The legacy greeting key stays for back-compat with any caller that
-    // imports it; the new view consumes greeting_firstname + the
-    // dashboard_greeting_morning/afternoon/evening templates from i18n.
+    /*
+     * The legacy greeting key stays for back-compat with any caller that
+     * imports it; the new view consumes greeting_firstname + the
+     * dashboard_greeting_morning/afternoon/evening templates from i18n.
+     */
     'greeting' => get_string(
         'dashboard_hero_greeting',
         'block_feedback_tracker',

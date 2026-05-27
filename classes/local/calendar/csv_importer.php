@@ -71,7 +71,7 @@ class csv_importer {
         foreach ($lines as $raw) {
             $lineno++;
             $trim = trim($raw);
-            if ($trim === '' || str_starts_with($trim, '#')) {
+            if ($trim === '' || strpos($trim, '#') === 0) {
                 continue;
             }
 

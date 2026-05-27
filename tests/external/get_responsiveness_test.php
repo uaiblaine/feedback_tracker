@@ -97,12 +97,12 @@ final class get_responsiveness_test extends \advanced_testcase {
         $this->assertSame(1, $card['numgraded30d']);
         $this->assertEqualsWithDelta(16.0, $card['median_eff_h'], 0.01);
         /*
-         * Score for one graded submission with median 16h:
+         * Score for one graded submission with median 16h (renormalised without trend):
          *   compliance=1 (1/1 within 24h), median=1-16/48=0.667,
-         *   critical=1, pending=1, trend=0.5 (null trend → neutral).
-         *   100 * (0.4 + 0.25*0.667 + 0.15 + 0.10 + 0.05) ≈ 86.7 → "good".
+         *   critical=1, pending=1.
+         *   100 * (0.4 + 0.25*0.667 + 0.15 + 0.10) / 0.90 ≈ 90.7 → "excellent".
          */
-        $this->assertSame('good', $card['score_band']);
+        $this->assertSame('excellent', $card['score_band']);
 
         // Phase 3C — payload includes the new perceived / paused / peer
         // keys with sensible defaults. perceived_median_hours mirrors
