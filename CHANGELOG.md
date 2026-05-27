@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.11] - 2026-05-27
+
+### Fixed
+- `PausedCallout` event segment now includes the event date and time
+  alongside the label. Previously it rendered `1 event (⚽ Brasil vs
+  França)`; now `1 event (21/05 14:00-16:00 · ⚽ Brasil vs França)`.
+  The data was already in the `paused_events_30d` sidecar — only the
+  line builder needed updating.
+- Block view `PausedNote` now reads from the `paused_events_30d` sidecar
+  directly when present, so a named optional event shows on the block
+  even when the rollup pause indicators are stale (the drain queue
+  may not have caught up since the calendar edit). Format:
+  `DD/MM HH:MM-HH:MM: ⚽ label`.
+
+### Added
+- Teacher dashboard subline gains a "Recent event" chip (plum tone)
+  for the most recent named optional event in the last 30 days,
+  site-scope. `pages/teacher_dashboard.php` calls
+  `paused_aggregator::for_window(0, ...)` at boot and emits the
+  events list as `initial.events`. New i18n keys
+  `dashboard_event_chip_label` + `dashboard_event_chip_tooltip`
+  (en + pt_br).
+
 ## [1.0.10] - 2026-05-27
 
 ### Fixed

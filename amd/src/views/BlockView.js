@@ -100,6 +100,30 @@ const fmtMin = (min) => {
 };
 
 /**
+ * Format a YYYYMMDD int as "DD/MM".
+ *
+ * @param {number} ymd
+ * @returns {string}
+ */
+const fmtYmd = (ymd) => {
+    const n = Number(ymd) || 0;
+    const m = Math.floor((n / 100) % 100);
+    const d = n % 100;
+    return String(d).padStart(2, '0') + '/' + String(m).padStart(2, '0');
+};
+
+/**
+ * Render an event entry's "DD/MM HH:MM-HH:MM: label" string.
+ *
+ * @param {{date:number, starttime:number, endtime:number, label:string}} ev
+ * @returns {string}
+ */
+const fmtEvent = (ev) => {
+    const head = fmtYmd(ev.date) + ' ' + fmtMin(ev.starttime) + '-' + fmtMin(ev.endtime);
+    return ev.label ? head + ': ' + ev.label : head;
+};
+
+/**
  * Best-effort localiser for a pause-reason slug. Falls back to the slug
  * itself when the i18n bundle doesn't carry the key. Mirrors the
  * `pause_reason_*` family already shipped in pending_report_i18n().
@@ -117,10 +141,11 @@ const reasonLabel = (reason, i18n) => {
  * Pull the "paused current" + "next paused" strings from the most relevant
  * group's payload (any non-empty group works — the calendar is platform-wide).
  *
- * v1.0.9 — when nextpause_reason === 'optional', surface the event label
- * (carried in nextpause_note) and, when nextpause_ts falls within today,
- * render the HH:MM-HH:MM window. The sub-day window endpoints come from
- * the paused_events_30d sidecar on the same group payload.
+ * v1.0.11 — prefer the paused_events_30d sidecar when present so the
+ * block surfaces the event date/window/label directly, independent of
+ * the next/last pause rollup state (which may be stale until the drain
+ * queue catches up). Falls back to nextpause_* / lastpause_* for
+ * non-event pause reasons.
  *
  * @param {Array<object>} groups
  * @param {object} i18n
@@ -130,13 +155,17 @@ const pausedSummary = (groups, i18n) => {
     if (!Array.isArray(groups)) {
         return {current: null, next: null};
     }
-    const todayYmd = (() => {
-        const d = new Date();
-        return d.getFullYear() * 10000
-            + (d.getMonth() + 1) * 100
-            + d.getDate();
-    })();
     for (const g of groups) {
+        // Event sidecar takes precedence — has full date + window + label
+        // regardless of whether the rollup pause indicators are fresh.
+        const events = Array.isArray(g.paused_events_30d) ? g.paused_events_30d : [];
+        if (events.length > 0) {
+            const latest = events[events.length - 1];
+            return {
+                current: fmtEvent(latest),
+                next: null,
+            };
+        }
         const lastreason = g.lastpause_reason ? String(g.lastpause_reason) : null;
         const nextreason = g.nextpause_reason ? String(g.nextpause_reason) : null;
         if (!lastreason && !nextreason) {
@@ -144,29 +173,11 @@ const pausedSummary = (groups, i18n) => {
         }
         let current = lastreason ? reasonLabel(lastreason, i18n) : null;
         let next = nextreason ? reasonLabel(nextreason, i18n) : null;
-
-        // Sub-day optional events: enrich with HH:MM-HH:MM + label.
-        if (nextreason === 'optional' && Array.isArray(g.paused_events_30d)) {
-            const upcoming = g.paused_events_30d.find((e) =>
-                Number(e.date) === todayYmd
-                || (g.nextpause_ts !== undefined
-                    && g.nextpause_ts !== null
-                    && Number(e.date) >= todayYmd));
-            if (upcoming) {
-                const window = fmtMin(Number(upcoming.starttime)) + '-' + fmtMin(Number(upcoming.endtime));
-                next = window + (upcoming.label ? ': ' + upcoming.label : '')
-                    + (g.nextpause_note ? '' : '');
-            } else if (g.nextpause_note) {
-                next = (next || reasonLabel('optional', i18n)) + ': ' + g.nextpause_note;
-            }
+        // Optional rows carry the event label in nextpause_note; surface
+        // it on the upcoming line when the sidecar didn't already win.
+        if (nextreason === 'optional' && g.nextpause_note) {
+            next = next + ': ' + g.nextpause_note;
         }
-        if (lastreason === 'optional' && g.lastpause_reason && g.lastpause_endts) {
-            // Past full-day optional rows just carry the localised label;
-            // sub-day events that have already ended drop off the surface
-            // (no need to call them out as "ended").
-            current = reasonLabel('optional', i18n);
-        }
-
         if (current || next) {
             return {current, next};
         }

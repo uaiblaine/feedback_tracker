@@ -29,12 +29,51 @@
 import {html} from 'block_feedback_tracker/lib/preact';
 
 /**
+ * YYYYMMDD int → "DD/MM" (admin's local calendar, not localised — the
+ * paused-callout strip is informational; full locale handling would
+ * require Intl.DateTimeFormat plumbing for the page tz).
+ *
+ * @param {number} ymd
+ * @returns {string}
+ */
+const fmtYmd = (ymd) => {
+    const n = Number(ymd) || 0;
+    const m = Math.floor((n / 100) % 100);
+    const d = n % 100;
+    return String(d).padStart(2, '0') + '/' + String(m).padStart(2, '0');
+};
+
+/**
+ * Minutes-since-midnight → "HH:MM".
+ *
+ * @param {number} min
+ * @returns {string}
+ */
+const fmtMin = (min) => {
+    const n = Number(min) || 0;
+    const h = Math.floor(n / 60);
+    const m = n % 60;
+    return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+};
+
+/**
+ * Render one event entry's "DD/MM HH:MM-HH:MM · label" string.
+ *
+ * @param {{date:number, starttime:number, endtime:number, label:string}} ev
+ * @returns {string}
+ */
+const fmtEvent = (ev) => {
+    const ts = fmtYmd(ev.date) + ' ' + fmtMin(ev.starttime) + '-' + fmtMin(ev.endtime);
+    return ev.label ? ts + ' · ' + ev.label : ts;
+};
+
+/**
  * Build the "X weekend days · Y holidays · Z recess days · N events" body
- * line. Events get an inline summary with the most recent label so admins
- * see what the paused windows actually were.
+ * line. Events get an inline summary with the most recent label + time so
+ * admins see what the paused windows actually were.
  *
  * @param {object} breakdown {weekend, holiday, recess}
- * @param {Array<{label:string}>} events
+ * @param {Array<{date:number, starttime:number, endtime:number, label:string}>} events
  * @param {object} i18n
  * @returns {string}
  */
@@ -54,12 +93,11 @@ const buildBreakdownLine = (breakdown, events, i18n) => {
         const word = n === 1
             ? (i18n.paused_callout_event_singular || 'event')
             : (i18n.paused_callout_event_plural || 'events');
-        // Surface the most recent label so admins see what the paused
-        // window actually was. Labels are pre-sanitised server-side via
-        // format_string() — safe to render as text.
+        // Latest event in the sidecar carries the most recent label + time.
+        // Aggregator emits events in date order so the last item is newest.
         const latest = events[events.length - 1];
-        const label = latest && latest.label ? latest.label : '';
-        parts.push(n + ' ' + word + (label ? ' (' + label + ')' : ''));
+        const detail = latest ? fmtEvent(latest) : '';
+        parts.push(n + ' ' + word + (detail ? ' (' + detail + ')' : ''));
     }
     return parts.join(' · ');
 };

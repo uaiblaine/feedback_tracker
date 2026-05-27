@@ -1919,6 +1919,30 @@ table.bft-sortable th.bft-sort-desc::after {
     color: var(--bft-text-muted);
 }
 
+/* v1.0.11 — most-recent named optional event from the academic calendar.
+   Sits in the subline alongside the business-chip. Uses the plum tone
+   from the design's "warm" accents so the event reads as celebratory
+   rather than alarmist. */
+.bft-dashboard-event-chip {
+    color: var(--bft-text);
+    background: var(--bft-plum-bg, #f5f0fb);
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    line-height: 1.3;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.15rem;
+}
+
+.bft-dashboard-event-chip-label {
+    color: var(--bft-plum-fg, #6d4aac);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 0.68rem;
+}
+
 /* Section eyebrows above the Insights / Priority / Courses blocks. */
 .bft-dashboard-section-eyebrow {
     font-size: 0.65rem;

@@ -161,6 +161,32 @@ const perceivedLabel = (effectivehours) => {
 };
 
 /**
+ * Format YYYYMMDD → "DD/MM" for the dashboard event chip.
+ *
+ * @param {number} ymd
+ * @returns {string}
+ */
+const fmtEventYmd = (ymd) => {
+    const n = Number(ymd) || 0;
+    const m = Math.floor((n / 100) % 100);
+    const d = n % 100;
+    return String(d).padStart(2, '0') + '/' + String(m).padStart(2, '0');
+};
+
+/**
+ * Format minutes-since-midnight → "HH:MM" for the dashboard event chip.
+ *
+ * @param {number} min
+ * @returns {string}
+ */
+const fmtEventMin = (min) => {
+    const n = Number(min) || 0;
+    const h = Math.floor(n / 60);
+    const m = n % 60;
+    return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+};
+
+/**
  * @param {object} props
  * @param {object} props.initial   Mount-point payload: {greeting, dashboard,
  *                                 gradenow, cancompare, i18n, config}.
@@ -182,6 +208,10 @@ export default function DashboardView({initial}) {
     const [gradenow, setGradenow] = useState(initial.gradenow || null);
     const [gradenowError, setGradenowError] = useState(null);
     const [insights, setInsights] = useState(initial.insights || null);
+    // v1.0.11 — site-scope paused events sidecar, preloaded by
+    // teacher_dashboard.php so the dashboard subline can show the most
+    // recent named optional event (e.g. "⚽ Brasil vs França · 21/05 16:00-18:00").
+    const [events] = useState(Array.isArray(initial.events) ? initial.events : []);
     /*
      * v1.0.8 — collapsed state for the combined Responsiveness hero +
      * Insights block. Initial value comes from the user preference
@@ -310,6 +340,26 @@ export default function DashboardView({initial}) {
                             ${i18n.dashboard_business_chip
                                 || 'Business-time only · weekends, holidays & recess paused'}
                         </span>
+                        ${events.length > 0 && (() => {
+                            // Latest named optional event from the past 30
+                            // days site-scope. paused_aggregator emits in
+                            // date order, so .pop() is the most recent.
+                            const latest = events[events.length - 1];
+                            const head = fmtEventYmd(latest.date) + ' '
+                                + fmtEventMin(latest.starttime) + '-'
+                                + fmtEventMin(latest.endtime);
+                            return html`
+                                <span class="bft-dashboard-dot">·</span>
+                                <span class="bft-dashboard-event-chip"
+                                      title=${i18n.dashboard_event_chip_tooltip
+                                          || 'Most recent named optional event'}>
+                                    <span class="bft-dashboard-event-chip-label">
+                                        ${i18n.dashboard_event_chip_label || 'Recent event'}:
+                                    </span>
+                                    ${' '}${latest.label ? latest.label + ' · ' : ''}${head}
+                                </span>
+                            `;
+                        })()}
                     </div>
                 </div>
                 <button type="button"
