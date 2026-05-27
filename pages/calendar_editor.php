@@ -200,9 +200,9 @@ foreach ($days as $d) {
     if ((string) $d->daytype === \block_feedback_tracker\local\calendar\calendar::DAYTYPE_OPTIONAL
         && $d->starttime !== null
         && $d->endtime !== null) {
-        $sh = (int) ((int) $d->starttime / 60);
+        $sh = intdiv((int) $d->starttime, 60);
         $sm = ((int) $d->starttime) % 60;
-        $eh = (int) ((int) $d->endtime / 60);
+        $eh = intdiv((int) $d->endtime, 60);
         $em = ((int) $d->endtime) % 60;
         $typecell .= ' · '
             . sprintf('%02d:%02d', $sh, $sm) . '-' . sprintf('%02d:%02d', $eh, $em);

@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.10] - 2026-05-27
+
+### Fixed
+- `paused_aggregator::ymd_in_pause_span()` triggered PHP 8.x's
+  "Deprecated: Implicit conversion from float ... to int loses precision"
+  warning when computing the day-string from a YYYYMMDD integer. The
+  expression `($ymd / 100) % 100` produced a float intermediate (PHP's
+  `/` always returns float) and `% 100` on a float casts implicitly.
+  Replaced with `intdiv()` so every intermediate stays an int. Same
+  pattern in `pages/calendar_editor.php` minute→HH:MM conversion also
+  switched to `intdiv()` for consistency (no functional change — the
+  outer `(int)` cast was suppressing the deprecation there).
+
 ## [1.0.9] - 2026-05-27
 
 ### Phase 4C — Optional days and named sub-day events
