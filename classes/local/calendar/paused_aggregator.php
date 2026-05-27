@@ -253,7 +253,15 @@ class paused_aggregator {
         if (empty($spans)) {
             return false;
         }
-        $datestr = sprintf('%04d-%02d-%02d', (int) ($ymd / 10000), (int) (($ymd / 100) % 100), $ymd % 100);
+        // Use intdiv() to keep every intermediate value as an int — `/`
+        // promotes to float and `% 100` on a float triggers the
+        // "implicit conversion ... loses precision" deprecation in PHP 8.x.
+        $datestr = sprintf(
+            '%04d-%02d-%02d',
+            intdiv($ymd, 10000),
+            intdiv($ymd, 100) % 100,
+            $ymd % 100
+        );
         $daystart = (new \DateTimeImmutable($datestr, $tz))->getTimestamp();
         $dayend = $daystart + 86400;
         foreach ($spans as $span) {

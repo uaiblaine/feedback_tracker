@@ -184,5 +184,14 @@ function xmldb_block_feedback_tracker_upgrade($oldversion) {
         upgrade_block_savepoint(true, 2026060109, 'feedback_tracker');
     }
 
+    // v1.0.10 — patch the PHP 8.x "implicit float→int" deprecation in
+    // paused_aggregator::ymd_in_pause_span. Code-only fix, no schema or
+    // cache impact — the savepoint exists for the upgrade marker so any
+    // sites that picked up 1.0.9 on PHP 8.1+ converge cleanly to 1.0.10
+    // with the deprecation gone.
+    if ($oldversion < 2026060110) {
+        upgrade_block_savepoint(true, 2026060110, 'feedback_tracker');
+    }
+
     return true;
 }
