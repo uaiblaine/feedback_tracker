@@ -65,9 +65,10 @@ class pending_recomputer {
             "SELECT id, courseid, groupid, timesubmitted
                FROM {block_feedback_tracker_sub}
               WHERE timegraded IS NULL
+                AND submissionstatus = :substatus
                 AND (effectivecalver < :calver OR effectiveasof IS NULL OR effectiveasof < :asof)
               ORDER BY COALESCE(effectiveasof, 0) ASC, id ASC",
-            ['calver' => $calver, 'asof' => $stalecutoff],
+            ['substatus' => submission_status::SUBMITTED, 'calver' => $calver, 'asof' => $stalecutoff],
             0,
             $batchsize
         );

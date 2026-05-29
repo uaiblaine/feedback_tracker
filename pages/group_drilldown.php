@@ -74,6 +74,30 @@ foreach ($result['submissions'] as $s) {
     ];
 }
 
+// Drafts (saved but not submitted) are surfaced separately and de-emphasised
+// so the teacher can decide whether to grade them. They never count toward the
+// SLA, so they bypass the bucket filter and the main paging bar — always the
+// first page, most-recently-saved first.
+$draftresult = \block_feedback_tracker\external\get_pending_submissions::execute(
+    $courseid,
+    $groupid,
+    '',
+    'recent',
+    0,
+    $perpage,
+    \block_feedback_tracker\local\sla\submission_status::DRAFT
+);
+$draftrows = [];
+foreach ($draftresult['submissions'] as $s) {
+    $draftrows[] = [
+        'student'     => (string) $s['studentname'],
+        'activity'    => (string) $s['activityname'],
+        'group'       => (string) ($s['groupname'] ?: '-'),
+        'lastsaved'   => userdate((int) $s['timesubmitted']),
+        'lastsavedts' => (int) $s['timesubmitted'],
+    ];
+}
+
 $PAGE->requires->js_call_amd('block_feedback_tracker/pending_table', 'init');
 
 echo $OUTPUT->header();
@@ -92,5 +116,17 @@ echo $OUTPUT->render_from_template('block_feedback_tracker/drilldown', [
     ],
     'rows'      => $rows,
     'pagingbar' => $OUTPUT->paging_bar($result['total'], $page, $perpage, $PAGE->url),
+    'hasdrafts'    => !empty($draftrows),
+    'draftheading' => get_string('drilldown_drafts_heading', 'block_feedback_tracker'),
+    'draftnote'    => get_string('drilldown_drafts_note', 'block_feedback_tracker'),
+    'draftbadge'   => get_string('status_draft', 'block_feedback_tracker'),
+    'draftcols' => [
+        'student'   => get_string('drilldown_col_student', 'block_feedback_tracker'),
+        'activity'  => get_string('drilldown_col_activity', 'block_feedback_tracker'),
+        'group'     => get_string('drilldown_col_group', 'block_feedback_tracker'),
+        'lastsaved' => get_string('drilldown_col_lastsaved', 'block_feedback_tracker'),
+        'status'    => get_string('drilldown_col_status', 'block_feedback_tracker'),
+    ],
+    'draftrows' => $draftrows,
 ]);
 echo $OUTPUT->footer();

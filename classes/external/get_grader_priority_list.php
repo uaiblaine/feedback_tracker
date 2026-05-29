@@ -148,7 +148,9 @@ class get_grader_priority_list extends external_api {
                 'submissions' => [],
             ];
         }
-        $where = 'sub.timegraded IS NULL AND (' . implode(' OR ', $clauses) . ')';
+        $where = 'sub.timegraded IS NULL AND sub.submissionstatus = :substatus'
+            . ' AND (' . implode(' OR ', $clauses) . ')';
+        $sqlparams['substatus'] = \block_feedback_tracker\local\sla\submission_status::SUBMITTED;
         if ($bucket !== '') {
             $where .= ' AND sub.slabucket = :bucket';
             $sqlparams['bucket'] = $bucket;

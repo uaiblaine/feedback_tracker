@@ -47,8 +47,9 @@ class site_stats_service {
 
         $rows = $DB->get_records_select(
             'block_feedback_tracker_sub',
-            'timegraded IS NOT NULL AND timegraded >= :start AND timegraded < :end',
-            ['start' => $start, 'end' => $end],
+            'timegraded IS NOT NULL AND timegraded >= :start AND timegraded < :end'
+                . ' AND submissionstatus = :substatus',
+            ['start' => $start, 'end' => $end, 'substatus' => submission_status::SUBMITTED],
             '',
             'id, courseid, groupid, effectivehours, waitinghours'
         );

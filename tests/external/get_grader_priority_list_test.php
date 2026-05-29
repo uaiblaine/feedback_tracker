@@ -238,6 +238,28 @@ final class get_grader_priority_list_test extends \advanced_testcase {
         $this->assertSame('Still Pending', $result['submissions'][0]['studentname']);
     }
 
+    /**
+     * Draft / new / reopened rows never surface in the priority list, even
+     * when their effective hours would otherwise float them to the top.
+     */
+    public function test_non_submitted_are_excluded(): void {
+        $this->resetAfterTest();
+
+        $course = $this->getDataGenerator()->create_course();
+        // A high-hours draft that would otherwise top the list.
+        $this->seed_pending($course, 'Draft Student', 500.0, 'critical', false, 'draft');
+        $this->seed_pending($course, 'Submitted Student', 10.0, 'good', false, 'submitted');
+
+        $this->setAdminUser();
+        $result = external_api::clean_returnvalue(
+            get_grader_priority_list::execute_returns(),
+            get_grader_priority_list::execute(50, '')
+        );
+
+        $this->assertSame(1, (int) $result['returned']);
+        $this->assertSame('Submitted Student', $result['submissions'][0]['studentname']);
+    }
+
     // Helpers.
 
     /**
@@ -249,6 +271,7 @@ final class get_grader_priority_list_test extends \advanced_testcase {
      * @param float $effective    Effective wait in hours (drives sort).
      * @param string $bucket
      * @param bool $alreadygraded If true, timegraded is filled (row should be excluded).
+     * @param string $status Submission status to store (submitted|draft|new|reopened).
      * @return array{0: \stdClass, 1: \stdClass}
      */
     private function seed_pending(
@@ -256,7 +279,8 @@ final class get_grader_priority_list_test extends \advanced_testcase {
         string $studentname,
         float $effective,
         string $bucket = 'good',
-        bool $alreadygraded = false
+        bool $alreadygraded = false,
+        string $status = 'submitted'
     ): array {
         global $DB;
 
@@ -277,7 +301,7 @@ final class get_grader_priority_list_test extends \advanced_testcase {
             'iteminstance'     => (int) $assign->id,
             'userid'           => (int) $user->id,
             'attemptnumber'    => 0,
-            'submissionstatus' => 'submitted',
+            'submissionstatus' => $status,
             'timesubmitted'    => $tsubmit,
             'timegraded'       => $alreadygraded ? $now : null,
             'hasrule'          => 0,

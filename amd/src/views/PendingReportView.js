@@ -187,6 +187,14 @@ export default function PendingReportView({initial}) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
+    // Drafts (not-yet-submitted work) — a separate, de-emphasised list that
+    // never counts toward the SLA. Seeded server-side; re-fetched only when
+    // the class filter changes (bucket / sort / paging don't apply to drafts).
+    const initialDrafts = initial.drafts || {};
+    const [drafts, setDrafts] = useState(
+        Array.isArray(initialDrafts.submissions) ? initialDrafts.submissions : []
+    );
+
     // --- Client-only state (no refetch). ---
     const [search, setSearch] = useState('');
     const [clientSortKey, setClientSortKey] = useState(null);
@@ -223,12 +231,39 @@ export default function PendingReportView({initial}) {
         fetchPage();
     }, [groupid, bucket, serverSort, page]);
 
+    // Drafts depend only on the class filter. Re-fetch on groupid change; the
+    // initial list is already seeded from the server payload.
+    const firstRunDrafts = useRef(true);
+    const fetchDrafts = async () => {
+        try {
+            const result = await getPendingSubmissions({
+                courseid, groupid, status: 'draft', sort: 'recent', perpage,
+            });
+            setDrafts(Array.isArray(result.submissions) ? result.submissions : []);
+        } catch (e) {
+            // Drafts are a secondary aid — the main list already surfaces load
+            // failures, so fail quiet here.
+            setDrafts([]);
+        }
+    };
+    useEffect(() => {
+        if (firstRunDrafts.current) {
+            firstRunDrafts.current = false;
+            return;
+        }
+        fetchDrafts();
+    }, [groupid]);
+
     // Derived: filtered + client-sorted submissions + distribution counts.
     const visible = useMemo(
         () => decorate(submissions, search, clientSortKey, clientSortOrder),
         [submissions, search, clientSortKey, clientSortOrder]
     );
     const distCounts = useMemo(() => countByBand(submissions), [submissions]);
+    const visibleDrafts = useMemo(
+        () => decorate(drafts, search, null, 'asc'),
+        [drafts, search]
+    );
 
     const totalPages = Math.max(1, Math.ceil(total / perpage));
 
@@ -558,6 +593,44 @@ export default function PendingReportView({initial}) {
                             onClick=${() => setPage(page + 1)}>
                         ${i18n.pendingreport_page_next || 'Next »'}
                     </button>
+                </div>
+            `}
+
+            ${visibleDrafts.length > 0 && html`
+                <div class="bft-report-drafts">
+                    <h2 class="bft-report-drafts-heading">
+                        ${i18n.drafts_heading || 'Not yet submitted'}
+                    </h2>
+                    ${i18n.drafts_note && html`
+                        <p class="bft-report-drafts-note">${i18n.drafts_note}</p>
+                    `}
+                    <table class="bft-report-table bft-report-drafts-table">
+                        <thead>
+                            <tr>
+                                <th>${i18n.drilldown_col_student}</th>
+                                <th>${i18n.drilldown_col_activity}</th>
+                                <th>${i18n.pendingreport_filter_class_label || 'Class'}</th>
+                                <th>${i18n.drilldown_col_lastsaved || 'Last saved'}</th>
+                                <th>${i18n.drilldown_col_status}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${visibleDrafts.map((row) => html`
+                                <tr class="bft-report-row bft-report-row--draft"
+                                    key=${'d-' + row.submissionid}>
+                                    <td>${row.studentname}</td>
+                                    <td>${row.activityname}</td>
+                                    <td>${row.groupname || '-'}</td>
+                                    <td class="bft-mono">${formatDate(row.timesubmitted)}</td>
+                                    <td>
+                                        <span class="bft-badge bft-badge-draft">
+                                            ${i18n.status_draft || 'Draft'}
+                                        </span>
+                                    </td>
+                                </tr>
+                            `)}
+                        </tbody>
+                    </table>
                 </div>
             `}
         </div>
