@@ -101,11 +101,18 @@ class rollup_service {
         $thresholds = bucket::parse_thresholds_eff();
         $criticalmin = $thresholds[2];
 
-        // 1. Pending counts.
+        // 1. Pending counts. Only genuinely submitted work counts toward the
+        // SLA — draft / new / reopened attempts are awaiting the student, not
+        // the teacher, so they are excluded here (and everywhere downstream).
         $pendingrows = $DB->get_records_select(
             'block_feedback_tracker_sub',
-            'courseid = :courseid AND groupid = :groupid AND timegraded IS NULL',
-            ['courseid' => $courseid, 'groupid' => $groupid],
+            'courseid = :courseid AND groupid = :groupid AND timegraded IS NULL'
+                . ' AND submissionstatus = :substatus',
+            [
+                'courseid' => $courseid,
+                'groupid' => $groupid,
+                'substatus' => submission_status::SUBMITTED,
+            ],
             '',
             'id, effectivehours'
         );
@@ -122,11 +129,17 @@ class rollup_service {
             }
         }
 
-        // 2. Last-window graded stats.
+        // 2. Last-window graded stats (submitted work only).
         $gradedrows = $DB->get_records_select(
             'block_feedback_tracker_sub',
-            'courseid = :courseid AND groupid = :groupid AND timegraded IS NOT NULL AND timegraded >= :cutoff',
-            ['courseid' => $courseid, 'groupid' => $groupid, 'cutoff' => $cutoffrecent],
+            'courseid = :courseid AND groupid = :groupid AND timegraded IS NOT NULL'
+                . ' AND timegraded >= :cutoff AND submissionstatus = :substatus',
+            [
+                'courseid' => $courseid,
+                'groupid' => $groupid,
+                'cutoff' => $cutoffrecent,
+                'substatus' => submission_status::SUBMITTED,
+            ],
             '',
             'id, effectivehours, waitinghours'
         );
@@ -152,16 +165,19 @@ class rollup_service {
         $maxraw    = $numgraded30d ? stats::max_value($rawvals) : null;
         $compliancepct = $numgraded30d ? round(100.0 * $compliantcount / $numgraded30d, 2) : null;
 
-        // 3. Trend: this window's median vs the prior window's median.
+        // 3. Trend: this window's median vs the prior window's median
+        // (submitted work only).
         $priorrows = $DB->get_records_select(
             'block_feedback_tracker_sub',
             'courseid = :courseid AND groupid = :groupid AND timegraded IS NOT NULL'
-                . ' AND timegraded >= :cutoffprior AND timegraded < :cutoffrecent',
+                . ' AND timegraded >= :cutoffprior AND timegraded < :cutoffrecent'
+                . ' AND submissionstatus = :substatus',
             [
                 'courseid'      => $courseid,
                 'groupid'       => $groupid,
                 'cutoffprior'   => $cutoffprior,
                 'cutoffrecent'  => $cutoffrecent,
+                'substatus'     => submission_status::SUBMITTED,
             ],
             '',
             'id, effectivehours'

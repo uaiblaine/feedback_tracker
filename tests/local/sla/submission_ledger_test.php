@@ -318,6 +318,30 @@ final class submission_ledger_test extends \advanced_testcase {
         ]));
     }
 
+    /**
+     * Grading a student who never submitted — an {assign_grades} row exists but
+     * there is no {assign_submission} row — must NOT create a ledger row. The
+     * plugin measures feedback turnaround on real submissions, not gradings
+     * entered without one.
+     */
+    public function test_grade_without_submission_creates_no_row(): void {
+        $this->resetAfterTest();
+        $this->seed_calendar();
+        [$cm, $student, $assign] = $this->build_environment();
+
+        // A real grade, but deliberately NO assign_submission row.
+        $this->insert_assign_grade((int) $assign->id, (int) $student->id, time() - 1800);
+
+        $subid = submission_ledger::upsert_for_cm_user_attempt((int) $cm->id, (int) $student->id, 0);
+
+        $this->assertNull($subid);
+
+        global $DB;
+        $this->assertSame(0, (int) $DB->count_records('block_feedback_tracker_sub', [
+            'cmid' => $cm->id, 'userid' => $student->id,
+        ]));
+    }
+
     // Helpers.
 
     /**
@@ -327,7 +351,7 @@ final class submission_ledger_test extends \advanced_testcase {
      */
     private function build_environment(): array {
         $course = $this->getDataGenerator()->create_course();
-        // v1.3.0+ requires a course-context block instance for the
+        // v1.0.0+ requires a course-context block instance for the
         // observer-driven paths (group_member_added →
         // group_membership_changed → reattribute_user) to fire. Direct
         // submission_ledger::* calls in this file bypass the gate, but

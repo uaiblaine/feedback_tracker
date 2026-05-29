@@ -49,12 +49,14 @@ class trend_service {
         $rows = $DB->get_records_select(
             'block_feedback_tracker_sub',
             'courseid = :courseid AND groupid = :groupid'
-                . ' AND timegraded IS NOT NULL AND timegraded >= :start AND timegraded < :end',
+                . ' AND timegraded IS NOT NULL AND timegraded >= :start AND timegraded < :end'
+                . ' AND submissionstatus = :substatus',
             [
                 'courseid' => $courseid,
                 'groupid'  => $groupid,
                 'start'    => $start,
                 'end'      => $end,
+                'substatus' => submission_status::SUBMITTED,
             ],
             '',
             'id, effectivehours, waitinghours'
@@ -109,8 +111,9 @@ class trend_service {
         $tuples = $DB->get_records_sql(
             "SELECT DISTINCT courseid, groupid
                FROM {block_feedback_tracker_sub}
-              WHERE timegraded IS NOT NULL AND timegraded >= :start AND timegraded < :end",
-            ['start' => $start, 'end' => $end]
+              WHERE timegraded IS NOT NULL AND timegraded >= :start AND timegraded < :end
+                AND submissionstatus = :substatus",
+            ['start' => $start, 'end' => $end, 'substatus' => submission_status::SUBMITTED]
         );
         foreach ($tuples as $t) {
             self::recompute_for_day($daydate, (int) $t->courseid, (int) $t->groupid);

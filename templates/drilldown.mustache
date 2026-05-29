@@ -7,11 +7,17 @@
 
     Context variables required:
     * heading       Page heading text
-    * empty         Truthy when no submissions match the filter
+    * empty         Truthy when no submitted-but-ungraded submissions match the filter
     * emptytext     Empty-state message
     * cols          {student, activity, group, submitted, waiting, effective, status}
     * rows          Array of {student, activity, group, submitted, waiting, effective, status, bucket}
     * pagingbar     Pre-rendered paging-bar HTML (raw)
+    * hasdrafts     Truthy when there is at least one draft (not-yet-submitted) row
+    * draftheading  Heading for the drafts section
+    * draftnote     Explanatory note for the drafts section
+    * draftbadge    Label for the per-row draft badge
+    * draftcols     {student, activity, group, lastsaved, status}
+    * draftrows     Array of {student, activity, group, lastsaved, lastsavedts}
 
     Example context (json):
     {
@@ -32,7 +38,21 @@
                 "status": "good", "bucket": "good"
             }
         ],
-        "pagingbar": ""
+        "pagingbar": "",
+        "hasdrafts": true,
+        "draftheading": "Not yet submitted",
+        "draftnote": "Drafts aren't counted toward responsiveness.",
+        "draftbadge": "Draft",
+        "draftcols": {
+            "student": "Student", "activity": "Activity", "group": "Group",
+            "lastsaved": "Last saved", "status": "Status"
+        },
+        "draftrows": [
+            {
+                "student": "Bruno Costa", "activity": "Class log 3", "group": "Class A",
+                "lastsaved": "2026-05-18 21:02", "lastsavedts": 1747602120
+            }
+        ]
     }
 }}
 <h2>{{heading}}</h2>
@@ -68,3 +88,31 @@
     </table>
     {{{pagingbar}}}
 {{/empty}}
+{{#hasdrafts}}
+    <div class="bft-drilldown-drafts">
+        <h3>{{draftheading}}</h3>
+        <p class="bft-drilldown-drafts-note">{{draftnote}}</p>
+        <table class="generaltable bft-drilldown-drafts-table">
+            <thead>
+                <tr>
+                    <th>{{draftcols.student}}</th>
+                    <th>{{draftcols.activity}}</th>
+                    <th>{{draftcols.group}}</th>
+                    <th>{{draftcols.lastsaved}}</th>
+                    <th>{{draftcols.status}}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#draftrows}}
+                    <tr class="bft-row-draft">
+                        <td>{{student}}</td>
+                        <td>{{activity}}</td>
+                        <td>{{group}}</td>
+                        <td>{{lastsaved}}</td>
+                        <td><span class="badge badge-draft">{{draftbadge}}</span></td>
+                    </tr>
+                {{/draftrows}}
+            </tbody>
+        </table>
+    </div>
+{{/hasdrafts}}

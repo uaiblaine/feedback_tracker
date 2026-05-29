@@ -67,6 +67,19 @@ $pending = \block_feedback_tracker\external\get_pending_submissions::execute(
     $perpage
 );
 
+// Drafts (saved but not submitted) are surfaced separately and de-emphasised
+// so the teacher can decide whether to grade them. They never count toward the
+// SLA, so they ignore the bucket filter and are always shown most-recent-first.
+$draftpending = \block_feedback_tracker\external\get_pending_submissions::execute(
+    $courseid,
+    $groupid,
+    '',
+    'recent',
+    0,
+    $perpage,
+    \block_feedback_tracker\local\sla\submission_status::DRAFT
+);
+
 // Available groups for the filter dropdown + scope-level metrics for the
 // design's hero row — reuse the responsiveness payload's group-access
 // logic so the filter never offers groups the user can't see, and the
@@ -202,6 +215,12 @@ $i18n = array_merge(
     \block_feedback_tracker\local\output\bootstrap::i18n_bundle(),
     \block_feedback_tracker\local\output\bootstrap::pending_report_i18n()
 );
+// Draft-section labels (PendingReportView renders these for the muted
+// "Not yet submitted" sub-table).
+$i18n['drafts_heading'] = get_string('drilldown_drafts_heading', 'block_feedback_tracker');
+$i18n['drafts_note'] = get_string('drilldown_drafts_note', 'block_feedback_tracker');
+$i18n['drilldown_col_lastsaved'] = get_string('drilldown_col_lastsaved', 'block_feedback_tracker');
+$i18n['status_draft'] = get_string('status_draft', 'block_feedback_tracker');
 
 $initial = [
     'courseid' => (int) $courseid,
@@ -211,6 +230,7 @@ $initial = [
         'groupid' => $groupid,
         'sort' => $sortmode,
     ]),
+    'drafts' => $draftpending,
     'groups' => $availablegroups,
     'scope' => $scope,
     'i18n' => $i18n,

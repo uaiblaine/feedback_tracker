@@ -69,12 +69,14 @@ export const getResponsiveness = ({courseid, force = false}) =>
  * @param {string} [options.sort]     "longestwait" | "recent"
  * @param {number} [options.page]
  * @param {number} [options.perpage]
+ * @param {string} [options.status]   "submitted" (default, awaiting feedback) | "draft"
  * @returns {Promise<object>}
  */
 export const getPendingSubmissions = ({
     courseid, groupid = 0, bucket = '', sort = 'longestwait', page = 0, perpage = 25,
+    status = 'submitted',
 }) => call('block_feedback_tracker_get_pending_submissions',
-    {courseid, groupid, bucket, sort, page, perpage});
+    {courseid, groupid, bucket, sort, page, perpage, status});
 
 /**
  * Pause timeline for one submission (weekend / holiday / manual pause

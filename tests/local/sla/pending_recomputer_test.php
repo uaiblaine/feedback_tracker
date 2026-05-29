@@ -154,6 +154,46 @@ final class pending_recomputer_test extends \advanced_testcase {
     }
 
     /**
+     * Draft / new / reopened pending rows are not recomputed — only genuinely
+     * submitted work accrues effective hours over time. The stale draft row is
+     * left untouched (effectiveasof / effectivecalver unchanged).
+     */
+    public function test_skips_non_submitted(): void {
+        $this->resetAfterTest();
+        $this->seed_calendar();
+
+        global $DB;
+        $now = time();
+        $stale = $now - 7200;
+        $rowid = $DB->insert_record('block_feedback_tracker_sub', (object) [
+            'courseid'         => 53,
+            'groupid'          => 63,
+            'cmid'             => 73,
+            'iteminstance'     => 83,
+            'userid'           => 1,
+            'attemptnumber'    => 0,
+            'submissionstatus' => 'draft',
+            'timesubmitted'    => $now - 10 * 3600,
+            'timegraded'       => null,
+            'hasrule'          => 0,
+            'waitinghours'     => 0.0,
+            'effectivehours'   => 1.0,
+            'effectiveasof'    => $stale,
+            'effectivecalver'  => 0,
+            'slabucket'        => 'excellent',
+            'timecreated'      => $now - 10 * 3600,
+            'timemodified'     => $stale,
+        ]);
+
+        $result = pending_recomputer::recompute_stale(1000, 50, $now);
+
+        $this->assertSame(0, $result['count']);
+        $row = $DB->get_record('block_feedback_tracker_sub', ['id' => $rowid]);
+        $this->assertSame($stale, (int) $row->effectiveasof);
+        $this->assertSame(0, (int) $row->effectivecalver);
+    }
+
+    /**
      * Seed Mon-Fri 08:00-18:00 calendar.
      */
     private function seed_calendar(): void {

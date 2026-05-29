@@ -169,6 +169,58 @@ final class rollup_service_test extends \advanced_testcase {
         $this->assertCount(1, $rows);
     }
 
+    /**
+     * Only genuinely "submitted" work counts. Draft / new / reopened rows are
+     * excluded from the pending counts and from the graded-window stats.
+     */
+    public function test_only_submitted_counts(): void {
+        $this->resetAfterTest();
+        $this->seed_config();
+
+        $courseid = 104;
+        $groupid = 204;
+        $now = time();
+
+        // One genuinely-submitted pending row (counts).
+        $this->insert_ledger($courseid, $groupid, [
+            'submissionstatus' => submission_status::SUBMITTED,
+            'effectivehours' => 5.0, 'timegraded' => null,
+        ]);
+        // Draft / new / reopened pending rows — all ignored.
+        $this->insert_ledger($courseid, $groupid, [
+            'submissionstatus' => submission_status::DRAFT,
+            'effectivehours' => 5.0, 'timegraded' => null,
+        ]);
+        $this->insert_ledger($courseid, $groupid, [
+            'submissionstatus' => submission_status::NEW,
+            'effectivehours' => 5.0, 'timegraded' => null,
+        ]);
+        $this->insert_ledger($courseid, $groupid, [
+            'submissionstatus' => submission_status::REOPENED,
+            'effectivehours' => 5.0, 'timegraded' => null,
+        ]);
+        // A graded draft — must not enter the graded-window stats.
+        $this->insert_ledger($courseid, $groupid, [
+            'submissionstatus' => submission_status::DRAFT,
+            'effectivehours' => 10.0, 'timegraded' => $now - 86400,
+        ]);
+        // A graded submitted row — counts.
+        $this->insert_ledger($courseid, $groupid, [
+            'submissionstatus' => submission_status::SUBMITTED,
+            'effectivehours' => 20.0, 'timegraded' => $now - 86400,
+        ]);
+
+        rollup_service::recompute_group($courseid, $groupid, $now);
+
+        global $DB;
+        $row = $DB->get_record('block_feedback_tracker_group', [
+            'courseid' => $courseid, 'groupid' => $groupid,
+        ]);
+        $this->assertNotFalse($row);
+        $this->assertSame(1, (int) $row->pending);
+        $this->assertSame(1, (int) $row->numgraded30d);
+    }
+
     // Note (v1.0.0): the prior test_recompute_skips_on_lock_collision
     // test was removed. The Lock API factory provisioned in Moodle's
     // PHPUnit environment is per-process and doesn't enforce mutual

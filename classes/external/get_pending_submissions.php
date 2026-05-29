@@ -26,6 +26,7 @@ declare(strict_types=1);
 
 namespace block_feedback_tracker\external;
 
+use block_feedback_tracker\local\sla\submission_status;
 use core_external\external_api;
 use core_external\external_function_parameters;
 use core_external\external_multiple_structure;
@@ -57,6 +58,13 @@ class get_pending_submissions extends external_api {
             'sort' => new external_value(PARAM_ALPHA, 'longestwait|recent', VALUE_DEFAULT, 'longestwait'),
             'page' => new external_value(PARAM_INT, '0-based page index', VALUE_DEFAULT, 0),
             'perpage' => new external_value(PARAM_INT, 'Page size', VALUE_DEFAULT, self::DEFAULT_PAGE_SIZE),
+            'status' => new external_value(
+                PARAM_ALPHA,
+                'Submission status: submitted (default) lists work awaiting feedback; '
+                    . 'draft lists not-yet-submitted work',
+                VALUE_DEFAULT,
+                'submitted'
+            ),
         ]);
     }
 
@@ -69,6 +77,7 @@ class get_pending_submissions extends external_api {
      * @param string $sort
      * @param int $page
      * @param int $perpage
+     * @param string $status submitted (default) | draft
      * @return array
      */
     public static function execute(
@@ -77,13 +86,14 @@ class get_pending_submissions extends external_api {
         string $bucket = '',
         string $sort = 'longestwait',
         int $page = 0,
-        int $perpage = self::DEFAULT_PAGE_SIZE
+        int $perpage = self::DEFAULT_PAGE_SIZE,
+        string $status = submission_status::SUBMITTED
     ): array {
         global $DB, $USER;
 
         $params = self::validate_parameters(self::execute_parameters(), [
             'courseid' => $courseid, 'groupid' => $groupid, 'bucket' => $bucket,
-            'sort' => $sort, 'page' => $page, 'perpage' => $perpage,
+            'sort' => $sort, 'page' => $page, 'perpage' => $perpage, 'status' => $status,
         ]);
         $courseid = (int) $params['courseid'];
         $groupid = max(0, (int) $params['groupid']);
@@ -91,6 +101,12 @@ class get_pending_submissions extends external_api {
         $sortmode = $params['sort'] === 'recent' ? 'recent' : 'longestwait';
         $page = max(0, (int) $params['page']);
         $perpage = max(1, min((int) $params['perpage'], self::MAX_PAGE_SIZE));
+        // Only two statuses are listable: submitted (work awaiting feedback)
+        // and draft (saved but not submitted). Anything else falls back to
+        // submitted so the default pending list is never accidentally widened.
+        $status = $params['status'] === submission_status::DRAFT
+            ? submission_status::DRAFT
+            : submission_status::SUBMITTED;
 
         $context = \context_course::instance($courseid);
         self::validate_context($context);
@@ -117,8 +133,9 @@ class get_pending_submissions extends external_api {
             ];
         }
 
-        $where = 'sub.courseid = :courseid AND sub.timegraded IS NULL';
-        $sqlparams = ['courseid' => $courseid];
+        $where = 'sub.courseid = :courseid AND sub.timegraded IS NULL'
+            . ' AND sub.submissionstatus = :substatus';
+        $sqlparams = ['courseid' => $courseid, 'substatus' => $status];
         if ($visibleids !== null) {
             [$gsql, $gparams] = $DB->get_in_or_equal($visibleids, SQL_PARAMS_NAMED, 'gv');
             $where .= " AND sub.groupid $gsql";
@@ -137,9 +154,14 @@ class get_pending_submissions extends external_api {
         $orderby = $sortmode === 'recent'
             ? 'sub.timesubmitted DESC'
             : 'sub.effectivehours DESC, sub.timesubmitted ASC';
+        if ($status === submission_status::DRAFT) {
+            // Drafts have no SLA clock; order by most-recently-saved instead.
+            $orderby = 'sub.timesubmitted DESC';
+        }
 
         $sql = "SELECT sub.id, sub.cmid, sub.userid, sub.groupid, sub.timesubmitted,
                        sub.waitinghours, sub.effectivehours, sub.slabucket,
+                       sub.submissionstatus,
                        u.firstname, u.lastname, cm.instance AS assignid
                   FROM {block_feedback_tracker_sub} sub
                   JOIN {user} u ON u.id = sub.userid
@@ -180,6 +202,7 @@ class get_pending_submissions extends external_api {
                 'waitinghours'   => (float) $r->waitinghours,
                 'effectivehours' => (float) $r->effectivehours,
                 'slabucket'      => (string) $r->slabucket,
+                'submissionstatus' => (string) $r->submissionstatus,
             ];
         }
 
@@ -219,6 +242,7 @@ class get_pending_submissions extends external_api {
                 'waitinghours'   => new external_value(PARAM_FLOAT, ''),
                 'effectivehours' => new external_value(PARAM_FLOAT, ''),
                 'slabucket'      => new external_value(PARAM_ALPHA, ''),
+                'submissionstatus' => new external_value(PARAM_ALPHA, ''),
             ])),
         ]);
     }

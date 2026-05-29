@@ -214,12 +214,14 @@ class responsiveness_calculator {
             'block_feedback_tracker_sub',
             'courseid = :courseid AND groupid = :groupid'
                 . ' AND timegraded IS NOT NULL'
-                . ' AND timegraded >= :start AND timegraded < :end',
+                . ' AND timegraded >= :start AND timegraded < :end'
+                . ' AND submissionstatus = :substatus',
             [
                 'courseid' => $courseid,
                 'groupid'  => $groupid,
                 'start'    => $start,
                 'end'      => $end,
+                'substatus' => \block_feedback_tracker\local\sla\submission_status::SUBMITTED,
             ],
             '',
             'id, effectivehours'

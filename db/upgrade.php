@@ -201,5 +201,29 @@ function xmldb_block_feedback_tracker_upgrade($oldversion) {
         upgrade_block_savepoint(true, 2026060111, 'feedback_tracker');
     }
 
+    // V1.0.12 — only genuinely "submitted" work counts toward the SLA. Every
+    // rollup / pending / score query now filters submissionstatus = 'submitted'
+    // (draft / new / reopened attempts are awaiting the student, not the
+    // teacher). Existing ledger rows already store the correct status, so no
+    // row migration is needed — but the derived per-(course, group) rollups
+    // were computed under the old "count every ungraded row" rule and must be
+    // rebuilt. Re-enqueue every distinct tuple so the drain_queue task
+    // recomputes each rollup submitted-only on the next cron run. (Daily site
+    // + trend tables self-heal on their own scheduled recompute.)
+    if ($oldversion < 2026060112) {
+        $tuples = $DB->get_recordset_sql(
+            'SELECT DISTINCT courseid, groupid FROM {block_feedback_tracker_sub}'
+        );
+        foreach ($tuples as $t) {
+            \block_feedback_tracker\local\sla\dirty_queue::enqueue(
+                (int) $t->courseid,
+                (int) $t->groupid,
+                \block_feedback_tracker\local\sla\dirty_queue::REASON_SUBMISSION
+            );
+        }
+        $tuples->close();
+        upgrade_block_savepoint(true, 2026060112, 'feedback_tracker');
+    }
+
     return true;
 }
