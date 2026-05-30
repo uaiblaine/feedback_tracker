@@ -60,7 +60,8 @@ class paused_aggregator {
      * @param int $courseid Course context for manual-pause scoping; 0 for site-wide.
      * @param int $start    Unix seconds; inclusive lower bound.
      * @param int $end      Unix seconds; exclusive upper bound. Must be > $start.
-     * @return array{total_days:int, weekend:int, holiday:int, recess:int, events:array<int, array{date:int, starttime:int, endtime:int, label:string}>}
+     * @return array{total_days:int, weekend:int, holiday:int, recess:int,
+     *               events:array<int, array{date:int, starttime:int, endtime:int, label:string}>}
      */
     public static function for_window(int $courseid, int $start, int $end): array {
         if ($end <= $start) {
@@ -103,7 +104,7 @@ class paused_aggregator {
             $isweekend = $excludeweekends && calendar::is_weekend($dow);
             $type = $override['daytype'] ?? null;
 
-            // schoolday overrides cancel the weekend classification.
+            // Schoolday overrides cancel the weekend classification.
             if ($type === calendar::DAYTYPE_SCHOOLDAY) {
                 $isweekend = false;
             }
@@ -187,8 +188,8 @@ class paused_aggregator {
             $out[(int) $r->daydate] = [
                 'daytype'   => (string) $r->daytype,
                 'starttime' => $r->starttime !== null ? (int) $r->starttime : null,
-                'endtime'   => $r->endtime   !== null ? (int) $r->endtime   : null,
-                'note'      => $r->note      !== null ? (string) $r->note   : null,
+                'endtime' => $r->endtime !== null ? (int) $r->endtime : null,
+                'note' => $r->note !== null ? (string) $r->note : null,
             ];
         }
         return $out;

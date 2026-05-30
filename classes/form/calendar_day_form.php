@@ -76,9 +76,9 @@ class calendar_day_form extends \moodleform {
         $mform->addElement('select', 'daytype', get_string('caleditor_col_type', $plugin), $types);
         $mform->setDefault('daytype', 'holiday');
 
-        // v1.0.9 — sub-day event window. Only meaningful when daytype is
-        // 'optional'; hideIf hides the inputs otherwise. Leaving both
-        // empty preserves the legacy "full-day optional" semantics.
+        /* v1.0.9 — sub-day event window. Only meaningful when daytype is
+         * 'optional'; hideIf hides the inputs otherwise. Leaving both
+         * empty preserves the legacy "full-day optional" semantics. */
         $mform->addElement(
             'text',
             'starttime',
@@ -96,8 +96,12 @@ class calendar_day_form extends \moodleform {
         );
         $mform->setType('endtime', PARAM_TEXT);
         $mform->hideIf('endtime', 'daytype', 'neq', calendar::DAYTYPE_OPTIONAL);
-        $mform->addElement('static', 'caleditor_event_window_help_static', '',
-            get_string('caleditor_event_window_help', $plugin));
+        $mform->addElement(
+            'static',
+            'caleditor_event_window_help_static',
+            '',
+            get_string('caleditor_event_window_help', $plugin)
+        );
         $mform->hideIf('caleditor_event_window_help_static', 'daytype', 'neq', calendar::DAYTYPE_OPTIONAL);
 
         $mform->addElement(
@@ -135,8 +139,8 @@ class calendar_day_form extends \moodleform {
             }
         }
 
-        // v1.0.9 — validate the optional time window. Either both empty
-        // (full-day optional) or both set with start < end.
+        /* v1.0.9 — validate the optional time window. Either both empty
+         * (full-day optional) or both set with start < end. */
         if (($data['daytype'] ?? '') === calendar::DAYTYPE_OPTIONAL) {
             $start = trim((string) ($data['starttime'] ?? ''));
             $end = trim((string) ($data['endtime'] ?? ''));

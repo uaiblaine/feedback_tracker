@@ -155,8 +155,8 @@ private static function band_label(string $band): string {
 
 ### CodeSniffer rules that bite
 
-Four rules from `moodle.*` / `PSR2.*` standards routinely break CI on this
-plugin. Pre-empt them at write time.
+Eight rules from `moodle.*` / `PSR2.*` / `PSR12.*` standards routinely break
+CI on this plugin. Pre-empt them at write time.
 
 **1. Variables are lower-case only.** No camelCase, no snake_case — a single
 lower-case word (concatenated if needed). Sniff:
@@ -187,19 +187,26 @@ $DB->set_field(
 ```
 
 **3. Inline `//` comments — one space, capital first letter, no inline
-indentation.** Need indented/aligned/list-style commentary? Use a block
-comment (`/* ... */`). Sniff: `moodle.Commenting.InlineComment.SpacingBefore`.
+indentation.** The sniff fires on the **first line** of any `//` comment
+block that starts with a lowercase letter, digit-preceded-by-letter (`v1.0`),
+or lacks terminal punctuation. Need multi-line or version-tagged commentary?
+Use a block comment (`/* ... */`) — the sniff does not apply inside `/* */`.
+Sniffs: `moodle.Commenting.InlineComment.{NotCapital,InvalidEndChar,SpacingBefore}`.
 
 ```php
-// ✘ Inline indentation + dashes inside //:
-//   - g.courseid = X       (unrestricted)
-//   - g.courseid = X AND g.groupid IN (...)  (restricted)
+// ✘ Starts with lowercase 'v':
+// v1.0.9 — sub-day event window. Only meaningful when daytype is
+// 'optional'; hideIf hides the inputs otherwise.
 
-/*
- * ✓ Same content as a block comment — formatting preserved:
- *   - g.courseid = X       (unrestricted)
- *   - g.courseid = X AND g.groupid IN (...)  (restricted)
- */
+/* ✓ Block comment — 'v' prefix and multi-line content allowed: */
+/* v1.0.9 — sub-day event window. Only meaningful when daytype is
+ * 'optional'; hideIf hides the inputs otherwise. */
+
+// ✘ Trailing inline comment starting with lowercase, no punctuation:
+backfill_cursor::get_or_create(3);   // active
+
+// ✓ Remove trivial trailing comments — the method call speaks for itself:
+backfill_cursor::get_or_create(3);
 ```
 
 **4. Property docblocks need `@var`.** A `/** ... */` on a class property
@@ -213,6 +220,73 @@ Sniff: `moodle.Commenting.VariableComment.MissingVar`.
 /** @var array<string, int[]|null> Per-request memo keyed by "courseid:userid". */
 private static array $memo = [];
 ```
+
+**5. Ternary operator alignment spaces.** The operator-spacing sniff requires
+**exactly one space** before `!==`, `===`, `?`, `:` etc. Aligning columns
+with extra spaces breaks it. Sniff:
+`Squiz.WhiteSpace.OperatorSpacing.SpacingBefore`.
+
+```php
+// ✘ Alignment spaces trigger "3 found" / "6 found" errors:
+$starttime = $params['starttime'] !== null ? (int) $params['starttime'] : null;
+$endtime   = $params['endtime']   !== null ? (int) $params['endtime']   : null;
+
+// ✓ One space everywhere — no column alignment:
+$starttime = $params['starttime'] !== null ? (int) $params['starttime'] : null;
+$endtime = $params['endtime'] !== null ? (int) $params['endtime'] : null;
+```
+
+This also applies inside array literals built from DB rows:
+
+```php
+// ✘
+'endtime' => $r->endtime   !== null ? (int) $r->endtime   : null,
+'note'    => $r->note      !== null ? (string) $r->note   : null,
+
+// ✓
+'endtime' => $r->endtime !== null ? (int) $r->endtime : null,
+'note' => $r->note !== null ? (string) $r->note : null,
+```
+
+**6. PSR-12 multi-line `if` layout.** When an `if` condition spans lines, the
+first expression must be on the line **after** `(` and the closing `)` on the
+line **after** the last expression. Sniffs:
+`PSR12.ControlStructures.ControlStructureSpacing.{FirstExpressionLine,CloseParenthesisLine}`.
+
+```php
+// ✘ First expression on the same line as (:
+if ($type === calendar::DAYTYPE_OPTIONAL
+    && $starttime !== null && $endtime !== null
+    && $endtime > $starttime) {
+
+// ✓ Expression on next line; ) on its own line:
+if (
+    $type === calendar::DAYTYPE_OPTIONAL
+    && $starttime !== null && $endtime !== null
+    && $endtime > $starttime
+) {
+```
+
+**7. Line-length limits.** Hard max is **180 characters** (error); soft max is
+**132 characters** (warning). Both matter — the warning count feeds
+`phpdoc --max-warnings 0`. Long `@return` type annotations in PHPDoc are the
+most common offender; wrap them at a natural boundary:
+
+```php
+// ✘ 183 characters — exceeds the hard limit:
+// @return array{type:string, ..., optional_window:?array{startmin:int,...}}
+
+// ✓ Wrapped after a comma:
+// @return array{type:string, dayofweek:int, is_weekend:bool, business_hours:array,
+//               is_active:bool, day_note:?string,
+//               optional_window:?array{startmin:int,endmin:int,note:?string}}
+```
+
+**8. Squiz "commented-out code" false positive.** The sniff
+`Squiz.PHP.CommentedOutCode.Found` fires when a trailing `//` comment
+contains text that looks like PHP (e.g. `// active=0`). Fix: remove trivial
+trailing comments entirely (the code is self-documenting), or rephrase to
+avoid `=` inside the comment text.
 
 ## Database (XMLDB)
 
