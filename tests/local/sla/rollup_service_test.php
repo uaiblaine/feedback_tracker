@@ -152,6 +152,48 @@ final class rollup_service_test extends \advanced_testcase {
     }
 
     /**
+     * Trend pct is clamped to ±TREND_PCT_CAP so a near-zero prior median can't
+     * produce a value that overflows the NUMBER(6,2) trend_pct_30d column.
+     * Regression: prior median 0.05h → recent 200h yields ~399900%, which
+     * triggered a "numeric field overflow" on update_record.
+     */
+    public function test_trend_pct_is_clamped_to_avoid_overflow(): void {
+        $this->resetAfterTest();
+        $this->seed_config();
+
+        $courseid = 105;
+        $groupid = 205;
+        $now = time();
+        $thirtydays = 30 * 86400;
+
+        // Prior window: tiny median (0.05h) → division blows the ratio up.
+        for ($i = 0; $i < 5; $i++) {
+            $this->insert_ledger($courseid, $groupid, [
+                'effectivehours' => 0.05,
+                'waitinghours' => 0.05,
+                'timegraded' => $now - $thirtydays - 86400 * ($i + 1),
+            ]);
+        }
+        // Recent window: large median (200h) — a massive regression.
+        for ($i = 0; $i < 5; $i++) {
+            $this->insert_ledger($courseid, $groupid, [
+                'effectivehours' => 200.0,
+                'waitinghours' => 200.0,
+                'timegraded' => $now - 86400 * ($i + 1),
+            ]);
+        }
+
+        rollup_service::recompute_group($courseid, $groupid, $now);
+
+        global $DB;
+        $row = $DB->get_record('block_feedback_tracker_group', [
+            'courseid' => $courseid, 'groupid' => $groupid,
+        ]);
+        $this->assertNotFalse($row);
+        $this->assertSame(rollup_service::TREND_PCT_CAP, (float) $row->trend_pct_30d);
+    }
+
+    /**
      * Subsequent calls update the same rollup row, not insert a duplicate.
      */
     public function test_recompute_is_idempotent(): void {

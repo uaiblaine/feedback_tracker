@@ -108,17 +108,20 @@ class trend_service {
         global $DB;
         [$start, $end] = self::day_bounds($daydate);
 
-        $tuples = $DB->get_records_sql(
+        $rs = $DB->get_recordset_sql(
             "SELECT DISTINCT courseid, groupid
                FROM {block_feedback_tracker_sub}
               WHERE timegraded IS NOT NULL AND timegraded >= :start AND timegraded < :end
                 AND submissionstatus = :substatus",
             ['start' => $start, 'end' => $end, 'substatus' => submission_status::SUBMITTED]
         );
-        foreach ($tuples as $t) {
+        $count = 0;
+        foreach ($rs as $t) {
             self::recompute_for_day($daydate, (int) $t->courseid, (int) $t->groupid);
+            $count++;
         }
-        return count($tuples);
+        $rs->close();
+        return $count;
     }
 
     /**
