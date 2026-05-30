@@ -55,8 +55,8 @@ class save_calendar_day extends external_api {
                 'schoolday|holiday|recess|closed|optional|remove'
             ),
             'note'    => new external_value(PARAM_TEXT, 'Free-text note', VALUE_DEFAULT, ''),
-            // v1.0.9 — sub-day event window. Only meaningful when
-            // daytype = 'optional'. Both null = legacy full-day rule.
+            /* v1.0.9 — sub-day event window. Only meaningful when
+             * daytype = 'optional'. Both null = legacy full-day rule. */
             'starttime' => new external_value(
                 PARAM_INT,
                 'Event start (minutes since midnight 0..1439); null = full-day rule',
@@ -101,7 +101,7 @@ class save_calendar_day extends external_api {
         $daytype = strtolower(trim((string) $params['daytype']));
         $note = trim((string) $params['note']);
         $starttime = $params['starttime'] !== null ? (int) $params['starttime'] : null;
-        $endtime   = $params['endtime']   !== null ? (int) $params['endtime']   : null;
+        $endtime = $params['endtime'] !== null ? (int) $params['endtime'] : null;
 
         $sysctx = \context_system::instance();
         self::validate_context($sysctx);

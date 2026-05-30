@@ -54,7 +54,9 @@ class day_rule_resolver {
      *
      * @param int $daydate YYYYMMDD as int.
      * @param int $dayofweek 0=Mon..6=Sun (ISO 8601).
-     * @return array{type:string, dayofweek:int, is_weekend:bool, business_hours:array, is_active:bool, day_note:?string, optional_window:?array{startmin:int,endmin:int,note:?string}}
+     * @return array{type:string, dayofweek:int, is_weekend:bool, business_hours:array,
+     *               is_active:bool, day_note:?string,
+     *               optional_window:?array{startmin:int,endmin:int,note:?string}}
      */
     public static function for_date(int $daydate, int $dayofweek): array {
         $calver = calendar::current_version();
@@ -76,7 +78,7 @@ class day_rule_resolver {
         $type = $cdayrow ? (string) $cdayrow->daytype : calendar::DAYTYPE_IMPLICIT;
         $note = $cdayrow ? ($cdayrow->note !== null ? (string) $cdayrow->note : null) : null;
         $starttime = ($cdayrow && $cdayrow->starttime !== null) ? (int) $cdayrow->starttime : null;
-        $endtime   = ($cdayrow && $cdayrow->endtime   !== null) ? (int) $cdayrow->endtime   : null;
+        $endtime = ($cdayrow && $cdayrow->endtime !== null) ? (int) $cdayrow->endtime : null;
 
         $isweekend = calendar::is_weekend($dayofweek);
         if (calendar::enablebusinesshours()) {
@@ -87,9 +89,11 @@ class day_rule_resolver {
 
         $optionalwindow = null;
         $isactive = calendar::is_active_day($type, $isweekend);
-        if ($type === calendar::DAYTYPE_OPTIONAL
+        if (
+            $type === calendar::DAYTYPE_OPTIONAL
             && $starttime !== null && $endtime !== null
-            && $endtime > $starttime) {
+            && $endtime > $starttime
+        ) {
             // Sub-day event: the day is otherwise active per the weekly
             // rule (treat weekend exclusion identically to a normal
             // implicit day); the event window itself is subtracted later

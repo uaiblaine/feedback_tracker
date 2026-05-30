@@ -99,9 +99,9 @@ final class submission_ledger_test extends \advanced_testcase {
         $this->assertEqualsWithDelta(2.0, (float) $row->effectivehours, 0.01);
         $this->assertSame(bucket::EXCELLENT, $row->slabucket);
 
-        // v2.0.0+: pause windows are derived on demand; the shorter
-        // effectivehours vs raw waiting interval proves the engine
-        // applied pauses.
+        /* v2.0.0+: pause windows are derived on demand; the shorter
+         * effectivehours vs raw waiting interval proves the engine
+         * applied pauses. */
     }
 
     /**
@@ -196,6 +196,7 @@ final class submission_ledger_test extends \advanced_testcase {
     public function test_grader_submission_is_skipped(): void {
         $this->resetAfterTest();
         $this->seed_calendar();
+        set_config('exclude_grader_submissions', '1', 'block_feedback_tracker');
 
         $course = $this->getDataGenerator()->create_course();
         $teacher = $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
@@ -351,12 +352,12 @@ final class submission_ledger_test extends \advanced_testcase {
      */
     private function build_environment(): array {
         $course = $this->getDataGenerator()->create_course();
-        // v1.0.0+ requires a course-context block instance for the
-        // observer-driven paths (group_member_added →
-        // group_membership_changed → reattribute_user) to fire. Direct
-        // submission_ledger::* calls in this file bypass the gate, but
-        // any test that triggers an event flows through it. Reset the
-        // course_access memo for recycled courseids.
+        /* v1.0.0+ requires a course-context block instance for the
+         * observer-driven paths (group_member_added →
+         * group_membership_changed → reattribute_user) to fire. Direct
+         * submission_ledger::* calls in this file bypass the gate, but
+         * any test that triggers an event flows through it. Reset the
+         * course_access memo for recycled courseids. */
         $coursectx = \context_course::instance($course->id);
         $this->getDataGenerator()->create_block('feedback_tracker', [
             'parentcontextid' => $coursectx->id,

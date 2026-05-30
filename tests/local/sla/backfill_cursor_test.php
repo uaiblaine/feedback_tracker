@@ -121,9 +121,9 @@ final class backfill_cursor_test extends \advanced_testcase {
      */
     public function test_active_rows_vs_all_rows(): void {
         $this->resetAfterTest();
-        backfill_cursor::get_or_create(3);   // active
-        backfill_cursor::get_or_create(1);   // active
-        backfill_cursor::advance(2, 50, true);   // complete (active=0)
+        backfill_cursor::get_or_create(3);
+        backfill_cursor::get_or_create(1);
+        backfill_cursor::advance(2, 50, true);
 
         $active = backfill_cursor::active_rows();
         $activecourseids = array_map(static fn($r) => (int) $r->courseid, array_values($active));
