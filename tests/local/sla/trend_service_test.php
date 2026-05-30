@@ -69,4 +69,47 @@ final class trend_service_test extends \advanced_testcase {
         $this->assertSame(1, (int) $row->numgraded);
         $this->assertEqualsWithDelta(10.0, (float) $row->medianh_eff, 0.01);
     }
+
+    /**
+     * recompute_day() must write one row per (course, group) — not collapse
+     * to a single group per course. Regression: the previous get_records_sql()
+     * keyed the result by courseid (non-unique), silently dropping all but one
+     * group of each course (and emitting a "Duplicate value" debugging notice).
+     *
+     * @return void
+     */
+    public function test_recompute_day_covers_every_group_of_a_course(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $gen = $this->getDataGenerator()->get_plugin_generator('block_feedback_tracker');
+        $gen->seed_default_platform_calendar();
+
+        $course = $this->getDataGenerator()->create_course();
+        $groupa = $this->getDataGenerator()->create_group(['courseid' => $course->id]);
+        $groupb = $this->getDataGenerator()->create_group(['courseid' => $course->id]);
+
+        $tz = new \DateTimeZone('UTC');
+        $dt = new \DateTimeImmutable('2026-03-15 10:00:00', $tz);
+        $ts = $dt->getTimestamp();
+        $day = (int) $dt->format('Ymd');
+
+        $gen->create_ledger_row([
+            'courseid' => (int) $course->id, 'groupid' => (int) $groupa->id,
+            'submissionstatus' => submission_status::SUBMITTED,
+            'timegraded' => $ts, 'effectivehours' => 10.0,
+        ]);
+        $gen->create_ledger_row([
+            'courseid' => (int) $course->id, 'groupid' => (int) $groupb->id,
+            'submissionstatus' => submission_status::SUBMITTED,
+            'timegraded' => $ts, 'effectivehours' => 20.0,
+        ]);
+
+        $written = trend_service::recompute_day($day);
+
+        $this->assertSame(2, $written);
+        $rows = $DB->get_records('block_feedback_tracker_trend', [
+            'courseid' => (int) $course->id, 'day' => $day,
+        ]);
+        $this->assertCount(2, $rows);
+    }
 }

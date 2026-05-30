@@ -49,6 +49,15 @@ class rollup_service {
     public const TREND_WINDOW_DAYS = 30;
 
     /**
+     * Display cap (±%) for trend_pct_30d. The raw ratio is unbounded when the
+     * prior-window median is near zero (e.g. 0.06h → 227h ≈ 118950%), which
+     * overflows the NUMBER(6,2) column. A regression beyond ~900% already
+     * reads as "far worse", so clamping here loses no signal — and the score's
+     * trend term saturates via clamp01() long before this bound.
+     */
+    public const TREND_PCT_CAP = 999.99;
+
+    /**
      * Recompute and upsert the rollup row for one (courseid, groupid).
      *
      * Guarded by a non-blocking Moodle Lock API lock keyed on the tuple. When
@@ -190,6 +199,7 @@ class rollup_service {
         $trendpct = null;
         if ($medianeff !== null && $priormedian !== null && $priormedian > 0.0) {
             $trendpct = round(100.0 * ($medianeff - $priormedian) / $priormedian, 2);
+            $trendpct = max(-self::TREND_PCT_CAP, min(self::TREND_PCT_CAP, $trendpct));
         }
 
         // 4. Score.
