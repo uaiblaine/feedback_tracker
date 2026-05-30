@@ -45,7 +45,7 @@ class peer_stats {
     /** Minimum sample size required to publish peer benchmarks. */
     public const MIN_SAMPLE = 3;
 
-    /** Per-request memo, keyed by exclusion (groupid). */
+    /** @var array<int, array<string, float|null>> Per-request memo, keyed by exclusion (groupid). */
     private static array $cache = [];
 
     /**

@@ -143,7 +143,7 @@ class get_responsiveness extends external_api {
                 'holiday' => new external_value(PARAM_INT, ''),
                 'recess'  => new external_value(PARAM_INT, ''),
             ]),
-            // v1.0.9 — sub-day optional events sidecar.
+            /* v1.0.9 — sub-day optional events sidecar. */
             'paused_events_30d' => new external_multiple_structure(
                 new external_single_structure([
                     'date'      => new external_value(PARAM_INT, 'YYYYMMDD'),
