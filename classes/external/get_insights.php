@@ -305,10 +305,10 @@ class get_insights extends external_api {
             'groupid'       => new external_value(PARAM_INT, ''),
             'metric_value'  => new external_value(PARAM_TEXT, ''),
             'metric_suffix' => new external_value(PARAM_TEXT, ''),
-            // v1.0.7 — true when this row was picked from week-over-week
-            // momentum rather than the 30-day trend. Optional so the
-            // bright_spot / gentle_watch picks (which never set it) stay
-            // shape-compatible.
+            /* v1.0.7 — true when this row was picked from week-over-week
+             * momentum rather than the 30-day trend. Optional so the
+             * bright_spot / gentle_watch picks (which never set it) stay
+             * shape-compatible. */
             'momentum'      => new external_value(PARAM_BOOL, '', VALUE_OPTIONAL),
         ], '', VALUE_OPTIONAL);
         return new external_single_structure([

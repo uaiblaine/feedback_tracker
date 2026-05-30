@@ -205,9 +205,9 @@ class responsiveness_payload {
                 'holiday' => (int) $pausedaggregate['holiday'],
                 'recess'  => (int) $pausedaggregate['recess'],
             ],
-            // v1.0.9 — sub-day optional events sidecar list. Each entry
-            // is {date: YYYYMMDD, starttime: min, endtime: min, label: str}.
-            // Label is already format_string()-sanitised by paused_aggregator.
+            /* v1.0.9 — sub-day optional events sidecar list. Each entry
+             * is {date: YYYYMMDD, starttime: min, endtime: min, label: str}.
+             * Label is already format_string()-sanitised by paused_aggregator. */
             'paused_events_30d' => is_array($pausedaggregate['events'] ?? null)
                 ? array_map(static fn ($e) => [
                     'date'      => (int) $e['date'],

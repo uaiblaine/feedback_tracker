@@ -26,8 +26,6 @@ declare(strict_types=1);
 
 namespace block_feedback_tracker\local\sla;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * The set of mod_assign submission statuses the SLA layer recognises, and the
  * single decision about which one counts toward responsiveness.

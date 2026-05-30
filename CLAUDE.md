@@ -288,6 +288,39 @@ contains text that looks like PHP (e.g. `// active=0`). Fix: remove trivial
 trailing comments entirely (the code is self-documenting), or rephrase to
 avoid `=` inside the comment text.
 
+**9. `defined('MOODLE_INTERNAL')` not needed in pure namespaced class files.**
+The sniff `moodle.Files.MoodleInternal.MoodleInternalNotNeeded` fires when a
+namespaced PHP file has no side-effects (no `require_once`, no globals, only a
+single class/interface/enum definition). Pure constant-holder or enum-like
+classes fall into this category. Remove the guard from those files; the
+namespace itself prevents direct instantiation outside Moodle.
+
+```php
+// ✘ Pure class with no require_once or global assignments:
+namespace block_feedback_tracker\local\sla;
+
+defined('MOODLE_INTERNAL') || die();   // ← sniff fires: not needed
+
+final class submission_status { ... }
+
+// ✓ Guard removed — namespace is sufficient:
+namespace block_feedback_tracker\local\sla;
+
+final class submission_status { ... }
+```
+
+Files that DO need the guard: any file with side-effects — `require_once`,
+`global $CFG`, multiple class definitions, or procedural top-level code
+(`settings.php`, `lib.php`, `db/*.php`, form classes with `require_once`).
+
+**10. `@var` on inline comments inside array literals inside `external_*`
+structures.** This sniff fires on `/** */` property docblocks; it does NOT
+fire on `// …` inline comments inside method bodies. However, inline `// v…`
+comments that are the **first** line of a standalone comment block inside an
+array literal (e.g. inside `execute_returns()` structure definitions) still
+hit rule 3 (NotCapital). Convert them to `/* */` exactly as with any other
+standalone lowercase comment.
+
 ## Database (XMLDB)
 
 - Every `<FIELD>` element needs `SEQUENCE="true"` or `SEQUENCE="false"`
