@@ -93,16 +93,12 @@ class get_grader_priority_list extends external_api {
         $sysctx = \context_system::instance();
         self::validate_context($sysctx);
 
-        // Same per-course capability sweep as get_dashboard — the priority
-        // list is a slice of the same data, so visibility must match.
-        $visiblecourses = get_user_capability_course(
-            'block/feedback_tracker:viewdashboard',
-            (int) $USER->id,
-            true,
-            '',
-            ''
-        );
-        if (empty($visiblecourses)) {
+        // Authorisation + scope via dashboard_scope — same rules as
+        // get_dashboard, since the priority list is a slice of the same
+        // data. A non-admin with zero visible courses has no access.
+        $userid = (int) $USER->id;
+        $scope = \block_feedback_tracker\local\sla\dashboard_scope::visible_course_ids($userid);
+        if ($scope !== null && empty($scope)) {
             throw new \required_capability_exception(
                 $sysctx,
                 'block/feedback_tracker:viewdashboard',
@@ -110,36 +106,13 @@ class get_grader_priority_list extends external_api {
                 'error'
             );
         }
-        /*
-         * Build per-course visibility clauses honouring group mode. For
-         * each accessible course we emit one of:
-         *   - courseid = X            (unrestricted: NOGROUPS or accessallgroups)
-         *   - (courseid = X AND groupid IN (...))  (restricted to user's groups)
-         * Joined with OR so the final WHERE matches only rows the user is
-         * entitled to grade. Courses where the user has zero visible groups
-         * contribute no clause and are silently dropped.
-         */
-        $clauses = [];
-        $sqlparams = [];
-        $pix = 0;
-        foreach ($visiblecourses as $course) {
-            $cid = (int) $course->id;
-            $visible = \block_feedback_tracker\local\sla\group_access::visible_group_ids(
-                $cid,
-                (int) $USER->id
-            );
-            if ($visible === null) {
-                $clauses[] = "sub.courseid = :pc{$pix}";
-                $sqlparams["pc{$pix}"] = $cid;
-            } else if (!empty($visible)) {
-                [$gsql, $gparams] = $DB->get_in_or_equal($visible, SQL_PARAMS_NAMED, "pg{$pix}_");
-                $clauses[] = "(sub.courseid = :pc{$pix} AND sub.groupid $gsql)";
-                $sqlparams["pc{$pix}"] = $cid;
-                $sqlparams += $gparams;
-            }
-            $pix++;
-        }
-        if (empty($clauses)) {
+        [$viswhere, $sqlparams] = \block_feedback_tracker\local\sla\dashboard_scope::sql_visibility(
+            $userid,
+            'sub.courseid',
+            'sub.groupid',
+            'pc'
+        );
+        if ($viswhere === \block_feedback_tracker\local\sla\dashboard_scope::MATCH_NONE) {
             return [
                 'success'     => true,
                 'lastsynced'  => time(),
@@ -149,7 +122,7 @@ class get_grader_priority_list extends external_api {
             ];
         }
         $where = 'sub.timegraded IS NULL AND sub.submissionstatus = :substatus'
-            . ' AND (' . implode(' OR ', $clauses) . ')';
+            . ' AND ' . $viswhere;
         $sqlparams['substatus'] = \block_feedback_tracker\local\sla\submission_status::SUBMITTED;
         if ($bucket !== '') {
             $where .= ' AND sub.slabucket = :bucket';

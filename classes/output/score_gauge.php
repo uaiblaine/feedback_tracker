@@ -39,6 +39,7 @@ class score_gauge implements \renderable, \templatable {
         'regular'   => '#b45309',
         'critical'  => '#be4b25',
         'pending'   => '#475569',
+        'nodata'    => '#94a3b8',
     ];
 
     /** @var float|null The responsiveness score. */

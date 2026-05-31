@@ -3,15 +3,21 @@
 
     @template    block_feedback_tracker/sparkline
 
-    Compact 30-day median effective-hours sparkline.
+    Compact 30-day median effective-hours sparkline with an optional
+    "improvement zone" (light-green band 0 → goal, solid baseline at 0,
+    dotted line at the goal). Keep in lockstep with the JS port
+    amd/src/components/Sparkline.js and classes/output/sparkline.php.
 
     Context variables required:
-    * empty     Truthy when no data is available
-    * width     SVG width in user units
-    * height    SVG height in user units
-    * polyline  Space-separated "x,y" coordinates for the line
-    * hasgoal   Truthy when a goal line should be drawn
-    * goaly     Y-coordinate of the dashed goal line
+    * empty       Truthy when no data points are available
+    * width       SVG width in user units
+    * height      SVG height in user units
+    * polyline    Space-separated "x,y" coordinates for the line
+    * haszone     Truthy when the improvement zone should be drawn
+    * zoney       Y-coordinate of the zone's upper bound (the goal)
+    * zoneheight  Height of the zone band (height - zoney)
+    * showlabel   Truthy when there is room for the text caption
+    * zonelabel   Localised "Improvement zone: 0 to N" caption
 
     Example context (json):
     {
@@ -19,23 +25,29 @@
         "width": 120,
         "height": 30,
         "polyline": "0,20 20,15 40,10 60,12 80,8 100,5 120,7",
-        "hasgoal": true,
-        "goaly": 14
+        "haszone": true,
+        "zoney": 12,
+        "zoneheight": 18,
+        "showlabel": true,
+        "zonelabel": "Improvement zone: 0 to 24"
     }
 }}
 <svg class="bft-sparkline" viewBox="0 0 {{width}} {{height}}"
      width="{{width}}" height="{{height}}"
      role="img" aria-label="30-day trend">
+    {{#haszone}}
+        <rect class="bft-sparkline-zone" x="0" y="{{zoney}}" width="{{width}}" height="{{zoneheight}}"/>
+        <line class="bft-sparkline-zone-base" x1="0" y1="{{height}}" x2="{{width}}" y2="{{height}}"/>
+        <line class="bft-sparkline-zone-top" x1="0" y1="{{zoney}}" x2="{{width}}" y2="{{zoney}}"/>
+    {{/haszone}}
     {{#empty}}
         <line x1="0" y1="{{height}}" x2="{{width}}" y2="{{height}}" stroke="#cbd5e1" stroke-width="0.5"/>
     {{/empty}}
     {{^empty}}
-        {{#hasgoal}}
-            <line x1="0" y1="{{goaly}}" x2="{{width}}" y2="{{goaly}}"
-                  stroke="#cbd5e1" stroke-width="0.5" stroke-dasharray="2 2"/>
-        {{/hasgoal}}
-        <polyline fill="none" stroke="#6366f1" stroke-width="1.5"
-                  stroke-linecap="round" stroke-linejoin="round"
-                  points="{{polyline}}"/>
+        <polyline class="bft-sparkline-line" fill="none" stroke="#6366f1" stroke-width="1.5"
+                  stroke-linecap="round" stroke-linejoin="round" points="{{polyline}}"/>
     {{/empty}}
+    {{#showlabel}}
+        <text class="bft-sparkline-zone-label" x="2" y="9">{{zonelabel}}</text>
+    {{/showlabel}}
 </svg>

@@ -66,7 +66,11 @@ class group_access {
         $course = $DB->get_record('course', ['id' => $courseid], '*', MUST_EXIST);
         $ctx = \context_course::instance($courseid);
         $groupmode = (int) groups_get_course_groupmode($course);
-        $canaccessall = has_capability('moodle/site:accessallgroups', $ctx, $userid);
+        // The accessallgroups capability is resolved through dashboard_scope
+        // so the enable_admin_view_all setting governs site admins
+        // consistently (a real teacher/manager role still grants it via
+        // context inheritance at course / category / system level).
+        $canaccessall = dashboard_scope::can_access_all_groups($ctx, $userid);
 
         if ($groupmode === NOGROUPS || $canaccessall) {
             return self::$memo[$key] = null;

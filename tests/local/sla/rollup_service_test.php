@@ -89,8 +89,11 @@ final class rollup_service_test extends \advanced_testcase {
     }
 
     /**
-     * Empty ledger produces a rollup with zero counts, null medians, and a
-     * high (charitable) score.
+     * Empty ledger produces a rollup with zero counts and null medians. A
+     * group with no submitted work at all has no responsiveness to measure,
+     * so the score is null and the band is the neutral 'nodata' — never a
+     * misleading charitable 100 that would top the dashboard or skew
+     * averages.
      */
     public function test_recompute_group_with_no_rows(): void {
         $this->resetAfterTest();
@@ -107,8 +110,8 @@ final class rollup_service_test extends \advanced_testcase {
         $this->assertSame(0, (int) $row->critical);
         $this->assertSame(0, (int) $row->numgraded30d);
         $this->assertNull($row->median_eff_h);
-        $this->assertSame(100.0, (float) $row->responsiveness_score);
-        $this->assertSame('excellent', $row->score_band);
+        $this->assertNull($row->responsiveness_score);
+        $this->assertSame('nodata', $row->score_band);
     }
 
     /**

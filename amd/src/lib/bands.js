@@ -37,6 +37,7 @@ export const BAND_COLOURS = {
     regular:   '#b45309',
     critical:  '#be4b25',
     pending:   '#475569',
+    nodata:    '#94a3b8',
 };
 
 /**

@@ -61,13 +61,16 @@ const VariantIcon = ({tone}) => {
  * @param {object} props
  * @param {'bright'|'climbing'|'watch'} props.tone
  * @param {string} props.eyebrow      Uppercase variant label (e.g. "MOST IMPROVED").
- * @param {string} props.title        Course or group name.
+ * @param {string} props.title        Course name.
+ * @param {string} [props.grouplabel] Group line shown under the title when the
+ *                                    insight refers to a specific named group
+ *                                    (disambiguates multi-group teachers).
  * @param {string|number} props.metric_value
  * @param {string} props.metric_suffix Caption to the right of the metric (e.g. "/ 100").
  * @param {string} props.body         Free-form supporting line.
  * @returns {object} vnode
  */
-export default function InsightCard({tone, eyebrow, title, metric_value: metricValue,
+export default function InsightCard({tone, eyebrow, title, grouplabel, metric_value: metricValue,
     metric_suffix: metricSuffix, body}) {
     const cls = 'bft-insight bft-insight-tone-' + tone;
     return html`
@@ -79,6 +82,7 @@ export default function InsightCard({tone, eyebrow, title, metric_value: metricV
                 </span>
             </div>
             <div class="bft-insight-title">${title}</div>
+            ${grouplabel && html`<div class="bft-insight-group">${grouplabel}</div>`}
             <div class="bft-insight-metric">
                 <span class="bft-insight-metric-value bft-mono">${metricValue}</span>
                 ${metricSuffix && html`<span class="bft-insight-metric-suffix bft-mono">${metricSuffix}</span>`}

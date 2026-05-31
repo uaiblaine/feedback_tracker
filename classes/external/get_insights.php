@@ -47,7 +47,7 @@ class get_insights extends external_api {
     public const CACHE_TTL = 900;
 
     /** Cache-key version. Bump when the result shape changes. */
-    public const CACHE_KEY_VERSION = 1;
+    public const CACHE_KEY_VERSION = 2;
 
     /**
      * Parameters — no inputs.
@@ -64,23 +64,16 @@ class get_insights extends external_api {
      * @return array
      */
     public static function execute(): array {
-        global $DB, $USER;
+        global $USER;
 
         $sysctx = \context_system::instance();
         self::validate_context($sysctx);
 
-        // The viewdashboard capability is granted at course / category
-        // context. Use the same per-course sweep as get_dashboard so the
-        // insight pool matches the courses table the user is already
-        // looking at.
-        $visiblecourses = get_user_capability_course(
-            'block/feedback_tracker:viewdashboard',
-            (int) $USER->id,
-            true,
-            '',
-            ''
-        );
-        if (empty($visiblecourses)) {
+        // Authorisation + scope via dashboard_scope so the insight pool
+        // matches the courses table the user is already looking at.
+        $userid = (int) $USER->id;
+        $scope = \block_feedback_tracker\local\sla\dashboard_scope::visible_course_ids($userid);
+        if ($scope !== null && empty($scope)) {
             throw new \required_capability_exception(
                 $sysctx,
                 'block/feedback_tracker:viewdashboard',
@@ -92,7 +85,8 @@ class get_insights extends external_api {
         $cache = \cache::make('block_feedback_tracker', 'dashboard_payload');
         $key = 'insights_v' . self::CACHE_KEY_VERSION
             . '_' . calendar::current_version()
-            . '_' . $USER->id;
+            . '_' . $USER->id
+            . '_' . ($scope === null ? 'all' : 'scoped');
         $cached = $cache->get($key);
         if (
             $cached !== false && is_array($cached)
@@ -102,7 +96,7 @@ class get_insights extends external_api {
             return $cached;
         }
 
-        $rows = self::source_rows($visiblecourses, (int) $USER->id);
+        $rows = self::source_rows($userid);
         $brightspot = self::pick_bright_spot($rows);
         $mostimproved = self::pick_most_improved($rows);
         $gentlewatch = self::pick_gentle_watch($rows);
@@ -128,42 +122,31 @@ class get_insights extends external_api {
     }
 
     /**
-     * Pull the per-(course, group) rollup rows for the courses the caller
-     * can see, with the course name joined in. Mirrors get_dashboard's
-     * group-visibility filter so the insight pool is consistent.
+     * Pull the per-(course, group) rollup rows the caller can see, with the
+     * course name joined in. Visibility is delegated to dashboard_scope so
+     * the insight pool matches get_dashboard's courses table exactly.
      *
-     * @param array  $visiblecourses Output of get_user_capability_course().
-     * @param int    $userid
+     * @param int $userid
      * @return array<int, \stdClass>
      */
-    private static function source_rows(array $visiblecourses, int $userid): array {
+    private static function source_rows(int $userid): array {
         global $DB;
-        $clauses = [];
-        $params = [];
-        $pix = 0;
-        foreach ($visiblecourses as $course) {
-            $cid = (int) $course->id;
-            $visible = \block_feedback_tracker\local\sla\group_access::visible_group_ids($cid, $userid);
-            if ($visible === null) {
-                $clauses[] = "g.courseid = :ic{$pix}";
-                $params["ic{$pix}"] = $cid;
-            } else if (!empty($visible)) {
-                [$gsql, $gparams] = $DB->get_in_or_equal($visible, SQL_PARAMS_NAMED, "ig{$pix}_");
-                $clauses[] = "(g.courseid = :ic{$pix} AND g.groupid $gsql)";
-                $params["ic{$pix}"] = $cid;
-                $params += $gparams;
-            }
-            $pix++;
-        }
-        if (empty($clauses)) {
+        [$where, $params] = \block_feedback_tracker\local\sla\dashboard_scope::sql_visibility(
+            $userid,
+            'g.courseid',
+            'g.groupid',
+            'ic'
+        );
+        if ($where === \block_feedback_tracker\local\sla\dashboard_scope::MATCH_NONE) {
             return [];
         }
-        $where = '(' . implode(' OR ', $clauses) . ')';
         $sql = "SELECT g.id, g.courseid, g.groupid, c.fullname AS coursename,
+                       grp.name AS groupname,
                        g.responsiveness_score, g.score_band, g.trend_pct_30d,
-                       g.median_eff_h, g.critical, g.pending
+                       g.median_eff_h, g.critical, g.pending, g.numgraded30d
                   FROM {block_feedback_tracker_group} g
                   JOIN {course} c ON c.id = g.courseid
+             LEFT JOIN {groups} grp ON grp.id = g.groupid
                  WHERE $where";
         return $DB->get_records_sql($sql, $params);
     }
@@ -189,6 +172,7 @@ class get_insights extends external_api {
             'courseid'     => (int) $top->courseid,
             'coursename'   => (string) $top->coursename,
             'groupid'      => (int) $top->groupid,
+            'groupname'    => (string) ($top->groupname ?? ''),
             'metric_value' => (string) round($score),
             'metric_suffix' => '/ 100',
         ];
@@ -212,12 +196,21 @@ class get_insights extends external_api {
         $thresh = \block_feedback_tracker\local\score\responsiveness_calculator::MOMENTUM_TRIGGER_PCT;
 
         // First pass: any group with sharp momentum wins, no matter what the
-        // 30-day trend looks like. We compute momentum on-demand per row;
-        // get_insights() is itself cached 15 min so per-render cost stays
-        // bounded.
+        // 30-day trend looks like. Momentum needs MOMENTUM_MIN_GRADES grades
+        // in the last 7 days — a window contained within the 30-day
+        // numgraded30d count — so a group with fewer than that in 30 days can
+        // never qualify. Skipping those here avoids the two per-group ledger
+        // queries momentum_pct() would otherwise issue, which is what made the
+        // dashboard fan out into thousands of queries on large sites. The
+        // filter is exact: it drops only rows momentum_pct() would have
+        // returned null for anyway.
+        $mingrades = \block_feedback_tracker\local\score\responsiveness_calculator::MOMENTUM_MIN_GRADES;
         $best = null;
         $bestpct = 0.0;
         foreach ($rows as $r) {
+            if ((int) $r->numgraded30d < $mingrades) {
+                continue;
+            }
             $pct = \block_feedback_tracker\local\score\responsiveness_calculator::momentum_pct(
                 (int) $r->courseid,
                 (int) $r->groupid
@@ -235,6 +228,7 @@ class get_insights extends external_api {
                 'courseid'      => (int) $best->courseid,
                 'coursename'    => (string) $best->coursename,
                 'groupid'       => (int) $best->groupid,
+                'groupname'     => (string) ($best->groupname ?? ''),
                 'metric_value'  => '+' . (string) round(abs($bestpct)) . '%',
                 'metric_suffix' => 'this week',
                 'momentum'      => true,
@@ -258,6 +252,7 @@ class get_insights extends external_api {
             'courseid'      => (int) $top->courseid,
             'coursename'    => (string) $top->coursename,
             'groupid'       => (int) $top->groupid,
+            'groupname'     => (string) ($top->groupname ?? ''),
             'metric_value'  => '+' . (string) round(abs($pct)) . '%',
             'metric_suffix' => '',
             'momentum'      => false,
@@ -288,6 +283,7 @@ class get_insights extends external_api {
             'courseid'     => (int) $top->courseid,
             'coursename'   => (string) $top->coursename,
             'groupid'      => (int) $top->groupid,
+            'groupname'    => (string) ($top->groupname ?? ''),
             'metric_value' => (string) $n,
             'metric_suffix' => $n === 1 ? 'critical pending' : 'critical pending',
         ];
@@ -303,6 +299,7 @@ class get_insights extends external_api {
             'courseid'      => new external_value(PARAM_INT, ''),
             'coursename'    => new external_value(PARAM_TEXT, ''),
             'groupid'       => new external_value(PARAM_INT, ''),
+            'groupname'     => new external_value(PARAM_TEXT, '', VALUE_DEFAULT, ''),
             'metric_value'  => new external_value(PARAM_TEXT, ''),
             'metric_suffix' => new external_value(PARAM_TEXT, ''),
             /* v1.0.7 — true when this row was picked from week-over-week

@@ -187,6 +187,24 @@ const fmtEventMin = (min) => {
 };
 
 /**
+ * Build the group label for an insight card. Insights point at one specific
+ * (course, group); the card title shows the course, so when the insight
+ * refers to a named group we add a "Group: X" line beneath it — otherwise a
+ * teacher in several groups can't tell which group the callout is praising
+ * or flagging. Empty for whole-course insights (groupid 0).
+ *
+ * @param {object|null|undefined} insight  One of bright_spot/most_improved/gentle_watch.
+ * @param {object} i18n
+ * @returns {string}
+ */
+const groupLabel = (insight, i18n) => {
+    if (!insight || !insight.groupname) {
+        return '';
+    }
+    return (i18n.insight_group_label || 'Group') + ': ' + insight.groupname;
+};
+
+/**
  * @param {object} props
  * @param {object} props.initial   Mount-point payload: {greeting, dashboard,
  *                                 gradenow, cancompare, i18n, config}.
@@ -208,6 +226,12 @@ export default function DashboardView({initial}) {
     const [gradenow, setGradenow] = useState(initial.gradenow || null);
     const [gradenowError, setGradenowError] = useState(null);
     const [insights, setInsights] = useState(initial.insights || null);
+    // True until the first course-rows fetch resolves. The page ships an
+    // empty shell now, so unless the server happened to inline rows (it no
+    // longer does) we start in the loading state.
+    const [loadingcourses, setLoadingCourses] = useState(
+        !(Array.isArray(dashboard.courses) && dashboard.courses.length > 0)
+    );
     // v1.0.11 — site-scope paused events sidecar, preloaded by
     // teacher_dashboard.php so the dashboard subline can show the most
     // recent named optional event (e.g. "⚽ Brasil vs França · 21/05 16:00-18:00").
@@ -281,6 +305,44 @@ export default function DashboardView({initial}) {
             setRefreshing(false);
         }
     };
+
+    // Initial async load. teacher_dashboard.php no longer runs the web
+    // services inline, so the first byte ships immediately and the page never
+    // blocks on per-course / per-group aggregation (previously thousands of
+    // ledger queries ran before the page was sent). Course rows load first —
+    // the hero / global score is derived from them client-side via
+    // aggregate() — with the grade-now list alongside; insights lazy-load in
+    // the effect below. Each fetch re-applies the same server-side
+    // dashboard_scope gate, so this does not widen visibility.
+    useEffect(() => {
+        let cancelled = false;
+        getDashboard({})
+            .then((res) => {
+                if (!cancelled && res && Array.isArray(res.courses)) {
+                    setCourses(res.courses);
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setError(i18n.dashboard_error || 'Failed to load.');
+                }
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setLoadingCourses(false);
+                }
+            });
+        getGraderPriorityList({limit: 3})
+            .then((res) => {
+                if (!cancelled && res) {
+                    setGradenow(res);
+                }
+            })
+            .catch(() => {});
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     // Lazy-load insights on mount if the server didn't preload them.
     useEffect(() => {
@@ -390,6 +452,7 @@ export default function DashboardView({initial}) {
                                 tone="bright"
                                 eyebrow=${i18n.insight_brightspot_eyebrow || "This week's bright spot"}
                                 title=${insights.bright_spot.coursename}
+                                grouplabel=${groupLabel(insights.bright_spot, i18n)}
                                 metric_value=${insights.bright_spot.metric_value}
                                 metric_suffix=${insights.bright_spot.metric_suffix}
                                 body=${i18n.insight_brightspot_body || ''} />
@@ -401,6 +464,7 @@ export default function DashboardView({initial}) {
                                     ? (i18n.insight_momentum_eyebrow || "This week's momentum")
                                     : (i18n.insight_mostimproved_eyebrow || 'Most improved')}
                                 title=${insights.most_improved.coursename}
+                                grouplabel=${groupLabel(insights.most_improved, i18n)}
                                 metric_value=${insights.most_improved.metric_value}
                                 metric_suffix=${insights.most_improved.metric_suffix}
                                 body=${insights.most_improved.momentum
@@ -412,6 +476,7 @@ export default function DashboardView({initial}) {
                                 tone="watch"
                                 eyebrow=${i18n.insight_gentlewatch_eyebrow || 'Gentle watch'}
                                 title=${insights.gentle_watch.coursename}
+                                grouplabel=${groupLabel(insights.gentle_watch, i18n)}
                                 metric_value=${insights.gentle_watch.metric_value}
                                 metric_suffix=${insights.gentle_watch.metric_suffix}
                                 body=${i18n.insight_gentlewatch_body || ''} />
@@ -442,13 +507,16 @@ export default function DashboardView({initial}) {
                 <div class="bft-dashboard-section-eyebrow">
                     ${i18n.dashboard_courses_title || 'Your courses'}
                 </div>
-                <${CoursesTable}
-                    rows=${sorted}
-                    i18n=${i18n}
-                    sortKey=${sortKey}
-                    sortOrder=${sortOrder}
-                    onSort=${handleSort}
-                    thresholds=${scoreThresholds} />
+                ${loadingcourses && courses.length === 0
+                    ? html`<div class="bft-empty">${i18n.gradenow_loading || 'Loading…'}</div>`
+                    : html`<${CoursesTable}
+                        rows=${sorted}
+                        i18n=${i18n}
+                        sortKey=${sortKey}
+                        sortOrder=${sortOrder}
+                        onSort=${handleSort}
+                        thresholds=${scoreThresholds}
+                        goal=${config.sla_goal_hours} />`}
             </section>
         </div>
     `;

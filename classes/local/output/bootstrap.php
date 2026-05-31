@@ -63,6 +63,7 @@ class bootstrap {
                 'regular'   => get_string('band_regular', 'block_feedback_tracker'),
                 'critical'  => get_string('band_critical', 'block_feedback_tracker'),
                 'pending'   => get_string('band_pending', 'block_feedback_tracker'),
+                'nodata'    => get_string('band_nodata', 'block_feedback_tracker'),
             ],
             'breakdown_excluded_prefix' => get_string('breakdown_excluded_prefix', 'block_feedback_tracker'),
             'breakdown_summary' => get_string('breakdown_summary', 'block_feedback_tracker'),
@@ -81,6 +82,7 @@ class bootstrap {
             'block_sort_priority' => get_string('block_sort_priority', 'block_feedback_tracker'),
             'block_sort_wait' => get_string('block_sort_wait', 'block_feedback_tracker'),
             'block_refresh_error' => get_string('block_refresh_error', 'block_feedback_tracker'),
+            'sparkline_zone_label' => get_string('sparkline_zone_label', 'block_feedback_tracker', '{$a}'),
             // Phase 3B additions — block recomposition (hero, KPI tiles, trend row, peer, paused note, activities).
             'card_activities_head' => get_string('card_activities_head', 'block_feedback_tracker'),
             'card_effective' => get_string('card_effective', 'block_feedback_tracker'),
@@ -202,6 +204,7 @@ class bootstrap {
             'insight_brightspot_eyebrow' => get_string('insight_brightspot_eyebrow', 'block_feedback_tracker'),
             'insight_gentlewatch_body' => get_string('insight_gentlewatch_body', 'block_feedback_tracker'),
             'insight_gentlewatch_eyebrow' => get_string('insight_gentlewatch_eyebrow', 'block_feedback_tracker'),
+            'insight_group_label' => get_string('insight_group_label', 'block_feedback_tracker'),
             'insight_momentum_body' => get_string('insight_momentum_body', 'block_feedback_tracker'),
             'insight_momentum_eyebrow' => get_string('insight_momentum_eyebrow', 'block_feedback_tracker'),
             'insight_mostimproved_body' => get_string('insight_mostimproved_body', 'block_feedback_tracker'),

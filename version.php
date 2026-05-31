@@ -25,8 +25,8 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component    = 'block_feedback_tracker';
-$plugin->release      = '1.0.15';
-$plugin->version      = 2026060115;
+$plugin->release      = '1.0.16';
+$plugin->version      = 2026060116;
 $plugin->requires     = 2024100700;
 $plugin->supported    = [405, 502];
 $plugin->maturity     = MATURITY_STABLE;

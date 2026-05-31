@@ -29,11 +29,19 @@ namespace block_feedback_tracker\output;
 /**
  * Compact SVG line chart for the 30-day median-effective-hours trend.
  *
- * Renders via Mustache; see templates/sparkline.mustache. Null values mean
- * "no graded submissions that day" — those days are skipped in the polyline
- * (the resulting visual is a gapless line through the days that have data).
+ * Renders via Mustache; see templates/sparkline.mustache (and the JS port
+ * amd/src/components/Sparkline.js — keep all three in lockstep). Null values
+ * mean "no graded submissions that day" — those days are skipped in the
+ * polyline (a gapless line through the days that have data).
+ *
+ * When a goal is supplied it drives the "improvement zone": a light-green
+ * band spanning effective hours 0 → goal (the desired turnaround window),
+ * with a solid green baseline at 0 and a dotted green line at the goal.
  */
 class sparkline implements \renderable, \templatable {
+    /** Minimum width (user units) at which the zone text label is drawn. */
+    private const ZONE_LABEL_MIN_WIDTH = 110;
+
     /** @var array<int, float|null> Ordered (oldest → newest) values. */
     public array $values;
 
@@ -76,17 +84,11 @@ class sparkline implements \renderable, \templatable {
      */
     public function export_for_template(\renderer_base $output): array {
         $valid = array_filter($this->values, static fn($v) => $v !== null);
-        if (empty($valid)) {
-            return [
-                'empty'  => true,
-                'width'  => $this->width,
-                'height' => $this->height,
-            ];
-        }
+        $haszone = $this->goal !== null && (float) $this->goal > 0.0;
 
         $min = 0.0;
-        $max = (float) max($valid);
-        if ($this->goal !== null) {
+        $max = !empty($valid) ? (float) max($valid) : 0.0;
+        if ($haszone) {
             $max = max($max, (float) $this->goal);
         }
         if ($max <= $min) {
@@ -105,17 +107,24 @@ class sparkline implements \renderable, \templatable {
             $points[] = $x . ',' . $y;
         }
 
-        $goaly = $this->goal !== null
-            ? round($this->height - (($this->goal - $min) / ($max - $min)) * $this->height, 2)
+        $zoney = $haszone
+            ? round($this->height - (((float) $this->goal - $min) / ($max - $min)) * $this->height, 2)
             : null;
+        $showlabel = $haszone && $this->width >= self::ZONE_LABEL_MIN_WIDTH;
+        $zonelabel = $haszone
+            ? get_string('sparkline_zone_label', 'block_feedback_tracker', (int) round((float) $this->goal))
+            : '';
 
         return [
-            'empty'    => false,
-            'width'    => $this->width,
-            'height'   => $this->height,
-            'polyline' => implode(' ', $points),
-            'hasgoal'  => $goaly !== null,
-            'goaly'    => $goaly,
+            'empty'      => empty($points),
+            'width'      => $this->width,
+            'height'     => $this->height,
+            'polyline'   => implode(' ', $points),
+            'haszone'    => $haszone,
+            'zoney'      => $zoney,
+            'zoneheight' => $haszone ? round($this->height - $zoney, 2) : null,
+            'showlabel'  => $showlabel,
+            'zonelabel'  => $zonelabel,
         ];
     }
 }
