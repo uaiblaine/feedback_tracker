@@ -27,22 +27,15 @@ require(__DIR__ . '/../../../config.php');
 require_login();
 $sysctx = \context_system::instance();
 
-// The `block/feedback_tracker:viewdashboard` capability may be assigned at the system,
-// category, or course level. Teacher roles in particular are usually
-// granted at course context, so a system-only `require_capability()` would
-// lock out the very people the dashboard targets. Use Moodle's
-// per-course capability sweep instead: as long as the user has the
-// capability in at least one course, the dashboard renders (filtered to
-// those courses by get_dashboard::execute).
+// Access gate, centralised in dashboard_scope: a user may open the
+// dashboard if they hold an active enrolment with a teacher-or-higher role
+// in at least one course — or are a site admin with enable_admin_view_all
+// on (then visible_course_ids() returns null, "the whole site"). A
+// non-admin with zero visible courses is locked out. The same helper feeds
+// the web services so page and data agree on scope.
 global $USER;
-$visiblecourses = get_user_capability_course(
-    'block/feedback_tracker:viewdashboard',
-    (int) $USER->id,
-    true,
-    'shortname, fullname',
-    'fullname ASC'
-);
-if (empty($visiblecourses)) {
+$scope = \block_feedback_tracker\local\sla\dashboard_scope::visible_course_ids((int) $USER->id);
+if ($scope !== null && empty($scope)) {
     throw new \required_capability_exception(
         $sysctx,
         'block/feedback_tracker:viewdashboard',
@@ -57,34 +50,19 @@ $PAGE->set_title(get_string('dashboard_title', 'block_feedback_tracker'));
 $PAGE->set_heading(get_string('dashboard_title', 'block_feedback_tracker'));
 $PAGE->set_pagelayout('admin');
 
-// Initial fetch server-side — first paint is data-rich. The WS applies the
-// same per-course capability filter so admins and teachers see exactly the
-// courses they're entitled to.
-try {
-    $dashboard = \block_feedback_tracker\external\get_dashboard::execute('');
-} catch (\Throwable $e) {
-    debugging('block_feedback_tracker: dashboard fetch failed: ' . $e->getMessage());
-    $dashboard = ['success' => false, 'courses' => [], 'lastsynced' => time()];
-}
-
-// Grade Now panel pre-load — same per-course capability filter, top-10
-// most-urgent pending submissions. Failure isn't fatal; the panel renders
-// its own empty / error state.
-try {
-    $gradenow = \block_feedback_tracker\external\get_grader_priority_list::execute(10, '');
-} catch (\Throwable $e) {
-    debugging('block_feedback_tracker: gradenow fetch failed: ' . $e->getMessage());
-    $gradenow = ['success' => false, 'submissions' => [], 'lastsynced' => time()];
-}
-
-// Insights pre-load — bright spot / most improved / gentle watch. Same
-// per-course capability filter. Optional; client lazy-loads on miss.
+// Data loads asynchronously from the Preact app after mount (see
+// amd/src/views/DashboardView.js) so the first byte ships immediately and the
+// page never blocks on per-course / per-group aggregation — previously the
+// three execute() calls below ran synchronously here, and on a site with
+// dozens of courses/groups get_insights' per-group momentum pass alone issued
+// thousands of ledger queries before the page was sent. The app now fetches
+// the course rows first (cheap rollup read; the global score is computed
+// client-side from them) and lazy-loads the grade-now list + insights after
+// the first paint. Each web service re-applies the same dashboard_scope gate,
+// so moving the fetch to the client does not widen visibility.
+$dashboard = null;
+$gradenow = null;
 $insights = null;
-try {
-    $insights = \block_feedback_tracker\external\get_insights::execute();
-} catch (\Throwable $e) {
-    debugging('block_feedback_tracker: insights fetch failed: ' . $e->getMessage());
-}
 
 // V1.0.11 — site-scope events sidecar so the dashboard subline can
 // surface the most recent named optional event. The calendar is

@@ -303,6 +303,8 @@ class responsiveness_card implements \renderable, \templatable {
                 return get_string('band_critical', 'block_feedback_tracker');
             case 'pending':
                 return get_string('band_pending', 'block_feedback_tracker');
+            case 'nodata':
+                return get_string('band_nodata', 'block_feedback_tracker');
             default:
                 return '';
         }

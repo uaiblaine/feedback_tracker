@@ -37,9 +37,12 @@ namespace block_feedback_tracker\local\score;
  *  - trend:      0.5 - trend_pct_30d / 200 (negative trend = improvement)
  *
  * Weights default to (0.40, 0.25, 0.15, 0.10, 0.10) summing to 1.0; admin
- * tunable via config_plugins. Missing data is treated charitably (term = 1.0
- * for compliance/median, 0.5 for trend) so a group with no work yet scores
- * high rather than penalised.
+ * tunable via config_plugins. Partial data is treated charitably (term = 1.0
+ * for compliance/median) so a group that has started work but not finished
+ * grading isn't penalised. The one exception is a group with NO submitted
+ * work at all (nothing graded, nothing pending): that scores null / 'nodata'
+ * rather than a misleading ~100, so empty groups never top the dashboard or
+ * skew averages.
  */
 class responsiveness_calculator {
     /** Default weight for the compliance term. */
@@ -62,6 +65,9 @@ class responsiveness_calculator {
     /** Momentum threshold (%) below which the dashboard prefers it over the 30-day trend. */
     public const MOMENTUM_TRIGGER_PCT = -40.0;
 
+    /** Band slug for a group with no submitted work to measure. */
+    public const BAND_NODATA = 'nodata';
+
     /**
      * Compute the score.
      *
@@ -73,7 +79,7 @@ class responsiveness_calculator {
      * @var int        $numgraded30d    Count of graded in last 30 days.
      * @var float|null $trend_pct_30d   Trend percentage (negative = improving), or null.
      * }
-     * @return array{score:float, band:string, components:array<string, float>}
+     * @return array{score:float|null, band:string, components:array<string, float|null>}
      */
     public static function compute(array $metrics): array {
         $weights = self::load_weights();
@@ -88,6 +94,26 @@ class responsiveness_calculator {
         $compliancepct = isset($metrics['compliance_pct']) ? (float) $metrics['compliance_pct'] : null;
         $medianeff = isset($metrics['median_eff_h']) ? (float) $metrics['median_eff_h'] : null;
         $trendpct = isset($metrics['trend_pct_30d']) ? (float) $metrics['trend_pct_30d'] : null;
+
+        // A group with no submitted work at all — nothing graded and nothing
+        // pending — has no responsiveness to measure. A charitable ~100 here
+        // would let an empty group masquerade as the dashboard "bright spot"
+        // and inflate course / department averages. Surface a neutral "no
+        // data" state instead: a null score (skipped by AVG(), peer_stats and
+        // every insight pick, which all ignore null scores) plus 'nodata'.
+        if ($numgraded === 0 && $pending === 0) {
+            return [
+                'score' => null,
+                'band'  => self::BAND_NODATA,
+                'components' => [
+                    'compliance' => null,
+                    'median'     => null,
+                    'critical'   => null,
+                    'pending'    => null,
+                    'trend'      => null,
+                ],
+            ];
+        }
 
         $compliance = $numgraded === 0 || $compliancepct === null
             ? 1.0

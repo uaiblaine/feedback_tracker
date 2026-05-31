@@ -33,25 +33,44 @@ namespace block_feedback_tracker\local\score;
  */
 final class responsiveness_calculator_test extends \advanced_testcase {
     /**
-     * Empty metrics (no graded, no pending) should score very high — no work
-     * to penalise. With default weights the score is 95 (every term = 1.0
-     * except trend which defaults to 0.5).
+     * A group with no submitted work at all (nothing graded, nothing
+     * pending) has no responsiveness to measure: it scores null / 'nodata'
+     * rather than a misleading charitable 100, so empty groups never top the
+     * dashboard or skew averages.
      */
-    public function test_no_data_scores_high(): void {
+    public function test_empty_group_scores_nodata(): void {
         $this->resetAfterTest();
         $this->seed_defaults();
 
         $r = responsiveness_calculator::compute([]);
 
-        /*
-         * v1.0.7 — with no trend data, the trend term is dropped and the
-         * remaining four weights renormalise to sum 1.0. Every other term
-         * defaults charitably to 1.0, so a brand-new course can legitimately
-         * hit 100. Before 1.0.7 the trend term substituted 0.5 (neutral),
-         * silently capping the maximum at 95.
-         */
-        $this->assertSame(100.0, $r['score']);
-        $this->assertSame('excellent', $r['band']);
+        $this->assertNull($r['score']);
+        $this->assertSame('nodata', $r['band']);
+        $this->assertNull($r['components']['compliance']);
+        $this->assertNull($r['components']['trend']);
+    }
+
+    /**
+     * A group with work in flight but nothing graded yet (pending > 0,
+     * numgraded30d = 0) is NOT empty — it keeps a real charitable score
+     * rather than 'nodata'. With every gradable term defaulting to 1.0 and
+     * the trend term dropped, a fresh-but-active group can still hit 100.
+     */
+    public function test_started_but_ungraded_group_scores_high(): void {
+        $this->resetAfterTest();
+        $this->seed_defaults();
+
+        $r = responsiveness_calculator::compute([
+            'compliance_pct' => null,
+            'median_eff_h'   => null,
+            'critical'       => 0,
+            'pending'        => 3,
+            'numgraded30d'   => 0,
+            'trend_pct_30d'  => null,
+        ]);
+
+        $this->assertNotNull($r['score']);
+        $this->assertNotSame('nodata', $r['band']);
         $this->assertNull(
             $r['components']['trend'],
             'Trend component should be null when no trend data is available.'

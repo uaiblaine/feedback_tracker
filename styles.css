@@ -27,6 +27,8 @@
     --bft-band-critical-bg: #fdf2ee;
     --bft-band-pending-fg: #475569;
     --bft-band-pending-bg: #f1f5f9;
+    --bft-band-nodata-fg: #64748b;
+    --bft-band-nodata-bg: #f1f5f9;
 
     --bft-font-display: 'Manrope', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     --bft-font-mono: 'JetBrains Mono', ui-monospace, "SFMono-Regular", Menlo, monospace;
@@ -223,6 +225,32 @@
     width: 100%;
     height: 30px;
     max-width: 240px;
+}
+
+/* Trend "improvement zone" — light-green desired band (effective hours
+ * 0 -> goal), solid green baseline at 0, dotted green line at the goal.
+ * Geometry comes from the SVG attributes; colours live here. Keep in
+ * lockstep with amd/src/components/Sparkline.js + templates/sparkline.mustache. */
+.block_feedback_tracker .bft-sparkline-zone {
+    fill: #dcfce7;
+    opacity: 0.6;
+}
+
+.block_feedback_tracker .bft-sparkline-zone-base {
+    stroke: #059669;
+    stroke-width: 1;
+}
+
+.block_feedback_tracker .bft-sparkline-zone-top {
+    stroke: #22c55e;
+    stroke-width: 1;
+    stroke-dasharray: 3 2;
+}
+
+.block_feedback_tracker .bft-sparkline-zone-label {
+    fill: #059669;
+    font-size: 7px;
+    font-weight: 600;
 }
 
 .block_feedback_tracker .bft-pause-strip {
@@ -908,6 +936,9 @@ table.bft-sortable th.bft-sort-desc::after {
 }
 .bft-overall-score-tone-pending {
     color: var(--bft-band-pending-fg);
+}
+.bft-overall-score-tone-nodata {
+    color: var(--bft-band-nodata-fg);
 }
 
 .bft-overall-score-of {
@@ -2336,6 +2367,13 @@ table.bft-sortable th.bft-sort-desc::after {
     letter-spacing: -0.01em;
 }
 
+.bft-insight-group {
+    margin-top: 0.0625rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--bft-text-muted);
+}
+
 .bft-insight-metric {
     display: inline-flex;
     align-items: baseline;
@@ -2522,6 +2560,17 @@ table.bft-sortable th.bft-sort-desc::after {
     font-weight: 700;
     color: var(--bft-text);
     letter-spacing: 0.01em;
+}
+
+.bft-courses-name-link {
+    color: inherit;
+    text-decoration: none;
+}
+
+.bft-courses-name-link:hover,
+.bft-courses-name-link:focus {
+    color: var(--bft-band-good-fg);
+    text-decoration: underline;
 }
 
 .bft-courses-score-inline {

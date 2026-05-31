@@ -63,9 +63,10 @@ const SortHeader = ({label, sortKey, currentKey, currentOrder, onClick}) => {
  * @param {string} props.sortOrder
  * @param {Function} props.onSort     Receives sortKey on header click.
  * @param {object|null} props.thresholds
+ * @param {number|null} [props.goal]  SLA goal hours; drives the trend improvement zone.
  * @returns {object} vnode
  */
-export default function CoursesTable({rows, i18n, sortKey, sortOrder, onSort, thresholds}) {
+export default function CoursesTable({rows, i18n, sortKey, sortOrder, onSort, thresholds, goal = null}) {
     if (!Array.isArray(rows) || rows.length === 0) {
         return html`
             <div class="bft-empty">
@@ -78,6 +79,10 @@ export default function CoursesTable({rows, i18n, sortKey, sortOrder, onSort, th
     const reportUrl = (cid) =>
         wwwroot + '/blocks/feedback_tracker/pages/pending_report.php?courseid='
         + encodeURIComponent(String(cid));
+    const zonelabel = goal !== null && goal !== undefined
+        ? (i18n.sparkline_zone_label || 'Improvement zone: 0 to {$a}')
+            .replace('{$a}', String(Math.round(Number(goal))))
+        : '';
 
     return html`
         <table class="bft-courses-table">
@@ -109,7 +114,11 @@ export default function CoursesTable({rows, i18n, sortKey, sortOrder, onSort, th
                     const trendColour = colourFor(band);
                     return html`
                         <tr key=${'cr-' + row.courseid} class="bft-courses-row">
-                            <td class="bft-courses-name">${row.coursename}</td>
+                            <td class="bft-courses-name">
+                                <a class="bft-courses-name-link" href=${reportUrl(row.courseid)}>
+                                    ${row.coursename}
+                                </a>
+                            </td>
                             <td class="bft-courses-score">
                                 ${isIdle
                                     ? html`<span class="bft-courses-dim">—</span>`
@@ -137,9 +146,11 @@ export default function CoursesTable({rows, i18n, sortKey, sortOrder, onSort, th
                                 ${hasSeries
                                     ? html`<${Sparkline}
                                               values=${trendSeries}
+                                              goal=${goal}
                                               width=${72}
                                               height=${20}
-                                              color=${trendColour} />`
+                                              color=${trendColour}
+                                              zonelabel=${zonelabel} />`
                                     : html`<span class="bft-courses-dim">—</span>`}
                             </td>
                             <td class="bft-courses-cta">

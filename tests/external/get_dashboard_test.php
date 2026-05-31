@@ -35,8 +35,23 @@ use core_external\external_api;
  */
 final class get_dashboard_test extends \advanced_testcase {
     /**
-     * Site admin sees the aggregate for every course with rollup rows,
-     * regardless of explicit role assignment — admins inherit every cap.
+     * Reset the per-request dashboard_scope memo before each test. Its static
+     * cache is keyed by userid and survives resetAfterTest (PHP statics aren't
+     * rolled back with the DB); on MariaDB userids recycle across tests, so a
+     * stale entry could otherwise serve the wrong scope.
+     *
+     * @return void
+     */
+    protected function setUp(): void {
+        parent::setUp();
+        \block_feedback_tracker\local\sla\dashboard_scope::reset_memo();
+    }
+
+    /**
+     * With enable_admin_view_all on, a site admin sees the aggregate for
+     * every course with rollup rows regardless of enrolment. (With the
+     * setting off — the default — an unenrolled admin is scoped to nothing;
+     * see test_admin_without_view_all_is_scoped.)
      */
     public function test_admin_sees_all_courses(): void {
         $this->resetAfterTest();
@@ -47,7 +62,9 @@ final class get_dashboard_test extends \advanced_testcase {
         $this->seed_rollup($course2, 5, 1, 2, 78);
         $this->seed_rollup($course3, 0, 0, 0, 90);
 
+        set_config('enable_admin_view_all', 1, 'block_feedback_tracker');
         $this->setAdminUser();
+        \block_feedback_tracker\local\sla\dashboard_scope::reset_memo();
         $result = external_api::clean_returnvalue(
             get_dashboard::execute_returns(),
             get_dashboard::execute('')
@@ -58,6 +75,26 @@ final class get_dashboard_test extends \advanced_testcase {
         $this->assertContains((int) $course1->id, $courseids);
         $this->assertContains((int) $course2->id, $courseids);
         $this->assertContains((int) $course3->id, $courseids);
+    }
+
+    /**
+     * With enable_admin_view_all off (default), a site admin with no
+     * teaching enrolment is scoped like a normal user and is rejected —
+     * the setting is the explicit gate for site-wide visibility.
+     */
+    public function test_admin_without_view_all_is_scoped(): void {
+        $this->resetAfterTest();
+        $this->seed_config();
+
+        [$course1] = $this->build_three_courses();
+        $this->seed_rollup($course1, 12, 4, 5, 65);
+
+        // Default: enable_admin_view_all is off.
+        $this->setAdminUser();
+        \block_feedback_tracker\local\sla\dashboard_scope::reset_memo();
+
+        $this->expectException(\required_capability_exception::class);
+        get_dashboard::execute('');
     }
 
     /**

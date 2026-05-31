@@ -49,7 +49,7 @@ class get_dashboard extends external_api {
      * before deploying any change to execute()'s WHERE clause or
      * aggregate columns.
      */
-    public const CACHE_KEY_VERSION = 3;
+    public const CACHE_KEY_VERSION = 4;
 
     /**
      * Parameters.
@@ -77,19 +77,13 @@ class get_dashboard extends external_api {
         $sysctx = \context_system::instance();
         self::validate_context($sysctx);
 
-        // The `viewdashboard` capability is meaningful at course / category context (where
-        // teacher roles are usually granted), not just system. Sweep every
-        // course the user has the cap in and use that as both the
-        // authorisation check and the result filter — same logic the page
-        // entrypoint runs.
-        $visiblecourses = get_user_capability_course(
-            'block/feedback_tracker:viewdashboard',
-            (int) $USER->id,
-            true,
-            '',
-            ''
-        );
-        if (empty($visiblecourses)) {
+        // Authorisation + result scope are centralised in dashboard_scope:
+        // active enrolment with a teacher-or-higher role, unless the user is
+        // a site admin with enable_admin_view_all on (then the whole site).
+        // A non-admin with zero visible courses has no dashboard access.
+        $userid = (int) $USER->id;
+        $scope = \block_feedback_tracker\local\sla\dashboard_scope::visible_course_ids($userid);
+        if ($scope !== null && empty($scope)) {
             throw new \required_capability_exception(
                 $sysctx,
                 'block/feedback_tracker:viewdashboard',
@@ -98,12 +92,13 @@ class get_dashboard extends external_api {
             );
         }
         // Cache key includes the user (so per-user filtering doesn't leak
-        // across teachers) and the band; the user-id keying also means a
-        // role change naturally hits a cold cache for the affected user.
+        // across teachers), the band, and whether the user is in admin
+        // view-all mode (so flipping enable_admin_view_all re-keys at once).
         $cache = \cache::make('block_feedback_tracker', 'dashboard_payload');
         $key = 'v' . self::CACHE_KEY_VERSION
             . '_' . calendar::current_version()
             . '_' . $USER->id
+            . '_' . ($scope === null ? 'all' : 'scoped')
             . '_' . $band;
         $cached = $cache->get($key);
         if (
@@ -114,36 +109,18 @@ class get_dashboard extends external_api {
             return $cached;
         }
 
-        /*
-         * Per-course visibility clauses honouring group mode. For each
-         * accessible course we emit one of:
-         *   - g.courseid = X            (unrestricted: NOGROUPS or accessallgroups)
-         *   - (g.courseid = X AND g.groupid IN (...))  (restricted)
-         * Joined with OR. Without this filter a SEPARATEGROUPS teacher
-         * would see SUM() across every group in their courses, not just
-         * the groups they belong to.
-         */
-        $clauses = [];
-        $sqlparams = [];
-        $pix = 0;
-        foreach ($visiblecourses as $course) {
-            $cid = (int) $course->id;
-            $visible = \block_feedback_tracker\local\sla\group_access::visible_group_ids(
-                $cid,
-                (int) $USER->id
-            );
-            if ($visible === null) {
-                $clauses[] = "g.courseid = :dc{$pix}";
-                $sqlparams["dc{$pix}"] = $cid;
-            } else if (!empty($visible)) {
-                [$gsql, $gparams] = $DB->get_in_or_equal($visible, SQL_PARAMS_NAMED, "dg{$pix}_");
-                $clauses[] = "(g.courseid = :dc{$pix} AND g.groupid $gsql)";
-                $sqlparams["dc{$pix}"] = $cid;
-                $sqlparams += $gparams;
-            }
-            $pix++;
-        }
-        if (empty($clauses)) {
+        // Per-course / per-group visibility, centralised in dashboard_scope.
+        // Returns MATCH_ALL (admin view-all), MATCH_NONE (nothing visible),
+        // or an OR-joined clause over the user's courses + allowed groups —
+        // so a SEPARATEGROUPS teacher never sees SUM() across groups they
+        // don't belong to.
+        [$where, $sqlparams] = \block_feedback_tracker\local\sla\dashboard_scope::sql_visibility(
+            $userid,
+            'g.courseid',
+            'g.groupid',
+            'dc'
+        );
+        if ($where === \block_feedback_tracker\local\sla\dashboard_scope::MATCH_NONE) {
             $result = [
                 'success'    => true,
                 'lastsynced' => time(),
@@ -152,7 +129,6 @@ class get_dashboard extends external_api {
             $cache->set($key, $result);
             return $result;
         }
-        $where = '(' . implode(' OR ', $clauses) . ')';
         if ($band !== '') {
             $where .= ' AND g.score_band = :band';
             $sqlparams['band'] = $band;

@@ -36,12 +36,27 @@ use core_external\external_api;
  */
 final class get_grader_priority_list_test extends \advanced_testcase {
     /**
-     * Site admin sees every pending submission across every course,
-     * sorted by effective wait descending.
+     * Reset the dashboard_scope memo and grant site admins site-wide
+     * visibility for the admin-based cases. dashboard_scope's static cache is
+     * keyed by userid and survives resetAfterTest, so it must be cleared each
+     * test; enable_admin_view_all is the gate that lets an unenrolled admin
+     * see every course (the admin tests below rely on that). It has no effect
+     * on the non-admin tests (student / custom-role teacher).
+     *
+     * @return void
+     */
+    protected function setUp(): void {
+        parent::setUp();
+        $this->resetAfterTest();
+        set_config('enable_admin_view_all', 1, 'block_feedback_tracker');
+        \block_feedback_tracker\local\sla\dashboard_scope::reset_memo();
+    }
+
+    /**
+     * Site admin (with enable_admin_view_all on) sees every pending
+     * submission across every course, sorted by effective wait descending.
      */
     public function test_admin_sees_all_courses_sorted_by_effective(): void {
-        $this->resetAfterTest();
-
         $course1 = $this->getDataGenerator()->create_course(['fullname' => 'Course A']);
         $course2 = $this->getDataGenerator()->create_course(['fullname' => 'Course B']);
         [$cm1, $user1] = $this->seed_pending($course1, 'Ana Silva', 10.0);
