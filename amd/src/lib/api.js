@@ -37,11 +37,16 @@ import Notification from 'core/notification';
  * unhandled rejections surface as a toast, then re-throws so the caller's
  * own catch / try can react.
  *
+ * core/ajax resolves a jQuery promise (thenable, but with no native
+ * .finally()). Promise.resolve() adopts it into a native Promise so callers
+ * can chain .then()/.catch()/.finally() — the dashboard's mount-time loader
+ * relies on .finally() and otherwise throws "finally is not a function".
+ *
  * @param {string} methodname  Moodle WS function name (with prefix).
  * @param {object} args        Argument bag as the WS expects.
- * @returns {Promise<*>}
+ * @returns {Promise<*>}  Native Promise.
  */
-const call = (methodname, args) => Ajax.call([{methodname, args}])[0]
+const call = (methodname, args) => Promise.resolve(Ajax.call([{methodname, args}])[0])
     .catch((error) => {
         Notification.exception(error);
         throw error;
