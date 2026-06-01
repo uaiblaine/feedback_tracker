@@ -18,6 +18,11 @@ verification depends on per-stable-branch CI runs.
 Run from the Moodle root (`/Volumes/N1TB/dev/github/moodle`; this plugin
 lives at `public/blocks/feedback_tracker`):
 
+Repo layout (Moodle 5.x split): the webroot is `public/` (plugin code +
+`public/config.php`), but **core CLI scripts live in `admin/cli/` at the
+repo root, outside `public/`** — e.g. `php admin/cli/purge_caches.php`.
+Plugin CLIs resolve `public/config.php` via `__DIR__/../../../config.php`.
+
 | Command | What it does |
 |---------|--------------|
 | `npx grunt amd --root=public/blocks/feedback_tracker` | Rebuild `amd/build/**/*.min.js` from `amd/src/`. Required before committing JS. |
@@ -547,6 +552,12 @@ moodleform's own internal markup (which Moodle controls).
 - `has_capability('mod/assign:grade', $context, $userid)` respects the
   user's **real** role assignments, not Moodle's "Switch role to..."
   temporary state — useful for filtering role-switched test submissions
+- `get_user_capability_course($cap, $uid, $doanything, ...)`: the 3rd arg
+  is **`$doanything`** (not "onlyactive"), so it returns *every* course for
+  a site admin. To scope an admin like a normal teacher, enumerate with
+  `enrol_get_users_courses($uid, true)` and filter with
+  `has_capability($cap, $ctx, $uid, false)` (doanything off). The dashboard
+  read-path scope lives in `classes/local/sla/dashboard_scope.php`.
 
 ## Install / upgrade guards
 
@@ -708,11 +719,22 @@ export per WS. Errors flow through `core/notification.exception()` then
 re-throw so the caller's UI can react. Don't call `Ajax.call([...])`
 inline in a component.
 
+`Ajax.call([...])[0]` resolves a **jQuery promise** — it has `.then()` /
+`.catch()` but **no native `.finally()`**. `api.js::call()` wraps the
+result in `Promise.resolve(...)` so callers can chain `.finally()` (e.g.
+a mount-time loader) without `TypeError: finally is not a function`.
+
 ### Build artefacts
 
 Every new `amd/src/**/*.js` file must have its `amd/build/**/*.min.js`
 counterpart committed in the same PR. Build with
 `npx grunt amd --root=public/blocks/feedback_tracker` from Moodle root.
+
+`amd/build/**` is **tracked** in git (not gitignored) — Moodle serves the
+compiled bundle, not `amd/src`. When resolving a cherry-pick conflict,
+never drop the `.min.js` / `.map` files; a source-only fix won't take
+effect. Compiled output is branch-agnostic: `git checkout <branch> --
+amd/build/...` is a valid way to restore it.
 
 ### Dev loop
 
@@ -742,6 +764,17 @@ Component logic, hook usage, props shapes, and CSS classes stay the same.
 The plugin uses **catalyst/catalyst-moodle-workflows** as a reusable
 workflow. The single job in [`.github/workflows/gha.yml`](.github/workflows/gha.yml)
 delegates to that workflow.
+
+The plugin is its **own git repo** (branch `main`) nested inside the Moodle
+checkout (branch `MOODLE_501_STABLE`): run git from the plugin dir or use
+`git -C public/blocks/feedback_tracker ...` — git from the Moodle root won't
+see plugin changes. Note `cd` inside a compound Bash command doesn't persist
+(cwd resets between calls); prefer absolute paths or `git -C`.
+
+`version.php` **diverges by branch on purpose**: `main` carries
+`$plugin->supported = [405, 502]`, `MOODLE_501_STABLE` carries `[501, 501]`.
+Cherry-picking a version bump conflicts on that line — keep each branch's own
+`supported` when resolving.
 
 ## When in doubt
 
