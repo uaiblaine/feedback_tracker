@@ -225,5 +225,58 @@ function xmldb_block_feedback_tracker_upgrade($oldversion) {
         upgrade_block_savepoint(true, 2026060112, 'feedback_tracker');
     }
 
+    // V1.0.19 — headline "effective / perceived" times now include currently
+    // pending (ungraded) work so the dashboard reflects the live backlog
+    // instead of reading ~0 when little has been graded. Two new rollup
+    // columns hold the include-pending medians; the score still uses the
+    // graded-only median_eff_h, so it is unaffected. Re-enqueue every tuple so
+    // drain_queue backfills the new columns on the next cron run.
+    if ($oldversion < 2026060119) {
+        $dbman = $DB->get_manager();
+        $table = new xmldb_table('block_feedback_tracker_group');
+
+        $field = new xmldb_field(
+            'cur_median_eff_h',
+            XMLDB_TYPE_NUMBER,
+            '10, 2',
+            null,
+            null,
+            null,
+            null,
+            'max_eff_h'
+        );
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        $field = new xmldb_field(
+            'cur_median_raw_h',
+            XMLDB_TYPE_NUMBER,
+            '10, 2',
+            null,
+            null,
+            null,
+            null,
+            'cur_median_eff_h'
+        );
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        $tuples = $DB->get_recordset_sql(
+            'SELECT DISTINCT courseid, groupid FROM {block_feedback_tracker_sub}'
+        );
+        foreach ($tuples as $t) {
+            \block_feedback_tracker\local\sla\dirty_queue::enqueue(
+                (int) $t->courseid,
+                (int) $t->groupid,
+                \block_feedback_tracker\local\sla\dirty_queue::REASON_SUBMISSION
+            );
+        }
+        $tuples->close();
+
+        upgrade_block_savepoint(true, 2026060119, 'feedback_tracker');
+    }
+
     return true;
 }

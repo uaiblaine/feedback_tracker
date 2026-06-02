@@ -271,6 +271,41 @@ final class get_dashboard_test extends \advanced_testcase {
         $this->assertSame([(int) $course1->id], $courseids);
     }
 
+    /**
+     * The per-course row carries the include-pending headline medians
+     * (cur_median_eff_h / cur_median_raw_h) plus the aggregate trend and
+     * compliance the hero needs — previously these were missing, leaving the
+     * dashboard's global trend and SLA permanently blank.
+     */
+    public function test_returns_headline_trend_and_compliance(): void {
+        $this->resetAfterTest();
+        $this->seed_config();
+
+        [$course1] = $this->build_three_courses();
+        $this->seed_rollup($course1, 12, 4, 5, 65);
+
+        set_config('enable_admin_view_all', 1, 'block_feedback_tracker');
+        $this->setAdminUser();
+        \block_feedback_tracker\local\sla\dashboard_scope::reset_memo();
+
+        $result = external_api::clean_returnvalue(
+            get_dashboard::execute_returns(),
+            get_dashboard::execute('')
+        );
+
+        $row = null;
+        foreach ($result['courses'] as $c) {
+            if ((int) $c['courseid'] === (int) $course1->id) {
+                $row = $c;
+            }
+        }
+        $this->assertNotNull($row);
+        $this->assertEqualsWithDelta(18.0, (float) $row['cur_median_eff_h'], 0.01);
+        $this->assertEqualsWithDelta(22.0, (float) $row['cur_median_raw_h'], 0.01);
+        $this->assertEqualsWithDelta(-40.0, (float) $row['trend_pct_30d'], 0.01);
+        $this->assertEqualsWithDelta(75.0, (float) $row['compliance_pct'], 0.01);
+    }
+
     // Helpers.
 
     /**
@@ -319,10 +354,13 @@ final class get_dashboard_test extends \advanced_testcase {
             'median_eff_h'         => 10.0,
             'p90_eff_h'            => 36.0,
             'max_eff_h'            => 50.0,
+            'cur_median_eff_h'     => 18.0,
+            'cur_median_raw_h'     => 22.0,
             'median_raw_h'         => 12.0,
             'p90_raw_h'            => 48.0,
             'max_raw_h'            => 72.0,
             'compliance_pct'       => 75.0,
+            'trend_pct_30d'        => -40.0,
             'responsiveness_score' => $score,
             'score_band'           => $band,
             'timemodified'         => $now,

@@ -47,7 +47,7 @@ class get_insights extends external_api {
     public const CACHE_TTL = 900;
 
     /** Cache-key version. Bump when the result shape changes. */
-    public const CACHE_KEY_VERSION = 2;
+    public const CACHE_KEY_VERSION = 3;
 
     /**
      * Parameters — no inputs.
@@ -83,10 +83,14 @@ class get_insights extends external_api {
         }
 
         $cache = \cache::make('block_feedback_tracker', 'dashboard_payload');
+        // Language is part of the key now that metric suffixes are localised
+        // server-side — a user switching language must not read a cached
+        // payload built in the previous one.
         $key = 'insights_v' . self::CACHE_KEY_VERSION
             . '_' . calendar::current_version()
             . '_' . $USER->id
-            . '_' . ($scope === null ? 'all' : 'scoped');
+            . '_' . ($scope === null ? 'all' : 'scoped')
+            . '_' . current_language();
         $cached = $cache->get($key);
         if (
             $cached !== false && is_array($cached)
@@ -174,7 +178,7 @@ class get_insights extends external_api {
             'groupid'      => (int) $top->groupid,
             'groupname'    => (string) ($top->groupname ?? ''),
             'metric_value' => (string) round($score),
-            'metric_suffix' => '/ 100',
+            'metric_suffix' => get_string('insight_outof100', 'block_feedback_tracker'),
         ];
     }
 
@@ -229,8 +233,8 @@ class get_insights extends external_api {
                 'coursename'    => (string) $best->coursename,
                 'groupid'       => (int) $best->groupid,
                 'groupname'     => (string) ($best->groupname ?? ''),
-                'metric_value'  => '+' . (string) round(abs($bestpct)) . '%',
-                'metric_suffix' => 'this week',
+                'metric_value'  => '▲ ' . (string) round(abs($bestpct)) . '%',
+                'metric_suffix' => get_string('insight_faster_week_suffix', 'block_feedback_tracker'),
                 'momentum'      => true,
             ];
         }
@@ -253,8 +257,8 @@ class get_insights extends external_api {
             'coursename'    => (string) $top->coursename,
             'groupid'       => (int) $top->groupid,
             'groupname'     => (string) ($top->groupname ?? ''),
-            'metric_value'  => '+' . (string) round(abs($pct)) . '%',
-            'metric_suffix' => '',
+            'metric_value'  => '▲ ' . (string) round(abs($pct)) . '%',
+            'metric_suffix' => get_string('insight_faster_suffix', 'block_feedback_tracker'),
             'momentum'      => false,
         ];
     }
@@ -285,7 +289,7 @@ class get_insights extends external_api {
             'groupid'      => (int) $top->groupid,
             'groupname'    => (string) ($top->groupname ?? ''),
             'metric_value' => (string) $n,
-            'metric_suffix' => $n === 1 ? 'critical pending' : 'critical pending',
+            'metric_suffix' => get_string('insight_criticalpending', 'block_feedback_tracker'),
         ];
     }
 

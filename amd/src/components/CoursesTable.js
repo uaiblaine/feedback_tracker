@@ -80,7 +80,7 @@ export default function CoursesTable({rows, i18n, sortKey, sortOrder, onSort, th
         wwwroot + '/blocks/feedback_tracker/pages/pending_report.php?courseid='
         + encodeURIComponent(String(cid));
     const zonelabel = goal !== null && goal !== undefined
-        ? (i18n.sparkline_zone_label || 'Improvement zone: 0 to {$a}')
+        ? (i18n.sparkline_zone_label || 'Desired speed: 0 to {$a}')
             .replace('{$a}', String(Math.round(Number(goal))))
         : '';
 
@@ -97,7 +97,7 @@ export default function CoursesTable({rows, i18n, sortKey, sortOrder, onSort, th
                     <${SortHeader} label=${i18n.dashboard_col_critical || 'Priority'}
                         sortKey="critical" currentKey=${sortKey} currentOrder=${sortOrder} onClick=${onSort} />
                     <${SortHeader} label=${i18n.hero_effective_eyebrow || 'Effective'}
-                        sortKey="median_eff_h" currentKey=${sortKey} currentOrder=${sortOrder} onClick=${onSort} />
+                        sortKey="cur_median_eff_h" currentKey=${sortKey} currentOrder=${sortOrder} onClick=${onSort} />
                     <th>${i18n.trend_window_label || '30 days'}</th>
                     <th></th>
                 </tr>
@@ -138,9 +138,9 @@ export default function CoursesTable({rows, i18n, sortKey, sortOrder, onSort, th
                                 ${Number(row.critical) || 0}
                             </td>
                             <td class=${'bft-mono bft-courses-num bft-overall-score-tone-' + band}>
-                                ${row.median_eff_h === null || row.median_eff_h === undefined
+                                ${row.cur_median_eff_h === null || row.cur_median_eff_h === undefined
                                     ? '—'
-                                    : formatHours(row.median_eff_h)}
+                                    : formatHours(row.cur_median_eff_h)}
                             </td>
                             <td class="bft-courses-spark">
                                 ${hasSeries

@@ -73,18 +73,22 @@ export const formatPercent = (value, digits = 0) => {
 };
 
 /**
- * Signed trend value with directional arrow.
+ * Trend value rendered on the speed model with a directional arrow. The
+ * value is the change in median effective hours; fewer hours (negative) means
+ * faster turnaround, shown as ▲, while more hours (positive) is slower (▼).
+ * Magnitude is unsigned. See lib/trend.js for the shared classification used
+ * by the live components.
  *
- * @param {number|null|undefined} value Percentage delta (positive = worse, negative = better).
+ * @param {number|null|undefined} value Percentage delta (negative = faster, positive = slower).
  * @param {number} digits
- * @returns {string} e.g. "▼ 12%", "▲ 5%", "→ 0%", or "—"
+ * @returns {string} e.g. "▲ 12%", "▼ 5%", "→ 0%", or "—"
  */
 export const formatTrend = (value, digits = 0) => {
     if (value === null || value === undefined || Number.isNaN(Number(value))) {
         return EMPTY;
     }
     const n = Number(value);
-    const arrow = n < 0 ? '▼' : (n > 0 ? '▲' : '→');
+    const arrow = n < 0 ? '▲' : (n > 0 ? '▼' : '→');
     return arrow + ' ' + Math.abs(n).toFixed(digits) + '%';
 };
 

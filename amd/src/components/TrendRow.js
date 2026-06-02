@@ -17,9 +17,10 @@
  * Trend row — arrow + percentage + verbal label + 30-day sparkline.
  *
  * The trend percentage in the payload is "% change in median effective
- * hours over the last 30 days". A negative number is improvement (hours
- * dropped), so the sign mapping is inverted: down = good (green), up = bad
- * (priority/red), within ±2% = flat (muted).
+ * hours over the last 30 days". A negative number means work was returned
+ * faster (hours dropped), so we present it as speed: faster = ▲ green,
+ * slower = ▼ priority/red, within ±2% = stable (muted). The magnitude is
+ * shown unsigned — direction is carried by the arrow, colour and label.
  *
  * @module    block_feedback_tracker/components/TrendRow
  * @copyright 2026 Anderson Blaine <anderson@blaine.com.br>
@@ -28,41 +29,19 @@
 
 import {html} from 'block_feedback_tracker/lib/preact';
 import Sparkline from 'block_feedback_tracker/components/Sparkline';
-
-/**
- * Classify a trend percentage into a tone slug.
- *
- * @param {number} pct
- * @returns {'improving'|'declining'|'stable'}
- */
-const toneFor = (pct) => {
-    if (Math.abs(pct) < 2) {
-        return 'stable';
-    }
-    return pct < 0 ? 'improving' : 'declining';
-};
+import {classifySpeed, speedLabel} from 'block_feedback_tracker/lib/trend';
 
 /**
  * @param {object} props
- * @param {number|null|undefined} props.pct  Trend percentage; negative = improving.
+ * @param {number|null|undefined} props.pct  Trend percentage; negative = faster.
  * @param {Array<number|null>} props.series  30-day sparkline values.
- * @param {object} props.i18n  Bundle with trend_improving / trend_declining / trend_stable / trend_window_label.
+ * @param {object} props.i18n  Bundle with trend_faster / trend_slower / trend_stable / trend_window_label.
  * @param {number|null} [props.goal]  Optional SLA goal line on the sparkline.
  * @returns {object|null} vnode
  */
 export default function TrendRow({pct, series, i18n, goal}) {
-    const safepct = pct === null || pct === undefined || Number.isNaN(Number(pct))
-        ? null : Number(pct);
-    const tone = safepct === null ? 'stable' : toneFor(safepct);
-    const arrow = tone === 'stable' ? '→' : tone === 'improving' ? '↓' : '↑';
-    const labelmap = {
-        improving: i18n.trend_improving || 'improving',
-        declining: i18n.trend_declining || 'declining',
-        stable:    i18n.trend_stable    || 'stable',
-    };
-    const pctText = safepct === null
-        ? '—'
-        : (safepct > 0 ? '+' : '') + Math.round(safepct) + '%';
+    const {tone, arrow, magnitude} = classifySpeed(pct);
+    const label = speedLabel(tone, i18n);
     const hasSeries = Array.isArray(series) && series.some((v) => v !== null && v !== undefined);
 
     return html`
@@ -71,8 +50,9 @@ export default function TrendRow({pct, series, i18n, goal}) {
                 <div class="bft-trend-row-eyebrow">${i18n.trend_window_label || 'Last 30 days'}</div>
                 <div class="bft-trend-row-line">
                     <span class="bft-trend-row-arrow">${arrow}</span>
-                    <span class="bft-trend-row-pct bft-mono">${pctText}</span>
-                    <span class="bft-trend-row-label">${labelmap[tone]}</span>
+                    ${tone !== 'stable'
+                        && html`<span class="bft-trend-row-pct bft-mono">${magnitude}</span>`}
+                    <span class="bft-trend-row-label">${label}</span>
                 </div>
             </div>
             ${hasSeries && html`
