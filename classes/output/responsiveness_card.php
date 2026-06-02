@@ -131,7 +131,8 @@ class responsiveness_card implements \renderable, \templatable {
         $trendtxt = '—';
         if ($p['trend_pct_30d'] !== null) {
             $trendval = (float) $p['trend_pct_30d'];
-            $arrow = $trendval < 0 ? '▼' : ($trendval > 0 ? '▲' : '→');
+            // Speed model: fewer hours (negative) = faster = ▲; more = slower = ▼.
+            $arrow = $trendval < 0 ? '▲' : ($trendval > 0 ? '▼' : '→');
             $trendtxt = $arrow . ' ' . format_float(abs($trendval), 0) . '%';
         }
         return [

@@ -1091,12 +1091,12 @@ table.bft-sortable th.bft-sort-desc::after {
 .bft-trend-tone-stable .bft-trend-row-pct {
     color: var(--bft-text-muted);
 }
-.bft-trend-tone-improving .bft-trend-row-arrow,
-.bft-trend-tone-improving .bft-trend-row-pct {
+.bft-trend-tone-faster .bft-trend-row-arrow,
+.bft-trend-tone-faster .bft-trend-row-pct {
     color: var(--bft-band-excellent-fg);
 }
-.bft-trend-tone-declining .bft-trend-row-arrow,
-.bft-trend-tone-declining .bft-trend-row-pct {
+.bft-trend-tone-slower .bft-trend-row-arrow,
+.bft-trend-tone-slower .bft-trend-row-pct {
     color: var(--bft-band-critical-fg);
 }
 

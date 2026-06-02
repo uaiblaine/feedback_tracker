@@ -20,11 +20,13 @@
  * (keep all three in lockstep). Null values represent "no data that day" and
  * are skipped — the polyline runs through the days that do have values.
  *
- * When a `goal` is supplied it drives the "improvement zone": a light-green
- * band spanning effective hours 0 → goal (the desired turnaround window),
- * with a solid green baseline at 0 and a dotted green line at the goal
- * (the zone's upper bound). The optional `zonelabel` is drawn discreetly
- * inside the chart when it is wide enough to fit.
+ * The vertical axis reads as speed: fewer effective hours (faster turnaround)
+ * render HIGHER. When a `goal` is supplied it drives the "desired-speed zone":
+ * a light-green band anchored at the TOP spanning effective hours 0 → goal
+ * (the acceptable window), with a solid green baseline at 0 hours (top edge)
+ * and a dotted green line at the goal (the minimum-desired-speed boundary).
+ * A slowdown pushes the line down, below the goal line. The optional
+ * `zonelabel` is drawn discreetly inside the chart when it is wide enough.
  *
  * @module    block_feedback_tracker/components/Sparkline
  * @copyright 2026 Anderson Blaine <anderson@blaine.com.br>
@@ -61,7 +63,8 @@ export default function Sparkline({values, goal = null, width = 120, height = 30
         max = min + 1;
     }
 
-    const yfor = (v) => height - ((Number(v) - min) / (max - min)) * height;
+    // Inverted (speed) axis: fewer hours → smaller y → higher on the chart.
+    const yfor = (v) => ((Number(v) - min) / (max - min)) * height;
     const zoney = haszone ? yfor(goal) : 0;
     const showlabel = haszone && zonelabel && width >= ZONE_LABEL_MIN_WIDTH;
 
@@ -82,10 +85,10 @@ export default function Sparkline({values, goal = null, width = 120, height = 30
              role="img" aria-label=${zonelabel || '30-day trend'}>
             ${haszone && html`
                 <rect class="bft-sparkline-zone"
-                      x="0" y=${zoney.toFixed(2)}
-                      width=${width} height=${(height - zoney).toFixed(2)} />
+                      x="0" y="0"
+                      width=${width} height=${zoney.toFixed(2)} />
                 <line class="bft-sparkline-zone-base"
-                      x1="0" y1=${height} x2=${width} y2=${height} />
+                      x1="0" y1="0" x2=${width} y2="0" />
                 <line class="bft-sparkline-zone-top"
                       x1="0" y1=${zoney.toFixed(2)} x2=${width} y2=${zoney.toFixed(2)} />
             `}

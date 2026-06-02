@@ -101,8 +101,8 @@ class bootstrap {
             'rule_off' => get_string('rule_off', 'block_feedback_tracker'),
             'rule_on' => get_string('rule_on', 'block_feedback_tracker'),
             'timeline_norule' => get_string('timeline_norule', 'block_feedback_tracker'),
-            'trend_declining' => get_string('trend_declining', 'block_feedback_tracker'),
-            'trend_improving' => get_string('trend_improving', 'block_feedback_tracker'),
+            'trend_faster' => get_string('trend_faster', 'block_feedback_tracker'),
+            'trend_slower' => get_string('trend_slower', 'block_feedback_tracker'),
             'trend_stable' => get_string('trend_stable', 'block_feedback_tracker'),
             'trend_window_label' => get_string('trend_window_label', 'block_feedback_tracker'),
         ];

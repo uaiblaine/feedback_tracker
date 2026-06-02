@@ -123,13 +123,17 @@ class rollup_service {
                 'substatus' => submission_status::SUBMITTED,
             ],
             '',
-            'id, effectivehours'
+            'id, effectivehours, waitinghours'
         );
         $pending = count($pendingrows);
         $critical = 0;
         $overgoal = 0;
+        $pendingeffvals = [];
+        $pendingrawvals = [];
         foreach ($pendingrows as $r) {
             $eff = (float) ($r->effectivehours ?? 0.0);
+            $pendingeffvals[] = $eff;
+            $pendingrawvals[] = (float) ($r->waitinghours ?? 0.0);
             if ($eff >= $criticalmin) {
                 $critical++;
             }
@@ -173,6 +177,16 @@ class rollup_service {
         $p90raw    = $numgraded30d ? stats::percentile($rawvals, 90.0) : null;
         $maxraw    = $numgraded30d ? stats::max_value($rawvals) : null;
         $compliancepct = $numgraded30d ? round(100.0 * $compliantcount / $numgraded30d, 2) : null;
+
+        // 2b. Headline "current" medians — graded-in-window plus currently
+        // pending work — so the dashboard's effective / perceived times
+        // reflect the live backlog instead of reading ~0 when little has been
+        // graded. These feed the display only; the score keeps using the
+        // graded-only $medianeff above.
+        $cureffvals = array_merge($effvals, $pendingeffvals);
+        $currawvals = array_merge($rawvals, $pendingrawvals);
+        $curmedianeff = !empty($cureffvals) ? stats::median($cureffvals) : null;
+        $curmedianraw = !empty($currawvals) ? stats::median($currawvals) : null;
 
         // 3. Trend: this window's median vs the prior window's median
         // (submitted work only).
@@ -237,6 +251,8 @@ class rollup_service {
             'median_eff_h'         => $medianeff,
             'p90_eff_h'            => $p90eff,
             'max_eff_h'            => $maxeff,
+            'cur_median_eff_h'     => $curmedianeff,
+            'cur_median_raw_h'     => $curmedianraw,
             'responsiveness_score' => $scoredata['score'],
             'score_band'           => $scoredata['band'],
             'comp_compliance'      => $components['compliance'] ?? null,

@@ -30,6 +30,7 @@ import ScoreRing from 'block_feedback_tracker/components/ScoreRing';
 import Badge from 'block_feedback_tracker/components/Badge';
 import Sparkle from 'block_feedback_tracker/components/Sparkle';
 import {formatHours} from 'block_feedback_tracker/lib/format';
+import {classifySpeed} from 'block_feedback_tracker/lib/trend';
 
 /**
  * @param {object} props
@@ -38,7 +39,7 @@ import {formatHours} from 'block_feedback_tracker/lib/format';
  * @param {string} props.bandlabel
  * @param {number|null} props.effectivehours  Median effective hours.
  * @param {string} props.perceivedlabel       Display of perceived calendar wait (e.g. "4d").
- * @param {number|null} props.trendpct        Trend %; negative = improving.
+ * @param {number|null} props.trendpct        Trend %; negative = faster.
  * @param {object} props.i18n
  * @param {() => void} [props.onCollapse]     Click handler for the floating collapse button.
  * @returns {object} vnode
@@ -46,13 +47,10 @@ import {formatHours} from 'block_feedback_tracker/lib/format';
 export default function ResponsivenessHero({score, band, bandlabel, effectivehours, perceivedlabel,
     trendpct, i18n, onCollapse}) {
     const display = score === null || score === undefined ? '—' : Math.round(Number(score));
-    const trendTone = trendpct === null || trendpct === undefined || Math.abs(trendpct) < 2
-        ? 'pending'
-        : trendpct < 0 ? 'excellent' : 'critical';
-    const trendArrow = trendTone === 'pending' ? '→' : trendTone === 'excellent' ? '↓' : '↑';
-    const trendText = trendpct === null || trendpct === undefined
-        ? '—'
-        : (trendpct > 0 ? '+' : '') + Math.round(trendpct) + '%';
+    const trend = classifySpeed(trendpct);
+    const trendTone = trend.colour;
+    const trendArrow = trend.arrow;
+    const trendText = trend.magnitude;
 
     return html`
         <section class=${'bft-rh bft-rh-tone-' + (band || 'pending')}>

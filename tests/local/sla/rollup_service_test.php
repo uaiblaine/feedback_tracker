@@ -110,8 +110,59 @@ final class rollup_service_test extends \advanced_testcase {
         $this->assertSame(0, (int) $row->critical);
         $this->assertSame(0, (int) $row->numgraded30d);
         $this->assertNull($row->median_eff_h);
+        $this->assertNull($row->cur_median_eff_h);
+        $this->assertNull($row->cur_median_raw_h);
         $this->assertNull($row->responsiveness_score);
         $this->assertSame('nodata', $row->score_band);
+    }
+
+    /**
+     * The headline "current" medians (cur_median_eff_h / cur_median_raw_h)
+     * blend graded-in-window work with currently-pending work so the
+     * dashboard reflects the live backlog, while the graded-only median_eff_h
+     * (which feeds the score) stays untouched.
+     */
+    public function test_cur_medians_include_pending(): void {
+        $this->resetAfterTest();
+        $this->seed_config();
+
+        $courseid = 106;
+        $groupid = 206;
+        $now = time();
+
+        // 3 graded rows in the last 30 days: effective 10, 20, 30 (median 20);
+        // raw 10, 20, 30 (median 20).
+        $this->insert_ledger($courseid, $groupid, [
+            'effectivehours' => 10.0, 'waitinghours' => 10.0, 'timegraded' => $now - 86400,
+        ]);
+        $this->insert_ledger($courseid, $groupid, [
+            'effectivehours' => 20.0, 'waitinghours' => 20.0, 'timegraded' => $now - 86400,
+        ]);
+        $this->insert_ledger($courseid, $groupid, [
+            'effectivehours' => 30.0, 'waitinghours' => 30.0, 'timegraded' => $now - 86400,
+        ]);
+        // 2 pending (ungraded) rows with a large accrued wait: effective +
+        // raw 100, 200.
+        $this->insert_ledger($courseid, $groupid, [
+            'effectivehours' => 100.0, 'waitinghours' => 100.0, 'timegraded' => null,
+        ]);
+        $this->insert_ledger($courseid, $groupid, [
+            'effectivehours' => 200.0, 'waitinghours' => 200.0, 'timegraded' => null,
+        ]);
+
+        rollup_service::recompute_group($courseid, $groupid, $now);
+
+        global $DB;
+        $row = $DB->get_record('block_feedback_tracker_group', [
+            'courseid' => $courseid, 'groupid' => $groupid,
+        ]);
+        $this->assertNotFalse($row);
+
+        // Graded-only median (score input) is unchanged at 20.
+        $this->assertSame(20.0, (float) $row->median_eff_h);
+        // Combined sets [10,20,30,100,200] → median 30 for both eff and raw.
+        $this->assertSame(30.0, (float) $row->cur_median_eff_h);
+        $this->assertSame(30.0, (float) $row->cur_median_raw_h);
     }
 
     /**

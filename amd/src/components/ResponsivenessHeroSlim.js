@@ -30,6 +30,7 @@ import {html} from 'block_feedback_tracker/lib/preact';
 import ScoreRing from 'block_feedback_tracker/components/ScoreRing';
 import Badge from 'block_feedback_tracker/components/Badge';
 import {formatHours} from 'block_feedback_tracker/lib/format';
+import {classifySpeed} from 'block_feedback_tracker/lib/trend';
 
 /**
  * @param {object} props
@@ -47,12 +48,11 @@ import {formatHours} from 'block_feedback_tracker/lib/format';
 export default function ResponsivenessHeroSlim({score, band, bandlabel, effectivehours, perceivedlabel,
     compliancepct, trendpct, i18n, onExpand}) {
     const display = score === null || score === undefined ? '—' : Math.round(Number(score));
-    const trendTone = trendpct === null || trendpct === undefined || Math.abs(trendpct) < 2
-        ? 'pending'
-        : trendpct < 0 ? 'excellent' : 'critical';
-    const trendText = trendpct === null || trendpct === undefined
+    const trend = classifySpeed(trendpct);
+    const trendTone = trend.colour;
+    const trendText = trend.n === null
         ? '—'
-        : (trendpct > 0 ? '+' : '') + Math.round(trendpct) + '%';
+        : (trend.tone === 'stable' ? trend.arrow : trend.arrow + ' ' + trend.magnitude);
 
     return html`
         <section class=${'bft-rh-slim bft-rh-tone-' + (band || 'pending')}>

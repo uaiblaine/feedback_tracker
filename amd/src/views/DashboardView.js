@@ -55,7 +55,8 @@ const PREF_DASHBOARD_COLLAPSED = 'block_feedback_tracker_dashboard_collapsed';
  * @param {Array<object>} courses
  * @returns {{pending: number, critical: number, overgoal: number,
  *            avgscore: number|null, effective: number|null,
- *            compliance: number|null, trendpct: number|null}}
+ *            perceived: number|null, compliance: number|null,
+ *            trendpct: number|null}}
  */
 const aggregate = (courses) => {
     let pending = 0;
@@ -65,6 +66,8 @@ const aggregate = (courses) => {
     let scoreWeight = 0;
     let effSum = 0;
     let effCount = 0;
+    let percSum = 0;
+    let percCount = 0;
     let compSum = 0;
     let compCount = 0;
     let trendSum = 0;
@@ -78,9 +81,15 @@ const aggregate = (courses) => {
             scoreSum += Number(c.avgscore) * weight;
             scoreWeight += weight;
         }
-        if (c.median_eff_h !== null && c.median_eff_h !== undefined) {
-            effSum += Number(c.median_eff_h);
+        // Headline "effective / perceived" use the include-pending medians
+        // (cur_median_*) so the backlog shows through instead of reading ~0.
+        if (c.cur_median_eff_h !== null && c.cur_median_eff_h !== undefined) {
+            effSum += Number(c.cur_median_eff_h);
             effCount += 1;
+        }
+        if (c.cur_median_raw_h !== null && c.cur_median_raw_h !== undefined) {
+            percSum += Number(c.cur_median_raw_h);
+            percCount += 1;
         }
         if (c.compliance_pct !== null && c.compliance_pct !== undefined) {
             compSum += Number(c.compliance_pct);
@@ -97,6 +106,7 @@ const aggregate = (courses) => {
         overgoal,
         avgscore:   scoreWeight > 0 ? scoreSum / scoreWeight : null,
         effective:  effCount > 0 ? effSum / effCount : null,
+        perceived:  percCount > 0 ? percSum / percCount : null,
         compliance: compCount > 0 ? compSum / compCount : null,
         trendpct:   trendCount > 0 ? trendSum / trendCount : null,
     };
@@ -115,7 +125,7 @@ const sortCourses = (rows, sortKey, sortOrder) => {
         return rows;
     }
     const dir = sortOrder === 'asc' ? 1 : -1;
-    const numeric = ['pending', 'critical', 'overgoal', 'avgscore', 'median_eff_h'];
+    const numeric = ['pending', 'critical', 'overgoal', 'avgscore', 'cur_median_eff_h'];
     const numkey = numeric.indexOf(sortKey) !== -1;
     const copy = rows.slice();
     copy.sort((a, b) => {
@@ -146,18 +156,20 @@ const greetingKey = () => {
 };
 
 /**
- * Rough perceived calendar-days from business hours (8h day, with weekend
- * inflation). Returns a string suffix like "4d" or "—".
+ * Perceived calendar-days from the raw (wall-clock) median wait. The raw
+ * median already includes weekends and holidays, so it converts straight to
+ * calendar days with no inflation factor. Returns a string suffix like "4d"
+ * or "—" when there is nothing to show.
  *
- * @param {number|null|undefined} effectivehours
+ * @param {number|null|undefined} rawhours  Median raw (wall-clock) hours.
  * @returns {string}
  */
-const perceivedLabel = (effectivehours) => {
-    const n = Number(effectivehours);
+const perceivedLabel = (rawhours) => {
+    const n = Number(rawhours);
     if (!Number.isFinite(n) || n <= 0) {
         return '—';
     }
-    return Math.max(1, Math.round(n / 24 * 1.35)) + 'd';
+    return Math.max(1, Math.round(n / 24)) + 'd';
 };
 
 /**
@@ -372,7 +384,7 @@ export default function DashboardView({initial}) {
         band: heroBand,
         bandlabel: heroBandLabel,
         effectivehours: totals.effective,
-        perceivedlabel: perceivedLabel(totals.effective),
+        perceivedlabel: perceivedLabel(totals.perceived),
         compliancepct: totals.compliance,
         trendpct: totals.trendpct,
         i18n,

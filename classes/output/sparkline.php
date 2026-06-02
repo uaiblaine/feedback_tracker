@@ -34,9 +34,12 @@ namespace block_feedback_tracker\output;
  * mean "no graded submissions that day" — those days are skipped in the
  * polyline (a gapless line through the days that have data).
  *
- * When a goal is supplied it drives the "improvement zone": a light-green
- * band spanning effective hours 0 → goal (the desired turnaround window),
- * with a solid green baseline at 0 and a dotted green line at the goal.
+ * The vertical axis reads as speed: fewer effective hours (faster turnaround)
+ * render HIGHER. When a goal is supplied it drives the "desired-speed zone":
+ * a light-green band anchored at the TOP spanning effective hours 0 → goal,
+ * with a solid green baseline at 0 hours (top edge) and a dotted green line at
+ * the goal (the minimum-desired-speed boundary). A slowdown pushes the line
+ * down, below the goal line.
  */
 class sparkline implements \renderable, \templatable {
     /** Minimum width (user units) at which the zone text label is drawn. */
@@ -103,12 +106,13 @@ class sparkline implements \renderable, \templatable {
                 continue;
             }
             $x = round($i * $stride, 2);
-            $y = round($this->height - (($v - $min) / ($max - $min)) * $this->height, 2);
+            // Inverted (speed) axis: fewer hours → smaller y → higher up.
+            $y = round((($v - $min) / ($max - $min)) * $this->height, 2);
             $points[] = $x . ',' . $y;
         }
 
         $zoney = $haszone
-            ? round($this->height - (((float) $this->goal - $min) / ($max - $min)) * $this->height, 2)
+            ? round((((float) $this->goal - $min) / ($max - $min)) * $this->height, 2)
             : null;
         $showlabel = $haszone && $this->width >= self::ZONE_LABEL_MIN_WIDTH;
         $zonelabel = $haszone
@@ -122,7 +126,7 @@ class sparkline implements \renderable, \templatable {
             'polyline'   => implode(' ', $points),
             'haszone'    => $haszone,
             'zoney'      => $zoney,
-            'zoneheight' => $haszone ? round($this->height - $zoney, 2) : null,
+            'zoneheight' => $haszone ? $zoney : null,
             'showlabel'  => $showlabel,
             'zonelabel'  => $zonelabel,
         ];
