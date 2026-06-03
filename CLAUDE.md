@@ -335,6 +335,9 @@ standalone lowercase comment.
 - `db/install.php`'s `xmldb_<plugin>_install()` function uses raw
   `set_config()` and direct `$DB->insert_record()` — these **don't fire
   setting update callbacks**, so they're safe for default seeding.
+- `block_feedback_tracker_group` is a **materialized** rollup: after changing
+  any rollup computation, existing rows stay stale until recomputed — run
+  `cli/recompute_all.php` (or let `drain_queue` process re-enqueued tuples).
 
 ### Upgrade savepoints
 
@@ -545,6 +548,11 @@ moodleform's own internal markup (which Moodle controls).
   classes, and the header has already started by then. Use a separate
   data-loading helper (e.g. `responsiveness_payload::for_course()`) that
   both the WS and the block call directly.
+- `get_dashboard`'s per-course return shape is read key-by-key by
+  `amd/src/views/DashboardView.js::aggregate()`; a field `aggregate()` reads but
+  the WS omits silently becomes `null` (no error). Keep them in sync and bump
+  the WS `CACHE_KEY_VERSION` on any shape change. A WS that emits localised
+  strings (e.g. `get_insights`) must also include `current_language()` in its key.
 
 ## Capability checks
 
@@ -620,6 +628,31 @@ The canonical guard is in [`lib.php`](lib.php):
 Normalisation is **read-time only**. `load_weights()` rescales values
 to sum 1.0 if the stored sum is outside `[0.95, 1.05]`. Stored values
 are kept as the admin typed them.
+
+## Dashboard display conventions (trend, medians, sparkline)
+
+`trend_pct_30d` (% change in median effective hours, **negative = faster**) is
+shown as **speed** on every surface: faster = `▲` green, slower = `▼` red,
+`|pct| < 2` = `→` muted; magnitude is **unsigned** (direction = arrow + colour
++ word, never `+/−`). Classifier: [`amd/src/lib/trend.js`](amd/src/lib/trend.js)
+(`classifySpeed` / `speedLabel`), used by `TrendRow` / `ResponsivenessHero` /
+`ResponsivenessHeroSlim`. When touching trend direction, mirror the sign in the
+copies that each keep their own: `classes/output/responsiveness_card.php` (the
+server no-JS card) and `amd/src/lib/format.js::formatTrend` — both were easy to
+leave **inverted**.
+
+**Two median families — never conflate:** `median_eff_h` is graded-only and
+feeds the **score** (don't repurpose it for display). `cur_median_eff_h` /
+`cur_median_raw_h` are medians over graded ∪ currently-pending work and drive
+the **display** headline (hero effective/perceived + courses table) so the
+backlog shows through; the score stays graded-only.
+
+The block renders **twice** — a server card (`responsiveness_card.php` +
+`responsiveness_card.mustache`, the no-JS first paint) **and** a Preact app
+(`block_app.js` → `GroupCard` → `TrendRow`); display changes land in both. The
+sparkline has three lockstep copies (`amd/src/components/Sparkline.js`,
+`classes/output/sparkline.php`, `templates/sparkline.mustache`) on a **speed**
+Y axis: fewer hours = higher, green "desired-speed" zone anchored at the top.
 
 ## React conventions (Phase 2A foundation)
 
