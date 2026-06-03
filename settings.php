@@ -114,6 +114,25 @@ if ($ADMIN->fulltree) {
     $s->set_updatedcallback('block_feedback_tracker_invalidate_rollups');
     $settings->add($s);
 
+    // Score simulator launcher — sits directly under the scoring weights so
+    // the admin can open the interactive sandbox and see how the weights
+    // behave before committing the values above. Rendered via the shared
+    // tools_links template (same pattern as the Tools section below).
+    global $OUTPUT;
+    $simulatorlink = $OUTPUT->render_from_template('block_feedback_tracker/tools_links', [
+        'links' => [
+            [
+                'url'   => (new moodle_url('/blocks/feedback_tracker/pages/score_simulator.php'))->out(false),
+                'label' => get_string('sim_open_button', $plugin),
+            ],
+        ],
+    ]);
+    $settings->add(new admin_setting_heading(
+        $plugin . '/scoring_simulator',
+        get_string('sim_settings_heading', $plugin),
+        get_string('sim_settings_desc', $plugin) . $simulatorlink
+    ));
+
     // Heading: Calendar behaviour.
     $settings->add(new admin_setting_heading(
         $plugin . '/calendar_behaviour',

@@ -302,4 +302,65 @@ class bootstrap {
             'pendingreport_row_paused_tip' => get_string('pendingreport_row_paused_tip', 'block_feedback_tracker'),
         ];
     }
+
+    /**
+     * Label bundle for the interactive score simulator
+     * (pages/score_simulator.php → SimulatorView). Self-contained: includes
+     * the band labels + breakdown headers it reuses, so the page embeds only
+     * this bundle.
+     *
+     * @return array
+     */
+    public static function simulator_i18n(): array {
+        $s = static fn (string $k): string => get_string($k, 'block_feedback_tracker');
+        return [
+            'bands' => [
+                'excellent' => $s('band_excellent'),
+                'good'      => $s('band_good'),
+                'regular'   => $s('band_regular'),
+                'critical'  => $s('band_critical'),
+                'pending'   => $s('band_pending'),
+                'nodata'    => $s('band_nodata'),
+            ],
+            'breakdown_term'   => $s('breakdown_term'),
+            'breakdown_value'  => $s('breakdown_value'),
+            'breakdown_weight' => $s('breakdown_weight'),
+            'breakdown_pts'    => $s('breakdown_pts'),
+            'breakdown_total'  => $s('breakdown_total'),
+            'sim_intro_eyebrow' => $s('sim_intro_eyebrow'),
+            'sim_intro_heading' => $s('sim_intro_heading'),
+            'sim_intro_body'    => $s('sim_intro_body'),
+            'sim_term_compliance' => $s('sim_term_compliance'),
+            'sim_term_median'     => $s('sim_term_median'),
+            'sim_term_critical'   => $s('sim_term_critical'),
+            'sim_term_pending'    => $s('sim_term_pending'),
+            'sim_term_trend'      => $s('sim_term_trend'),
+            'sim_crit_compliance' => $s('sim_crit_compliance'),
+            'sim_crit_median'     => $s('sim_crit_median'),
+            'sim_crit_critical'   => $s('sim_crit_critical'),
+            'sim_crit_pending'    => $s('sim_crit_pending'),
+            'sim_crit_trend'      => $s('sim_crit_trend'),
+            'sim_scenarios_heading' => $s('sim_scenarios_heading'),
+            'sim_scn_exemplary'  => $s('sim_scn_exemplary'),
+            'sim_scn_steady'     => $s('sim_scn_steady'),
+            'sim_scn_recovering' => $s('sim_scn_recovering'),
+            'sim_scn_backlog'    => $s('sim_scn_backlog'),
+            'sim_scn_starting'   => $s('sim_scn_starting'),
+            'sim_scn_empty'      => $s('sim_scn_empty'),
+            'sim_inputs_heading' => $s('sim_inputs_heading'),
+            'sim_in_compliance'  => $s('sim_in_compliance'),
+            'sim_in_median'      => $s('sim_in_median'),
+            'sim_in_numgraded'   => $s('sim_in_numgraded'),
+            'sim_in_pending'     => $s('sim_in_pending'),
+            'sim_in_critical'    => $s('sim_in_critical'),
+            'sim_in_trend'       => $s('sim_in_trend'),
+            'sim_in_slagoal'     => $s('sim_in_slagoal'),
+            'sim_in_trend_unavailable' => $s('sim_in_trend_unavailable'),
+            'sim_weights_heading'    => $s('sim_weights_heading'),
+            'sim_weights_normalized' => $s('sim_weights_normalized'),
+            'sim_weights_reset'      => $s('sim_weights_reset'),
+            'sim_nodata' => $s('sim_nodata'),
+            'sim_trend_dropped_note' => $s('sim_trend_dropped_note'),
+        ];
+    }
 }
