@@ -188,11 +188,12 @@ export default function GroupCard({group, courseid, i18n, config}) {
     const groupid = Number(group.groupid) || 0;
     const goal = config && config.sla_goal_hours ? Number(config.sla_goal_hours) : null;
 
-    // Effective median (business hours) is always present; perceived comes
-    // online in Phase 3C — until then render an em-dash so the slot is
-    // visible but honest.
-    const perceived = group.perceived_median_hours !== undefined && group.perceived_median_hours !== null
-        ? Number(group.perceived_median_hours) : null;
+    // Headline Effective / Perceived use the include-pending "current" medians
+    // (cur_median_*) so the block reflects the live backlog, matching the
+    // dashboard. The score keeps using graded-only median_eff_h. Falls back to
+    // '—' when absent (e.g. a stale cached payload before the next recompute).
+    const perceived = group.cur_median_raw_h !== undefined && group.cur_median_raw_h !== null
+        ? Number(group.cur_median_raw_h) : null;
 
     const pendingHref  = buildDrilldownUrl(courseid, groupid);
     const overgoalHref = buildDrilldownUrl(courseid, groupid, 'regular');
@@ -223,7 +224,7 @@ export default function GroupCard({group, courseid, i18n, config}) {
             <div class="bft-kpi-row">
                 <${KpiTile}
                     label=${i18n.card_effective}
-                    value=${fmtHours(group.median_eff_h)}
+                    value=${fmtHours(group.cur_median_eff_h)}
                     unit="h"
                     sub=${i18n.card_effective_sub}
                     tone=${band} />

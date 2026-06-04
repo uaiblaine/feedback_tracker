@@ -654,6 +654,11 @@ sparkline has three lockstep copies (`amd/src/components/Sparkline.js`,
 `classes/output/sparkline.php`, `templates/sparkline.mustache`) on a **speed**
 Y axis: fewer hours = higher, green "desired-speed" zone anchored at the top.
 
+**Band slug ≠ visible label:** the slugs `excellent/good/regular/critical/pending/nodata`
+and the `bft-*-tone-<slug>` CSS classes are frozen identifiers; relabel a band by editing
+only its `band_*` lang string (e.g. `regular` → "Up Next" / "Atenção", `critical` →
+"Priority" / "Prioridade"). Labels resolve via literal switches, so no code change is needed.
+
 ## React conventions (Phase 2A foundation)
 
 Moodle 5.1 doesn't ship React. The plugin vendors **Preact + htm**

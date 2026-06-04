@@ -179,6 +179,14 @@ class responsiveness_payload {
             // We keep median_raw_h around for back-compat with any caller
             // already binding the old key.
             'perceived_median_hours' => $row->median_raw_h !== null ? (float) $row->median_raw_h : null,
+            // Headline "current" medians — graded ∪ currently-pending — so the
+            // block's Effective / Perceived KPI tiles reflect the live backlog
+            // instead of reading ~0 when little has been graded, matching the
+            // dashboard. The score still uses graded-only median_eff_h above.
+            'cur_median_eff_h'     => isset($row->cur_median_eff_h) && $row->cur_median_eff_h !== null
+                ? (float) $row->cur_median_eff_h : null,
+            'cur_median_raw_h'     => isset($row->cur_median_raw_h) && $row->cur_median_raw_h !== null
+                ? (float) $row->cur_median_raw_h : null,
             'responsiveness_score' => $row->responsiveness_score !== null ? (float) $row->responsiveness_score : null,
             'score_band'           => $row->score_band !== null ? (string) $row->score_band : null,
             'comp_compliance'      => isset($row->comp_compliance) && $row->comp_compliance !== null
