@@ -119,11 +119,16 @@ class responsiveness_card implements \renderable, \templatable {
      * @return array
      */
     private function build_metrics(array $p, bool $showperceived): array {
-        $median = $p['median_eff_h'] !== null
-            ? format_float((float) $p['median_eff_h'], 1) . ' h'
+        // Headline Effective / Perceived use the include-pending "current"
+        // medians (cur_median_*) so the card reflects the live backlog,
+        // matching the dashboard. The score keeps using graded-only median_eff_h.
+        $cureff = $p['cur_median_eff_h'] ?? null;
+        $curraw = $p['cur_median_raw_h'] ?? null;
+        $median = $cureff !== null
+            ? format_float((float) $cureff, 1) . ' h'
             : '—';
-        if ($showperceived && $p['median_raw_h'] !== null) {
-            $median .= ' / ' . format_float((float) $p['median_raw_h'], 1) . ' h';
+        if ($showperceived && $curraw !== null) {
+            $median .= ' / ' . format_float((float) $curraw, 1) . ' h';
         }
         $compliance = $p['compliance_pct'] !== null
             ? format_float((float) $p['compliance_pct'], 0) . '%'

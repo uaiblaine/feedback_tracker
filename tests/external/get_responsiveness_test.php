@@ -109,6 +109,14 @@ final class get_responsiveness_test extends \advanced_testcase {
         // median_raw_h (= waitinghours 24.0 here, the only ledger row).
         $this->assertArrayHasKey('perceived_median_hours', $card);
         $this->assertEqualsWithDelta(24.0, $card['perceived_median_hours'], 0.01);
+        // V1.0.21 — include-pending "current" medians power the block's
+        // Effective / Perceived tiles. With no pending work here they equal the
+        // graded medians; the include-pending case is covered in
+        // rollup_service_test::test_cur_medians_include_pending.
+        $this->assertArrayHasKey('cur_median_eff_h', $card);
+        $this->assertEqualsWithDelta(16.0, $card['cur_median_eff_h'], 0.01);
+        $this->assertArrayHasKey('cur_median_raw_h', $card);
+        $this->assertEqualsWithDelta(24.0, $card['cur_median_raw_h'], 0.01);
         $this->assertArrayHasKey('paused_days_30d', $card);
         $this->assertIsInt($card['paused_days_30d']);
         $this->assertGreaterThanOrEqual(0, $card['paused_days_30d']);

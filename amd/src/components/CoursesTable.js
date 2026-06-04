@@ -15,7 +15,11 @@
 
 /**
  * Dashboard courses table — one row per course with a small ScoreRing,
- * pending / critical / effective counts, and an inline 30-day sparkline.
+ * pending / priority / effective counts, and an inline 30-day sparkline.
+ *
+ * A native <table> with sortable column headers (aria-sort) that reflows
+ * into stacked cards on narrow screens; each cell carries a data-label that
+ * surfaces as the field caption in that card layout (see styles.css).
  *
  * Stateless. The parent owns sort state + click navigation.
  *
@@ -39,15 +43,19 @@ import {formatHours} from 'block_feedback_tracker/lib/format';
  * @param {string|null} props.currentKey
  * @param {string} props.currentOrder
  * @param {Function} props.onClick
+ * @param {object} props.i18n
  * @returns {object} vnode
  */
-const SortHeader = ({label, sortKey, currentKey, currentOrder, onClick}) => {
+const SortHeader = ({label, sortKey, currentKey, currentOrder, onClick, i18n}) => {
     const active = currentKey === sortKey;
     const arrow = active ? (currentOrder === 'asc' ? ' ▲' : ' ▼') : '';
+    const ariasort = active ? (currentOrder === 'asc' ? 'ascending' : 'descending') : 'none';
+    const sortlabel = (i18n.dashboard_sort_by || 'Sort by {$a}').replace('{$a}', label);
     return html`
-        <th class=${'bft-th-sortable' + (active ? ' is-active' : '')}>
+        <th scope="col" class=${'bft-th-sortable' + (active ? ' is-active' : '')} aria-sort=${ariasort}>
             <button type="button"
                     class="bft-th-sortable-btn"
+                    aria-label=${sortlabel}
                     onClick=${() => onClick(sortKey)}>
                 ${label}${arrow}
             </button>
@@ -83,23 +91,42 @@ export default function CoursesTable({rows, i18n, sortKey, sortOrder, onSort, th
         ? (i18n.sparkline_zone_label || 'Desired speed: 0 to {$a}')
             .replace('{$a}', String(Math.round(Number(goal))))
         : '';
+    // Column labels — shared between the header row and each cell's
+    // data-label, which surfaces as the field caption in the stacked-card
+    // layout the table reflows to on narrow screens.
+    const cols = {
+        course: i18n.dashboard_col_course || 'Course',
+        avgscore: i18n.dashboard_col_avgscore || 'Score',
+        pending: i18n.dashboard_col_pending || 'Pending',
+        critical: i18n.dashboard_col_critical || 'Priority',
+        effective: i18n.hero_effective_eyebrow || 'Effective',
+        trend: i18n.trend_window_label || '30 days',
+    };
 
     return html`
+        <div class="bft-courses-table-wrap">
         <table class="bft-courses-table">
             <thead>
                 <tr>
-                    <${SortHeader} label=${i18n.dashboard_col_course || 'Course'}
-                        sortKey="coursename" currentKey=${sortKey} currentOrder=${sortOrder} onClick=${onSort} />
-                    <${SortHeader} label=${i18n.dashboard_col_avgscore || 'Score'}
-                        sortKey="avgscore" currentKey=${sortKey} currentOrder=${sortOrder} onClick=${onSort} />
-                    <${SortHeader} label=${i18n.dashboard_col_pending || 'Pending'}
-                        sortKey="pending" currentKey=${sortKey} currentOrder=${sortOrder} onClick=${onSort} />
-                    <${SortHeader} label=${i18n.dashboard_col_critical || 'Priority'}
-                        sortKey="critical" currentKey=${sortKey} currentOrder=${sortOrder} onClick=${onSort} />
-                    <${SortHeader} label=${i18n.hero_effective_eyebrow || 'Effective'}
-                        sortKey="cur_median_eff_h" currentKey=${sortKey} currentOrder=${sortOrder} onClick=${onSort} />
-                    <th>${i18n.trend_window_label || '30 days'}</th>
-                    <th></th>
+                    <${SortHeader} label=${cols.course}
+                        sortKey="coursename" currentKey=${sortKey} currentOrder=${sortOrder}
+                        onClick=${onSort} i18n=${i18n} />
+                    <${SortHeader} label=${cols.avgscore}
+                        sortKey="avgscore" currentKey=${sortKey} currentOrder=${sortOrder}
+                        onClick=${onSort} i18n=${i18n} />
+                    <${SortHeader} label=${cols.pending}
+                        sortKey="pending" currentKey=${sortKey} currentOrder=${sortOrder}
+                        onClick=${onSort} i18n=${i18n} />
+                    <${SortHeader} label=${cols.critical}
+                        sortKey="critical" currentKey=${sortKey} currentOrder=${sortOrder}
+                        onClick=${onSort} i18n=${i18n} />
+                    <${SortHeader} label=${cols.effective}
+                        sortKey="cur_median_eff_h" currentKey=${sortKey} currentOrder=${sortOrder}
+                        onClick=${onSort} i18n=${i18n} />
+                    <th scope="col">${cols.trend}</th>
+                    <th scope="col">
+                        <span class="bft-sr-only">${i18n.dashboard_open_course || 'Open'}</span>
+                    </th>
                 </tr>
             </thead>
             <tbody>
@@ -119,7 +146,7 @@ export default function CoursesTable({rows, i18n, sortKey, sortOrder, onSort, th
                                     ${row.coursename}
                                 </a>
                             </td>
-                            <td class="bft-courses-score">
+                            <td class="bft-courses-score" data-label=${cols.avgscore}>
                                 ${isIdle
                                     ? html`<span class="bft-courses-dim">—</span>`
                                     : html`
@@ -132,17 +159,21 @@ export default function CoursesTable({rows, i18n, sortKey, sortOrder, onSort, th
                                         </span>
                                     `}
                             </td>
-                            <td class="bft-mono bft-courses-num">${Number(row.pending) || 0}</td>
+                            <td class="bft-mono bft-courses-num" data-label=${cols.pending}>
+                                ${Number(row.pending) || 0}
+                            </td>
                             <td class=${'bft-mono bft-courses-num'
-                                + (Number(row.critical) > 0 ? ' bft-courses-num-alert' : '')}>
+                                + (Number(row.critical) > 0 ? ' bft-courses-num-alert' : '')}
+                                data-label=${cols.critical}>
                                 ${Number(row.critical) || 0}
                             </td>
-                            <td class=${'bft-mono bft-courses-num bft-overall-score-tone-' + band}>
+                            <td class=${'bft-mono bft-courses-num bft-overall-score-tone-' + band}
+                                data-label=${cols.effective}>
                                 ${row.cur_median_eff_h === null || row.cur_median_eff_h === undefined
                                     ? '—'
                                     : formatHours(row.cur_median_eff_h)}
                             </td>
-                            <td class="bft-courses-spark">
+                            <td class="bft-courses-spark" data-label=${cols.trend}>
                                 ${hasSeries
                                     ? html`<${Sparkline}
                                               values=${trendSeries}
@@ -163,5 +194,6 @@ export default function CoursesTable({rows, i18n, sortKey, sortOrder, onSort, th
                 })}
             </tbody>
         </table>
+        </div>
     `;
 }

@@ -27,6 +27,9 @@ declare(strict_types=1);
 namespace block_feedback_tracker\local\sla;
 
 /**
+ * Covers which courses a user may see on the dashboard — teacher-or-higher
+ * enrolment, with the site-admin view-all opt-in.
+ *
  * @covers \block_feedback_tracker\local\sla\dashboard_scope
  */
 class dashboard_scope_test extends \advanced_testcase {

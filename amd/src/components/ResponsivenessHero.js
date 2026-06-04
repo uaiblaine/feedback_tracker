@@ -14,9 +14,9 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Full-state dashboard hero — warm gradient panel with a centred score ring,
- * supportive copy on the right, and a three-stat mini column on the far
- * right (Effective / Perceived / Trend).
+ * Full-state dashboard hero — warm gradient panel with a centred score ring
+ * and supportive copy, with a three-stat row (Effective / Perceived / Trend)
+ * tucked horizontally beneath the copy.
  *
  * Stateless; the parent ResponsivenessModule owns the full ↔ slim toggle.
  *
@@ -91,33 +91,33 @@ export default function ResponsivenessHero({score, band, bandlabel, effectivehou
                     ${i18n.dashboard_hero_body
                         || 'Score uses business-time only — weekends, holidays and recess are paused and excluded.'}
                 </div>
-            </div>
 
-            <aside class="bft-rh-mini-col">
-                <div class="bft-rh-mini">
-                    <div class="bft-rh-mini-label">${i18n.hero_effective_eyebrow || 'Effective'}</div>
-                    <div class=${'bft-rh-mini-val bft-mono bft-overall-score-tone-' + (band || 'pending')}>
-                        ${effectivehours === null ? '—' : formatHours(effectivehours)}
+                <aside class="bft-rh-mini-col">
+                    <div class="bft-rh-mini">
+                        <div class="bft-rh-mini-label">${i18n.hero_effective_eyebrow || 'Effective'}</div>
+                        <div class=${'bft-rh-mini-val bft-mono bft-overall-score-tone-' + (band || 'pending')}>
+                            ${effectivehours === null ? '—' : formatHours(effectivehours)}
+                        </div>
+                        <div class="bft-rh-mini-sub">${i18n.hero_effective_unit || 'business hrs'}</div>
                     </div>
-                    <div class="bft-rh-mini-sub">${i18n.hero_effective_unit || 'business hrs'}</div>
-                </div>
-                <div class="bft-rh-mini-divider"></div>
-                <div class="bft-rh-mini">
-                    <div class="bft-rh-mini-label">${i18n.hero_perceived_label || 'Perceived'}</div>
-                    <div class="bft-rh-mini-val bft-mono bft-overall-score-tone-pending">
-                        ${perceivedlabel}
+                    <div class="bft-rh-mini-divider"></div>
+                    <div class="bft-rh-mini">
+                        <div class="bft-rh-mini-label">${i18n.hero_perceived_label || 'Perceived'}</div>
+                        <div class="bft-rh-mini-val bft-mono bft-overall-score-tone-pending">
+                            ${perceivedlabel}
+                        </div>
+                        <div class="bft-rh-mini-sub">${i18n.hero_perceived_unit || 'calendar days'}</div>
                     </div>
-                    <div class="bft-rh-mini-sub">${i18n.hero_perceived_unit || 'calendar days'}</div>
-                </div>
-                <div class="bft-rh-mini-divider"></div>
-                <div class="bft-rh-mini">
-                    <div class="bft-rh-mini-label">${i18n.hero_trend_eyebrow || 'Trend'}</div>
-                    <div class=${'bft-rh-mini-val bft-mono bft-overall-score-tone-' + trendTone}>
-                        ${trendArrow} ${trendText}
+                    <div class="bft-rh-mini-divider"></div>
+                    <div class="bft-rh-mini">
+                        <div class="bft-rh-mini-label">${i18n.hero_trend_eyebrow || 'Trend'}</div>
+                        <div class=${'bft-rh-mini-val bft-mono bft-overall-score-tone-' + trendTone}>
+                            ${trendArrow} ${trendText}
+                        </div>
+                        <div class="bft-rh-mini-sub">${i18n.hero_trend_unit || 'vs last month'}</div>
                     </div>
-                    <div class="bft-rh-mini-sub">${i18n.hero_trend_unit || 'vs last month'}</div>
-                </div>
-            </aside>
+                </aside>
+            </div>
         </section>
     `;
 }
