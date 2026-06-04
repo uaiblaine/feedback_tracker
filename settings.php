@@ -262,6 +262,7 @@ if ($ADMIN->fulltree) {
     $viewbools = [
         'enable_admin_view_all'       => 0,
         'enable_school_comparison'    => 1,
+        'enable_teacher_simulator'    => 0,
         'show_perceived_time'         => 1,
         'show_paused_today_indicator' => 1,
         'exclude_grader_submissions'  => 1,

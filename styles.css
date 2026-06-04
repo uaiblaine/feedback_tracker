@@ -2250,11 +2250,38 @@ table.bft-sortable th.bft-sort-desc::after {
     color: var(--bft-text-faint);
 }
 
+/* Simulator entry button — sits as the trailing item of the mini-stat row
+ * (after Trend) when the enable_teacher_simulator flag is on. Mirrors the
+ * collapse button's subtle plum chip; centred so it doesn't stretch the row. */
+.bft-rh-sim-link {
+    align-self: center;
+    display: inline-flex;
+    align-items: center;
+    padding: 0.4rem 0.7rem;
+    border-radius: 6px;
+    background: rgba(109, 74, 172, 0.08);
+    color: var(--bft-plum-fg);
+    border: 1px solid rgba(109, 74, 172, 0.2);
+    font-size: var(--bft-fs-meta);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.bft-rh-sim-link:hover,
+.bft-rh-sim-link:focus-visible {
+    background: rgba(109, 74, 172, 0.16);
+    color: var(--bft-plum-fg);
+    text-decoration: none;
+}
+
 /* ---------------------- Responsiveness hero (slim) ---------------------- */
 .bft-rh-slim {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 0.875rem;
+    gap: 0.6rem 0.875rem;
     padding: 0.75rem 1.125rem;
     background: linear-gradient(135deg, var(--bft-warm-surface) 0%, #fff 60%, var(--bft-plum-bg) 100%);
     border: 1px solid var(--bft-border-soft);
@@ -2700,6 +2727,23 @@ table.bft-sortable th.bft-sort-desc::after {
 }
 
 /* -------------------- Responsive breakpoints -------------------- */
+/* Slim (collapsed) hero: its single strip — score, badge, four stats with
+ * vertical dividers, and the expand button — reaches ~1154px wide. The base
+ * `flex-wrap` lets it stack instead of leaking out of the container; here we
+ * drop the vertical dividers (which read wrong once items wrap) and neutralise
+ * the flex spacer, keeping the expand button right-aligned via margin-auto. */
+@media (max-width: 1154px) {
+    .bft-rh-slim-divider {
+        display: none;
+    }
+    .bft-rh-slim-spacer {
+        display: none;
+    }
+    .bft-rh-slim-expand {
+        margin-left: auto;
+    }
+}
+
 @media (max-width: 1024px) {
     .bft-rh {
         grid-template-columns: 1fr;
@@ -2736,12 +2780,6 @@ table.bft-sortable th.bft-sort-desc::after {
     .bft-insights-row,
     .bft-priority-row {
         grid-template-columns: 1fr;
-    }
-    .bft-rh-slim {
-        flex-wrap: wrap;
-    }
-    .bft-rh-slim-divider {
-        display: none;
     }
 
     /* Courses table → stacked cards. The native <table> keeps its semantics:
@@ -2931,6 +2969,20 @@ table.bft-sortable th.bft-sort-desc::after {
     text-align: right;
     min-width: 3.5rem;
 }
+/* Directional read-out for the trend slider: arrow + unsigned magnitude over a
+ * small faster/slower/stable caption, coloured by the shared speed tone. */
+.bft-sim-slider-valwrap {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    line-height: 1.15;
+    min-width: 3.5rem;
+}
+.bft-sim-slider-hint {
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: lowercase;
+}
 .bft-sim-slider-off {
     opacity: 0.5;
 }
@@ -3036,6 +3088,7 @@ table.bft-sortable th.bft-sort-desc::after {
     line-height: 1.5;
     margin: 0.5rem 0 0;
 }
+
 @media (max-width: 880px) {
     .bft-sim-grid {
         grid-template-columns: 1fr;

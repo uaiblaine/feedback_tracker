@@ -29,6 +29,7 @@ import {html, useState, useMemo} from 'block_feedback_tracker/lib/preact';
 import ScoreGauge from 'block_feedback_tracker/components/ScoreGauge';
 import Badge from 'block_feedback_tracker/components/Badge';
 import {computeScore, TERMS} from 'block_feedback_tracker/lib/score';
+import {classifySpeed, speedLabel} from 'block_feedback_tracker/lib/trend';
 
 /** Built-in scenarios — each sets the hypothetical group's metrics. */
 const SCENARIOS = [
@@ -68,15 +69,18 @@ const INPUT_FIELDS = [
  * @param {string} props.unit      Unit suffix shown next to the value ('' for none).
  * @param {boolean} props.disabled Greys out and shows '—' when true.
  * @param {Function} props.onInput Receives the new numeric value.
+ * @param {object} [props.valuenode] Optional custom read-out vnode (e.g. a
+ *     directional trend cue), rendered in place of the plain numeric value.
  * @returns {object} vnode
  */
-const Slider = ({label, value, min, max, step, unit, disabled, onInput}) => html`
+const Slider = ({label, value, min, max, step, unit, disabled, onInput, valuenode}) => html`
     <label class=${'bft-sim-slider' + (disabled ? ' bft-sim-slider-off' : '')}>
         <span class="bft-sim-slider-label">${label}</span>
         <input type="range" min=${min} max=${max} step=${step}
                value=${value} disabled=${disabled}
                onInput=${(e) => onInput(Number(e.target.value))} />
-        <span class="bft-sim-slider-val bft-mono">${disabled ? '—' : value + (unit ? ' ' + unit : '')}</span>
+        ${valuenode
+            || html`<span class="bft-sim-slider-val bft-mono">${disabled ? '—' : value + (unit ? ' ' + unit : '')}</span>`}
     </label>
 `;
 
@@ -178,14 +182,36 @@ export default function SimulatorView({initial}) {
 
                     <section class="bft-sim-panel">
                         <h3 class="bft-sim-panel-title">${i18n.sim_inputs_heading || 'Group situation'}</h3>
-                        ${INPUT_FIELDS.map((f) => html`
-                            <${Slider} key=${f.key}
-                                label=${i18n[f.i18n] || f.key}
-                                value=${inputs[f.key]}
-                                min=${f.min} max=${f.max} step=${f.step} unit=${f.unit}
-                                disabled=${f.key === 'trendPct' && trendNa}
-                                onInput=${(v) => setInput(f.key, v)} />
-                        `)}
+                        ${INPUT_FIELDS.map((f) => {
+                            const istrend = f.key === 'trendPct';
+                            const trenddisabled = istrend && trendNa;
+                            // The trend slider runs −100…+100 where the sign is
+                            // not self-evident; show the shared speed cue
+                            // (▲ faster / ▼ slower / → stable) instead of a bare
+                            // signed number, matching the dashboard hero.
+                            let valuenode = null;
+                            if (istrend && !trenddisabled) {
+                                const sp = classifySpeed(inputs.trendPct);
+                                const tone = ' bft-overall-score-tone-' + sp.colour;
+                                valuenode = html`
+                                    <span class="bft-sim-slider-valwrap">
+                                        <span class=${'bft-sim-slider-val bft-mono' + tone}>
+                                            ${sp.arrow} ${sp.magnitude}
+                                        </span>
+                                        <span class=${'bft-sim-slider-hint' + tone}>
+                                            ${speedLabel(sp.tone, i18n)}
+                                        </span>
+                                    </span>`;
+                            }
+                            return html`
+                                <${Slider} key=${f.key}
+                                    label=${i18n[f.i18n] || f.key}
+                                    value=${inputs[f.key]}
+                                    min=${f.min} max=${f.max} step=${f.step} unit=${f.unit}
+                                    disabled=${trenddisabled}
+                                    valuenode=${valuenode}
+                                    onInput=${(v) => setInput(f.key, v)} />`;
+                        })}
                         <label class="bft-sim-check">
                             <input type="checkbox" checked=${trendNa}
                                    onChange=${(e) => {

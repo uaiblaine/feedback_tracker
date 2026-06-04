@@ -166,8 +166,8 @@ final class rollup_service_test extends \advanced_testcase {
     }
 
     /**
-     * Trend pct is computed as % change between this 30-day window and
-     * the prior 30-day window.
+     * Trend pct is the % change between this rolling 7-day window and the
+     * prior 7-day window (week over week).
      */
     public function test_trend_calculation(): void {
         $this->resetAfterTest();
@@ -176,17 +176,16 @@ final class rollup_service_test extends \advanced_testcase {
         $courseid = 102;
         $groupid = 202;
         $now = time();
-        $thirtydays = 30 * 86400;
 
-        // Prior window (30-60 days ago): median 50.
+        // Prior week (8-12 days ago): median 50.
         for ($i = 0; $i < 5; $i++) {
             $this->insert_ledger($courseid, $groupid, [
                 'effectivehours' => 50.0,
                 'waitinghours' => 50.0,
-                'timegraded' => $now - $thirtydays - 86400 * ($i + 1),
+                'timegraded' => $now - 86400 * (8 + $i),
             ]);
         }
-        // Recent window (last 30 days): median 25 (improving = negative trend).
+        // Recent week (last 7 days): median 25 (improving = negative trend).
         for ($i = 0; $i < 5; $i++) {
             $this->insert_ledger($courseid, $groupid, [
                 'effectivehours' => 25.0,
@@ -218,17 +217,16 @@ final class rollup_service_test extends \advanced_testcase {
         $courseid = 105;
         $groupid = 205;
         $now = time();
-        $thirtydays = 30 * 86400;
 
-        // Prior window: tiny median (0.05h) → division blows the ratio up.
+        // Prior week (8-12 days ago): tiny median (0.05h) → blows the ratio up.
         for ($i = 0; $i < 5; $i++) {
             $this->insert_ledger($courseid, $groupid, [
                 'effectivehours' => 0.05,
                 'waitinghours' => 0.05,
-                'timegraded' => $now - $thirtydays - 86400 * ($i + 1),
+                'timegraded' => $now - 86400 * (8 + $i),
             ]);
         }
-        // Recent window: large median (200h) — a massive regression.
+        // Recent week (last 7 days): large median (200h) — a massive regression.
         for ($i = 0; $i < 5; $i++) {
             $this->insert_ledger($courseid, $groupid, [
                 'effectivehours' => 200.0,

@@ -388,6 +388,7 @@ export default function DashboardView({initial}) {
         compliancepct: totals.compliance,
         trendpct: totals.trendpct,
         i18n,
+        config,
     };
 
     return html`
