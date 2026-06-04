@@ -39,14 +39,17 @@ use block_feedback_tracker\local\score\responsiveness_calculator;
  * - Pending counts (pending / critical / overgoal) — current backlog state.
  * - Last-30d graded stats (medians / p90 / max / compliance) — historical
  *   responsiveness, used by the score formula.
- * - Trend (last 30d vs prior 30d median) — direction of travel.
+ * - Trend (rolling 7d vs prior 7d median) — week-over-week direction of travel.
  *
  * Plus auxiliary `nextpause_*` / `lastpause_*` columns to power the dashboard
  * "next pause: May 25 (holiday)" indicator without extra read-path queries.
  */
 class rollup_service {
-    /** Trend window length in days. */
+    /** Recent-stats window length in days (compliance / median / counts). */
     public const TREND_WINDOW_DAYS = 30;
+
+    /** Rolling window (days) for the trend comparison — a fixed weekly cycle. */
+    public const TREND_COMPARE_DAYS = 7;
 
     /**
      * Display cap (±%) for trend_pct_30d. The raw ratio is unbounded when the
@@ -104,7 +107,6 @@ class rollup_service {
         }
         $windowsec = $windowdays * 86400;
         $cutoffrecent = $now - $windowsec;
-        $cutoffprior = $now - 2 * $windowsec;
 
         $slagoal = (float) (get_config('block_feedback_tracker', 'sla_goal_hours') ?: 24);
         $thresholds = bucket::parse_thresholds_eff();
@@ -188,31 +190,19 @@ class rollup_service {
         $curmedianeff = !empty($cureffvals) ? stats::median($cureffvals) : null;
         $curmedianraw = !empty($currawvals) ? stats::median($currawvals) : null;
 
-        // 3. Trend: this window's median vs the prior window's median
-        // (submitted work only).
-        $priorrows = $DB->get_records_select(
-            'block_feedback_tracker_sub',
-            'courseid = :courseid AND groupid = :groupid AND timegraded IS NOT NULL'
-                . ' AND timegraded >= :cutoffprior AND timegraded < :cutoffrecent'
-                . ' AND submissionstatus = :substatus',
-            [
-                'courseid'      => $courseid,
-                'groupid'       => $groupid,
-                'cutoffprior'   => $cutoffprior,
-                'cutoffrecent'  => $cutoffrecent,
-                'substatus'     => submission_status::SUBMITTED,
-            ],
-            '',
-            'id, effectivehours'
-        );
-        $priormedian = null;
-        if (!empty($priorrows)) {
-            $vals = array_map(static fn($r) => (float) ($r->effectivehours ?? 0.0), $priorrows);
-            $priormedian = stats::median($vals);
-        }
+        // 3. Trend — rolling 7-day cycle: this week's median effective hours vs
+        // the prior week's (submitted, graded work only). A deliberately
+        // SEPARATE, shorter window from the 30-day stats above, so the trend
+        // reacts week-over-week while compliance / median / counts keep their
+        // monthly view. Stored in the legacy-named trend_pct_30d column.
+        $trendsec = self::TREND_COMPARE_DAYS * 86400;
+        $trendrecent = self::graded_eff_hours($courseid, $groupid, $now - $trendsec, $now);
+        $trendprior = self::graded_eff_hours($courseid, $groupid, $now - 2 * $trendsec, $now - $trendsec);
+        $trendrecentmedian = !empty($trendrecent) ? stats::median($trendrecent) : null;
+        $trendpriormedian = !empty($trendprior) ? stats::median($trendprior) : null;
         $trendpct = null;
-        if ($medianeff !== null && $priormedian !== null && $priormedian > 0.0) {
-            $trendpct = round(100.0 * ($medianeff - $priormedian) / $priormedian, 2);
+        if ($trendrecentmedian !== null && $trendpriormedian !== null && $trendpriormedian > 0.0) {
+            $trendpct = round(100.0 * ($trendrecentmedian - $trendpriormedian) / $trendpriormedian, 2);
             $trendpct = max(-self::TREND_PCT_CAP, min(self::TREND_PCT_CAP, $trendpct));
         }
 
@@ -275,6 +265,42 @@ class rollup_service {
         } else {
             $DB->insert_record('block_feedback_tracker_group', $record);
         }
+    }
+
+    /**
+     * Median-ready effective-hours values for submitted + graded work in
+     * [$start, $end) for one (course, group). Powers the rolling weekly trend.
+     *
+     * @param int $courseid
+     * @param int $groupid
+     * @param int $start  Window start (inclusive, epoch seconds).
+     * @param int $end    Window end (exclusive, epoch seconds).
+     * @return array<int, float>
+     */
+    private static function graded_eff_hours(int $courseid, int $groupid, int $start, int $end): array {
+        global $DB;
+        $rows = $DB->get_records_select(
+            'block_feedback_tracker_sub',
+            'courseid = :courseid AND groupid = :groupid AND timegraded IS NOT NULL'
+                . ' AND timegraded >= :start AND timegraded < :end'
+                . ' AND submissionstatus = :substatus',
+            [
+                'courseid'  => $courseid,
+                'groupid'   => $groupid,
+                'start'     => $start,
+                'end'       => $end,
+                'substatus' => submission_status::SUBMITTED,
+            ],
+            '',
+            'id, effectivehours'
+        );
+        $out = [];
+        foreach ($rows as $r) {
+            if ($r->effectivehours !== null) {
+                $out[] = (float) $r->effectivehours;
+            }
+        }
+        return $out;
     }
 
     /**

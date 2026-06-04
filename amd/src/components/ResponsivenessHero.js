@@ -42,15 +42,20 @@ import {classifySpeed} from 'block_feedback_tracker/lib/trend';
  * @param {number|null} props.trendpct        Trend %; negative = faster.
  * @param {object} props.i18n
  * @param {() => void} [props.onCollapse]     Click handler for the floating collapse button.
+ * @param {object} [props.config]             Dashboard config bundle (feature flags).
  * @returns {object} vnode
  */
 export default function ResponsivenessHero({score, band, bandlabel, effectivehours, perceivedlabel,
-    trendpct, i18n, onCollapse}) {
+    trendpct, i18n, onCollapse, config}) {
     const display = score === null || score === undefined ? '—' : Math.round(Number(score));
     const trend = classifySpeed(trendpct);
     const trendTone = trend.colour;
     const trendArrow = trend.arrow;
     const trendText = trend.magnitude;
+    // eslint-disable-next-line no-undef
+    const wwwroot = (typeof M !== 'undefined' && M.cfg && M.cfg.wwwroot) || '';
+    const simulatorurl = wwwroot + '/blocks/feedback_tracker/pages/score_simulator.php';
+    const showsimulator = !!(config && config.enable_teacher_simulator);
 
     return html`
         <section class=${'bft-rh bft-rh-tone-' + (band || 'pending')}>
@@ -116,6 +121,12 @@ export default function ResponsivenessHero({score, band, bandlabel, effectivehou
                         </div>
                         <div class="bft-rh-mini-sub">${i18n.hero_trend_unit || 'vs last month'}</div>
                     </div>
+                    ${showsimulator && [
+                        html`<div key="simdiv" class="bft-rh-mini-divider"></div>`,
+                        html`<a key="simlink" class="bft-rh-sim-link" href=${simulatorurl}>
+                            ${i18n.dashboard_simulator_button || 'Simulator'}
+                        </a>`,
+                    ]}
                 </aside>
             </div>
         </section>

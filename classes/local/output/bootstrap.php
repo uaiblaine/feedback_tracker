@@ -132,6 +132,8 @@ class bootstrap {
                 'good'      => $thrgood,
                 'regular'   => $thrregular,
             ],
+            'enable_teacher_simulator' =>
+                (bool) ((int) (get_config('block_feedback_tracker', 'enable_teacher_simulator') ?: 0) === 1),
         ];
     }
 
@@ -191,6 +193,8 @@ class bootstrap {
             'dashboard_insights_title' => get_string('dashboard_insights_title', 'block_feedback_tracker'),
             'dashboard_open_course' => get_string('dashboard_open_course', 'block_feedback_tracker'),
             'dashboard_priority_title' => get_string('dashboard_priority_title', 'block_feedback_tracker'),
+            'dashboard_simulator_button' => get_string('dashboard_simulator_button', 'block_feedback_tracker'),
+            'dashboard_sort_by' => get_string('dashboard_sort_by', 'block_feedback_tracker'),
             'dashboard_subline_critical' => get_string('dashboard_subline_critical', 'block_feedback_tracker'),
             'dashboard_subline_waiting' => get_string('dashboard_subline_waiting', 'block_feedback_tracker'),
             'hero_effective_eyebrow' => get_string('hero_effective_eyebrow', 'block_feedback_tracker'),
@@ -361,6 +365,9 @@ class bootstrap {
             'sim_weights_reset'      => $s('sim_weights_reset'),
             'sim_nodata' => $s('sim_nodata'),
             'sim_trend_dropped_note' => $s('sim_trend_dropped_note'),
+            'trend_faster' => $s('trend_faster'),
+            'trend_slower' => $s('trend_slower'),
+            'trend_stable' => $s('trend_stable'),
         ];
     }
 }

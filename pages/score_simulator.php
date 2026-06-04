@@ -15,9 +15,11 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Interactive Academic Responsiveness Score simulator — an admin-only sandbox
- * for tuning the five score weights and building intuition for how the score
- * behaves. Pure client-side; nothing is saved.
+ * Interactive Academic Responsiveness Score simulator — a sandbox for tuning
+ * the five score weights and building intuition for how the score behaves.
+ * Admin-only by default; teachers gain access when the
+ * 'enable_teacher_simulator' setting is on (same scope rule as the dashboard).
+ * Pure client-side; nothing is saved.
  *
  * @package    block_feedback_tracker
  * @copyright  2026 Anderson Blaine <anderson@blaine.com.br>
@@ -27,12 +29,28 @@
 require(__DIR__ . '/../../../config.php');
 
 require_login();
+$sysctx = \context_system::instance();
+
+// Same visibility rule as the teacher dashboard, gated by the master switch:
+// admins always pass; non-admins need the 'enable_teacher_simulator' setting
+// on AND a teacher-or-higher role in at least one course (dashboard_scope).
+// With the setting off the simulator stays admin-only.
+global $USER;
+$simenabled = (int) (get_config('block_feedback_tracker', 'enable_teacher_simulator') ?: 0) === 1;
 if (!is_siteadmin()) {
-    throw new \moodle_exception('nopermissions', 'error', '', 'block_feedback_tracker score simulator');
+    $scope = \block_feedback_tracker\local\sla\dashboard_scope::visible_course_ids((int) $USER->id);
+    if (!$simenabled || empty($scope)) {
+        throw new \required_capability_exception(
+            $sysctx,
+            'block/feedback_tracker:viewdashboard',
+            'nopermissions',
+            'error'
+        );
+    }
 }
 
 $PAGE->set_url('/blocks/feedback_tracker/pages/score_simulator.php');
-$PAGE->set_context(\context_system::instance());
+$PAGE->set_context($sysctx);
 $PAGE->set_title(get_string('sim_page_title', 'block_feedback_tracker'));
 $PAGE->set_heading(get_string('sim_page_title', 'block_feedback_tracker'));
 $PAGE->set_pagelayout('admin');
