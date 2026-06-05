@@ -176,6 +176,7 @@ export default function PendingReportView({initial}) {
     const [page, setPage] = useState(Number(initialPending.page) || 0);
     const [perpage] = useState(Number(initialPending.perpage) || 25);
     const [bucket, setBucket] = useState(String(initialPending.bucket || ''));
+    const [band, setBand] = useState(String(initialPending.band || ''));
     const [groupid, setGroupid] = useState(Number(initialPending.groupid) || 0);
     const [serverSort, setServerSort] = useState(String(initialPending.sort || 'longestwait'));
 
@@ -211,7 +212,7 @@ export default function PendingReportView({initial}) {
         setError(null);
         try {
             const result = await getPendingSubmissions({
-                courseid, groupid, bucket, sort: serverSort, page, perpage,
+                courseid, groupid, bucket, band, sort: serverSort, page, perpage,
             });
             setSubmissions(Array.isArray(result.submissions) ? result.submissions : []);
             setTotal(Number(result.total) || 0);
@@ -229,7 +230,7 @@ export default function PendingReportView({initial}) {
             return;
         }
         fetchPage();
-    }, [groupid, bucket, serverSort, page]);
+    }, [groupid, bucket, band, serverSort, page]);
 
     // Drafts depend only on the class filter. Re-fetch on groupid change; the
     // initial list is already seeded from the server payload.
@@ -465,7 +466,7 @@ export default function PendingReportView({initial}) {
                     <${SegmentedFilter}
                         options=${statusOptions}
                         value=${bucket}
-                        onChange=${(v) => { setPage(0); setBucket(v); }}
+                        onChange=${(v) => { setPage(0); setBand(''); setBucket(v); }}
                         ariaLabel=${i18n.pendingreport_filter_bucket_label || 'Status'} />
                 </div>
                 <div class="bft-report-controls-spacer"></div>

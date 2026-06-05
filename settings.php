@@ -276,6 +276,27 @@ if ($ADMIN->fulltree) {
         ));
     }
 
+    // Group-card title composition from custom group fields. Empty = real group
+    // name. Display-only — no rollup callback; the 15-min payload cache (or the
+    // block's refresh button) picks up changes.
+    $s = new admin_setting_configtext(
+        $plugin . '/group_title_fields',
+        get_string('settings_group_title_fields', $plugin),
+        get_string('settings_group_title_fields_desc', $plugin),
+        '',
+        PARAM_TEXT
+    );
+    $settings->add($s);
+
+    $s = new admin_setting_configtext(
+        $plugin . '/group_subtitle_fields',
+        get_string('settings_group_subtitle_fields', $plugin),
+        get_string('settings_group_subtitle_fields_desc', $plugin),
+        '',
+        PARAM_TEXT
+    );
+    $settings->add($s);
+
     // Heading: Tools.
     global $OUTPUT;
     $toolslinks = $OUTPUT->render_from_template('block_feedback_tracker/tools_links', [

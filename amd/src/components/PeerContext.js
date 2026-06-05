@@ -30,18 +30,18 @@ import {html} from 'block_feedback_tracker/lib/preact';
 import {colourFor} from 'block_feedback_tracker/lib/bands';
 
 /**
- * Render a single peer-row bar.
+ * Render a single peer-row bar. Score-only — hours were dropped so the panel
+ * compares responsiveness scores, not raw times.
  *
  * @param {object} props
  * @param {string} props.label
  * @param {number|null|undefined} props.score
- * @param {number|null|undefined} props.hours
  * @param {string|null|undefined} props.tone
  * @param {boolean} [props.highlight]
  * @param {boolean} [props.aspirational]
  * @returns {object} vnode
  */
-function PeerLine({label, score, hours, tone, highlight, aspirational}) {
+function PeerLine({label, score, tone, highlight, aspirational}) {
     const clamped = score === null || score === undefined
         ? null : Math.max(0, Math.min(100, Number(score)));
     const widthpct = clamped === null ? 0 : clamped;
@@ -59,9 +59,6 @@ function PeerLine({label, score, hours, tone, highlight, aspirational}) {
             <span class="bft-peer-score bft-mono">
                 ${clamped === null ? '—' : Math.round(clamped)}
             </span>
-            ${hours !== null && hours !== undefined && html`
-                <span class="bft-peer-hours bft-mono">· ${Math.round(Number(hours))}h</span>
-            `}
         </div>
     `;
 }
@@ -70,15 +67,12 @@ function PeerLine({label, score, hours, tone, highlight, aspirational}) {
  * @param {object} props
  * @param {number|null} props.you            Caller's score 0..100.
  * @param {string|null} props.youband        Caller's band slug (for colour).
- * @param {number|null|undefined} props.youhours
  * @param {number|null|undefined} props.department  Department median score.
- * @param {number|null|undefined} props.departmenthours
  * @param {number|null|undefined} props.top10  Top-10% benchmark score.
- * @param {number|null|undefined} props.top10hours
  * @param {object} props.i18n  Label bundle: {peer_title, peer_you, peer_department, peer_top10}.
  * @returns {object|null} vnode
  */
-export default function PeerContext({you, youband, youhours, department, departmenthours, top10, top10hours, i18n}) {
+export default function PeerContext({you, youband, department, top10, i18n}) {
     const hasdept = department !== null && department !== undefined;
     const hastop10 = top10 !== null && top10 !== undefined;
     if (!hasdept && !hastop10) {
@@ -89,18 +83,18 @@ export default function PeerContext({you, youband, youhours, department, departm
             <div class="bft-peer-context-head">${i18n.peer_title || 'Peer context'}</div>
             <${PeerLine}
                 label=${i18n.peer_you || 'You'}
-                score=${you} hours=${youhours}
+                score=${you}
                 tone=${youband} highlight=${true} />
             ${hasdept && html`
                 <${PeerLine}
                     label=${i18n.peer_department || 'Department'}
-                    score=${department} hours=${departmenthours}
+                    score=${department}
                     tone="pending" />
             `}
             ${hastop10 && html`
                 <${PeerLine}
                     label=${i18n.peer_top10 || 'Top 10%'}
-                    score=${top10} hours=${top10hours}
+                    score=${top10}
                     tone="excellent" aspirational=${true} />
             `}
         </div>

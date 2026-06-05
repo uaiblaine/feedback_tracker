@@ -45,11 +45,11 @@ final class rollup_service_test extends \advanced_testcase {
         $groupid = 200;
         $now = time();
 
-        // 3 pending rows: 2 critical (>=120h), 1 over goal (>24h), 1 ok.
+        // 4 pending rows partitioned across the exclusive bands: 2 prioridade
+        // (>=120h), 1 atenção (24 < eff < 120), 1 aguardando (<=goal).
         $this->insert_ledger($courseid, $groupid, ['effectivehours' => 150.0, 'timegraded' => null]);
         $this->insert_ledger($courseid, $groupid, ['effectivehours' => 130.0, 'timegraded' => null]);
         $this->insert_ledger($courseid, $groupid, ['effectivehours' => 50.0, 'timegraded' => null]);
-        // 1 ok pending (<=goal, no critical, no overgoal).
         $this->insert_ledger($courseid, $groupid, ['effectivehours' => 5.0, 'timegraded' => null]);
 
         // 5 graded rows in last 30d: effective hours 10, 15, 20, 30, 60.
@@ -79,8 +79,12 @@ final class rollup_service_test extends \advanced_testcase {
         $this->assertNotFalse($row);
 
         $this->assertSame(4, (int) $row->pending);
-        $this->assertSame(2, (int) $row->critical);
-        $this->assertSame(3, (int) $row->overgoal); // 150, 130, 50 are all > goal=24.
+        $this->assertSame(2, (int) $row->critical);   // prioridade: 150, 130 (>=120h).
+        $this->assertSame(1, (int) $row->overgoal);    // atenção: 50 (24 < eff < 120).
+        // The three exclusive bands partition the total pending; aguardando is
+        // derived as pending - critical - overgoal (the 5h row).
+        $aguardando = (int) $row->pending - (int) $row->critical - (int) $row->overgoal;
+        $this->assertSame(1, $aguardando);
         $this->assertSame(5, (int) $row->numgraded30d);
         $this->assertSame(20.0, (float) $row->median_eff_h);
         $this->assertEqualsWithDelta(60.0, (float) $row->compliance_pct, 0.01);

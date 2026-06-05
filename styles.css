@@ -32,6 +32,22 @@
 
     --bft-font-display: 'Manrope', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     --bft-font-mono: 'JetBrains Mono', ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+    /* Shared type scale — a small set of size + tracking tokens used by both
+     * the dashboard and the in-course block so typography stays consistent. */
+    --bft-fs-eyebrow: 0.6875rem;   /* 11px — uppercase eyebrows/labels (a11y floor) */
+    --bft-fs-meta: 0.75rem;        /* units, "/ 100", supplementary captions */
+    --bft-fs-body: 0.8125rem;      /* body copy, buttons/links */
+    --bft-fs-title: 0.9375rem;     /* card / course titles */
+    --bft-fs-h3: 1.0625rem;        /* section / card headings */
+    --bft-fs-stat-sm: 1.125rem;
+    --bft-fs-stat: 1.375rem;
+    --bft-fs-display-sm: 1.5rem;
+    --bft-fs-display: 1.75rem;
+    --bft-fs-hero: 2.05rem;
+    --bft-fs-score: 2.4rem;
+    --bft-ls-eyebrow: 0.08em;
+    --bft-ls-label: 0.05em;
 }
 
 /* Mono utility — for numeric cells, score values, hour units. Pair with
@@ -43,6 +59,18 @@
 
 .block_feedback_tracker {
     font-family: var(--bft-font-display);
+    /* Match the dashboard's WCAG-AA faint text inside the block. */
+    --bft-text-faint: #6b7280;
+}
+
+/* Visible keyboard focus for every interactive control in the block. */
+.block_feedback_tracker a:focus-visible,
+.block_feedback_tracker button:focus-visible,
+.block_feedback_tracker select:focus-visible,
+.block_feedback_tracker summary:focus-visible {
+    outline: 2px solid var(--bft-band-good-fg);
+    outline-offset: 2px;
+    border-radius: 4px;
 }
 
 .block_feedback_tracker .bft-block-root {
@@ -56,29 +84,30 @@
     align-items: center;
     justify-content: flex-end;
     gap: 0.5rem;
-    font-size: 0.78rem;
+    font-size: var(--bft-fs-body);
 }
 
 .block_feedback_tracker .bft-sort-label {
     display: inline-flex;
     align-items: center;
     gap: 0.3rem;
-    color: #64748b;
+    color: var(--bft-text-muted);
 }
 
 .block_feedback_tracker .bft-sort-label-text {
     text-transform: uppercase;
-    letter-spacing: 0.04em;
-    font-size: 0.7rem;
+    letter-spacing: var(--bft-ls-label);
+    font-size: var(--bft-fs-eyebrow);
 }
 
 .block_feedback_tracker .bft-sort-select {
-    border: 1px solid #cbd5e1;
+    border: 1px solid var(--bft-border);
     border-radius: 4px;
-    padding: 0.1rem 0.3rem;
+    padding: 0.25rem 0.4rem;
+    min-height: 1.75rem;
     background: #fff;
-    color: #0f172a;
-    font-size: 0.78rem;
+    color: var(--bft-text);
+    font-size: var(--bft-fs-body);
 }
 
 /* Error banner and empty-state utility classes are global (used by the
@@ -89,7 +118,7 @@
     color: #b91c1c;
     padding: 0.4rem 0.6rem;
     border-radius: 4px;
-    font-size: 0.85rem;
+    font-size: var(--bft-fs-body);
 }
 
 .block_feedback_tracker .bft-card-list {
@@ -99,18 +128,120 @@
 }
 
 .block_feedback_tracker .bft-card {
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    padding: 0.75rem;
+    border: 1px solid var(--bft-border);
+    border-radius: 8px;
     background: #fff;
+    overflow: hidden;
 }
 
+/* Collapsible header — full-width toggle: chevron · title/subtitle · badge,
+ * on a light-gray strip so it reads as a header even when collapsed. */
 .block_feedback_tracker .bft-card-head {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    gap: 0.4rem;
-    margin-bottom: 0.5rem;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.5rem 0.625rem;
+    margin: 0;
+    border: 0;
+    background: var(--bft-surface-alt);
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.block_feedback_tracker .bft-card-head-chevron {
+    flex: 0 0 auto;
+    font-size: var(--bft-fs-meta);
+    color: var(--bft-text-muted);
+    line-height: 1;
+}
+
+.block_feedback_tracker .bft-card-head-titles {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.0625rem;
+}
+
+.block_feedback_tracker .bft-card-title {
+    font-size: var(--bft-fs-title);
+    font-weight: 700;
+    color: var(--bft-text);
+    /* Clamp long group names to 2 lines with an ellipsis; full name on hover. */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    word-break: break-word;
+}
+
+.block_feedback_tracker .bft-card-subtitle {
+    font-size: var(--bft-fs-meta);
+    color: var(--bft-text-faint);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Preact group card: stack the sections vertically so they reflow down a
+ * narrow block column instead of squeezing onto one row. (The server card's
+ * .bft-card-body further below is a separate gauge | data flex-row.) */
+.block_feedback_tracker .bft-card-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    padding: 0.75rem;
+}
+
+.block_feedback_tracker .bft-card-body {
+    padding: 0.75rem;
+}
+
+/* Server card (no-JS) uses a native <details>/<summary>: hide the default
+ * disclosure marker and show a chevron consistent with the JS card. */
+.block_feedback_tracker summary.bft-card-head {
+    list-style: none;
+}
+.block_feedback_tracker summary.bft-card-head::-webkit-details-marker {
+    display: none;
+}
+.block_feedback_tracker details.bft-card > summary.bft-card-head::before {
+    content: "▸";
+    flex: 0 0 auto;
+    font-size: var(--bft-fs-meta);
+    color: var(--bft-text-muted);
+}
+.block_feedback_tracker details.bft-card[open] > summary.bft-card-head::before {
+    content: "▾";
+}
+
+/* Block footer — refresh control + objective sync/cache note. */
+.block_feedback_tracker .bft-block-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.25rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--bft-border-soft);
+}
+
+.block_feedback_tracker .bft-block-foot-note {
+    flex: 1 1 12rem;
+    min-width: 0;
+    font-size: var(--bft-fs-meta);
+    color: var(--bft-text-muted);
+    line-height: 1.35;
+}
+
+.block_feedback_tracker .bft-block-foot .bft-refresh {
+    flex: 0 0 auto;
+    padding: 0.3rem 0.6rem;
+    font-size: var(--bft-fs-meta);
+    line-height: 1.2;
 }
 
 /* Refresh-button rules are global (no `.block_feedback_tracker` ancestor
@@ -180,22 +311,22 @@
 
 .block_feedback_tracker .bft-count-value {
     font-weight: 700;
-    font-size: 1.1rem;
-    color: #0f172a;
+    font-size: var(--bft-fs-h3);
+    color: var(--bft-text);
 }
 
 .block_feedback_tracker .bft-count-label {
-    font-size: 0.72rem;
-    color: #64748b;
+    font-size: var(--bft-fs-eyebrow);
+    color: var(--bft-text-muted);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: var(--bft-ls-label);
 }
 
 .block_feedback_tracker .bft-metrics {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem 0.75rem;
-    font-size: 0.85rem;
+    font-size: var(--bft-fs-body);
 }
 
 .block_feedback_tracker .bft-metric {
@@ -205,14 +336,14 @@
 }
 
 .block_feedback_tracker .bft-metric-label {
-    font-size: 0.7rem;
-    color: #94a3b8;
+    font-size: var(--bft-fs-eyebrow);
+    color: var(--bft-text-faint);
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: var(--bft-ls-label);
 }
 
 .block_feedback_tracker .bft-metric-value {
-    color: #0f172a;
+    color: var(--bft-text);
     font-weight: 500;
 }
 
@@ -411,26 +542,9 @@
     gap: 1.25rem;
     font-family: var(--bft-font-display);
 
-    /* Dashboard type scale. A small, deliberate set of size + tracking tokens
-     * replaces ~22 ad-hoc font-sizes and 5 letter-spacings, to cut the visual
-     * noise / cognitive load. Number sizes keep their existing visual weight.
-     * Scoped to .bft-dashboard so the block/report/simulator are untouched. */
-    --bft-fs-eyebrow: 0.6875rem;   /* 11px — uppercase eyebrows/labels (a11y floor) */
-    --bft-fs-meta: 0.75rem;        /* units, "/ 100", supplementary captions */
-    --bft-fs-body: 0.8125rem;      /* body copy, buttons/links */
-    --bft-fs-title: 0.9375rem;     /* card / course titles */
-    --bft-fs-h3: 1.0625rem;        /* section / card headings */
-    --bft-fs-stat-sm: 1.125rem;    /* slim stat value */
-    --bft-fs-stat: 1.375rem;       /* mini stat value */
-    --bft-fs-display-sm: 1.5rem;   /* insight metric / priority wait */
-    --bft-fs-display: 1.75rem;     /* KPI / slim score */
-    --bft-fs-hero: 2.05rem;        /* dashboard H1 */
-    --bft-fs-score: 2.4rem;        /* hero score ring */
-    --bft-ls-eyebrow: 0.08em;      /* uppercase eyebrows (section/brand) */
-    --bft-ls-label: 0.05em;        /* smaller uppercase labels */
-
-    /* Lift faint text to WCAG AA: #94a3b8 was ~2.6:1 on white (fail).
-     * #6b7280 is ~4.8:1 while staying a touch lighter than --bft-text-muted. */
+    /* Type-scale + tracking tokens now live in :root (shared with the block).
+     * Lift faint text to WCAG AA: #94a3b8 was ~2.6:1 on white (fail);
+     * #6b7280 is ~4.8:1, a touch lighter than --bft-text-muted. */
     --bft-text-faint: #6b7280;
 }
 
@@ -1020,7 +1134,7 @@ table.bft-sortable th.bft-sort-desc::after {
 /* KpiTile — 3-column grid container styled by GroupCard / report views. */
 .bft-kpi-row {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(4.5rem, 1fr));
     gap: 0.35rem;
     padding: 0.5rem 0;
     border-top: 1px dashed var(--bft-border-soft);
@@ -1146,12 +1260,13 @@ table.bft-sortable th.bft-sort-desc::after {
 /* StatTile — clickable Pending / At risk / Priority tiles. */
 .bft-stat-row {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.4rem;
     margin-top: 0.625rem;
 }
 
 .bft-stat-tile {
-    flex: 1 1 0;
+    flex: 1 1 4.5rem;
     min-width: 0;
     display: flex;
     flex-direction: column;

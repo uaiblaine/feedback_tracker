@@ -29,6 +29,7 @@ require(__DIR__ . '/../../../config.php');
 $courseid = required_param('courseid', PARAM_INT);
 $groupid = optional_param('groupid', 0, PARAM_INT);
 $bucket = optional_param('bucket', '', PARAM_ALPHA);
+$band = optional_param('band', '', PARAM_ALPHA);
 $sortmode = optional_param('sort', 'longestwait', PARAM_ALPHA);
 $page = optional_param('page', 0, PARAM_INT);
 $perpage = 25;
@@ -42,6 +43,7 @@ $PAGE->set_url('/blocks/feedback_tracker/pages/pending_report.php', [
     'courseid' => $courseid,
     'groupid' => $groupid,
     'bucket' => $bucket,
+    'band' => $band,
     'sort' => $sortmode,
     'page' => $page,
 ]);
@@ -64,7 +66,9 @@ $pending = \block_feedback_tracker\external\get_pending_submissions::execute(
     $bucket,
     $sortmode,
     $page,
-    $perpage
+    $perpage,
+    \block_feedback_tracker\local\sla\submission_status::SUBMITTED,
+    $band
 );
 
 // Drafts (saved but not submitted) are surfaced separately and de-emphasised
@@ -227,6 +231,7 @@ $initial = [
     'coursename' => format_string($course->fullname),
     'pending' => array_merge($pending, [
         'bucket' => $bucket,
+        'band' => $band,
         'groupid' => $groupid,
         'sort' => $sortmode,
     ]),
