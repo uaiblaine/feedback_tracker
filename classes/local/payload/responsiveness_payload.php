@@ -75,6 +75,9 @@ class responsiveness_payload {
         foreach ($allgroups as $g) {
             $groupnames[(int) $g->id] = (string) $g->name;
         }
+        // Composed display titles + subtitles, driven by the
+        // group_title_fields / group_subtitle_fields custom-field settings.
+        $grouptitles = self::resolve_group_titles($groupnames);
 
         // Delegate the visibility decision (NOGROUPS / accessallgroups /
         // VISIBLEGROUPS / SEPARATEGROUPS) to the shared helper used by the
@@ -91,8 +94,10 @@ class responsiveness_payload {
             'groupid ASC'
         );
 
-        // Pre-compute the last-30-days window once for trend lookups.
-        $trendwindow = self::trend_window(30);
+        // Pre-compute the trend-sparkline window once. 14 days (two weeks)
+        // frames the rolling 7-day-vs-prior-7-day comparison and fits the
+        // block's narrow sparkline; the recent-stats window stays 30 days.
+        $trendwindow = self::trend_window(14);
 
         // Course-level paused aggregate for the last 30 days. One call
         // per render — the design's PausedNote + report-page callout
@@ -111,12 +116,25 @@ class responsiveness_payload {
                 $name = $groupmode === NOGROUPS
                     ? get_string('card_nogroup', 'block_feedback_tracker')
                     : get_string('card_ungrouped', 'block_feedback_tracker');
+                $subtitle = null;
             } else {
-                $name = $groupnames[$gid] ?? sprintf('Group #%d', $gid);
+                $resolved = $grouptitles[$gid]
+                    ?? ['title' => $groupnames[$gid] ?? sprintf('Group #%d', $gid), 'subtitle' => null];
+                $name = $resolved['title'];
+                $subtitle = $resolved['subtitle'];
             }
             $series = self::trend_series_for_group($courseid, $gid, $trendwindow);
             $peer = peer_stats::for_exclusion($gid);
-            $payloadgroups[] = self::group_payload($gid, $name, $course, $r, $series, $pausedaggregate, $peer);
+            $payloadgroups[] = self::group_payload(
+                $gid,
+                $name,
+                $course,
+                $r,
+                $series,
+                $pausedaggregate,
+                $peer,
+                $subtitle
+            );
         }
 
         $result = [
@@ -128,6 +146,130 @@ class responsiveness_payload {
 
         $cache->set($key, $result);
         return $result;
+    }
+
+    /**
+     * Resolve the composed display title + subtitle for each real group, per
+     * the group_title_fields / group_subtitle_fields settings. Falls back to
+     * the real group name when nothing is configured or a group has no data.
+     *
+     * @param array<int, string> $groupnames Real group names keyed by group id.
+     * @return array<int, array{title: string, subtitle: string|null}>
+     */
+    private static function resolve_group_titles(array $groupnames): array {
+        $titlefields = self::parse_shortnames(
+            (string) (get_config('block_feedback_tracker', 'group_title_fields') ?: '')
+        );
+        $subtitlespec = trim((string) (get_config('block_feedback_tracker', 'group_subtitle_fields') ?: ''));
+        $subtitleisname = strtolower($subtitlespec) === 'groupname';
+        $subtitlefields = ($subtitlespec === '' || $subtitleisname) ? [] : self::parse_shortnames($subtitlespec);
+
+        $out = [];
+        // Fast path — no custom-field config at all.
+        if (empty($titlefields) && empty($subtitlefields) && !$subtitleisname) {
+            foreach ($groupnames as $gid => $name) {
+                $out[$gid] = ['title' => $name, 'subtitle' => null];
+            }
+            return $out;
+        }
+
+        $values = self::group_field_values(
+            array_map('intval', array_keys($groupnames)),
+            array_merge($titlefields, $subtitlefields)
+        );
+        foreach ($groupnames as $gid => $name) {
+            $title = $name;
+            if (!empty($titlefields)) {
+                $composed = self::compose_fields($values[$gid] ?? [], $titlefields);
+                if ($composed !== '') {
+                    $title = $composed;
+                }
+            }
+            $subtitle = null;
+            if ($subtitleisname) {
+                // Show the real name as the subtitle only when the title differs.
+                $subtitle = $title !== $name ? $name : null;
+            } else if (!empty($subtitlefields)) {
+                $composed = self::compose_fields($values[$gid] ?? [], $subtitlefields);
+                $subtitle = $composed !== '' ? $composed : null;
+            }
+            $out[$gid] = ['title' => $title, 'subtitle' => $subtitle];
+        }
+        return $out;
+    }
+
+    /**
+     * Split a comma-separated shortname list into trimmed, non-empty parts.
+     *
+     * @param string $csv
+     * @return array<int, string>
+     */
+    private static function parse_shortnames(string $csv): array {
+        $parts = array_map('trim', explode(',', $csv));
+        return array_values(array_filter($parts, static fn($s) => $s !== ''));
+    }
+
+    /**
+     * Batch-load group custom-field values, keyed by group id then shortname.
+     * Returns only fields that actually carry a value. Degrades to an empty
+     * map (callers fall back to the real group name) on any error.
+     *
+     * @param array<int, int> $groupids
+     * @param array<int, string> $shortnames
+     * @return array<int, array<string, string>>
+     */
+    private static function group_field_values(array $groupids, array $shortnames): array {
+        $out = [];
+        if (empty($groupids) || empty($shortnames)) {
+            return $out;
+        }
+        try {
+            $handler = \core_group\customfield\group_handler::create();
+            $wanted = [];
+            $idtoshort = [];
+            foreach ($handler->get_fields() as $field) {
+                $sn = $field->get('shortname');
+                if (in_array($sn, $shortnames, true)) {
+                    $wanted[$field->get('id')] = $field;
+                    $idtoshort[$field->get('id')] = $sn;
+                }
+            }
+            if (empty($wanted)) {
+                return $out;
+            }
+            $data = \core_customfield\api::get_instances_fields_data($wanted, $groupids, false);
+            foreach ($data as $gid => $fieldsdata) {
+                foreach ($fieldsdata as $fid => $datacontroller) {
+                    if ($datacontroller === null || !isset($idtoshort[$fid])) {
+                        continue;
+                    }
+                    $val = trim((string) $datacontroller->export_value());
+                    if ($val !== '') {
+                        $out[(int) $gid][$idtoshort[$fid]] = $val;
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            debugging('block_feedback_tracker: group custom-field load failed: ' . $e->getMessage());
+        }
+        return $out;
+    }
+
+    /**
+     * Join the given shortnames' values (in order) with " | ".
+     *
+     * @param array<string, string> $valuesbyshort
+     * @param array<int, string> $shortnames
+     * @return string
+     */
+    private static function compose_fields(array $valuesbyshort, array $shortnames): string {
+        $parts = [];
+        foreach ($shortnames as $sn) {
+            if (isset($valuesbyshort[$sn]) && $valuesbyshort[$sn] !== '') {
+                $parts[] = $valuesbyshort[$sn];
+            }
+        }
+        return implode(' | ', $parts);
     }
 
     /**
@@ -145,6 +287,7 @@ class responsiveness_payload {
      * @param array $trendseries Last-30-day median values.
      * @param array<string, int>|null $pausedaggregate Output of paused_aggregator::for_window().
      * @param array<string, float|null>|null $peer Output of peer_stats::for_exclusion().
+     * @param string|null $groupsubtitle Optional smaller line shown under the title.
      * @return array
      */
     public static function group_payload(
@@ -154,7 +297,8 @@ class responsiveness_payload {
         \stdClass $row,
         array $trendseries = [],
         ?array $pausedaggregate = null,
-        ?array $peer = null
+        ?array $peer = null,
+        ?string $groupsubtitle = null
     ): array {
         $pausedaggregate = $pausedaggregate ?? ['total_days' => 0, 'weekend' => 0, 'holiday' => 0, 'recess' => 0, 'events' => []];
         $peer = $peer ?? ['department_score' => null, 'department_hours' => null,
@@ -162,6 +306,7 @@ class responsiveness_payload {
         return [
             'groupid'              => $groupid,
             'groupname'            => $groupname,
+            'groupsubtitle'        => $groupsubtitle,
             'coursename'           => $course->fullname,
             'pending'              => (int) $row->pending,
             'critical'             => (int) $row->critical,

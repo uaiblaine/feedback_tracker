@@ -102,6 +102,7 @@ class get_responsiveness extends external_api {
         return new external_single_structure([
             'groupid'              => new external_value(PARAM_INT, ''),
             'groupname'            => new external_value(PARAM_TEXT, ''),
+            'groupsubtitle'        => new external_value(PARAM_TEXT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
             'coursename'           => new external_value(PARAM_TEXT, ''),
             'pending'              => new external_value(PARAM_INT, ''),
             'critical'             => new external_value(PARAM_INT, ''),

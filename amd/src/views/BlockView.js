@@ -49,7 +49,28 @@ const sortGroups = (groups, sortKey) => {
     }
     const copy = groups.slice();
     if (sortKey === 'priority') {
-        copy.sort((a, b) => (Number(b.critical) || 0) - (Number(a.critical) || 0));
+        // Most urgent first: more prioridade (critical), then more atenção
+        // (overgoal), then the worse (lower) score, then name. The previous
+        // single-key sort left tied-critical groups in arbitrary order, so a
+        // high-score group could outrank an equally-critical low-score one.
+        copy.sort((a, b) => {
+            const dcrit = (Number(b.critical) || 0) - (Number(a.critical) || 0);
+            if (dcrit !== 0) {
+                return dcrit;
+            }
+            const datt = (Number(b.overgoal) || 0) - (Number(a.overgoal) || 0);
+            if (datt !== 0) {
+                return datt;
+            }
+            const sa = a.responsiveness_score === null || a.responsiveness_score === undefined
+                ? Infinity : Number(a.responsiveness_score);
+            const sb = b.responsiveness_score === null || b.responsiveness_score === undefined
+                ? Infinity : Number(b.responsiveness_score);
+            if (sa !== sb) {
+                return sa - sb;
+            }
+            return String(a.groupname || '').localeCompare(String(b.groupname || ''));
+        });
     } else if (sortKey === 'wait') {
         copy.sort((a, b) => (Number(b.median_eff_h) || 0) - (Number(a.median_eff_h) || 0));
     }
@@ -121,6 +142,23 @@ const fmtYmd = (ymd) => {
 const fmtEvent = (ev) => {
     const head = fmtYmd(ev.date) + ' ' + fmtMin(ev.starttime) + '-' + fmtMin(ev.endtime);
     return ev.label ? head + ': ' + ev.label : head;
+};
+
+/**
+ * Format a Unix timestamp (seconds) as "DD/MM/YYYY HH:MM" in local time.
+ *
+ * @param {number} ts
+ * @returns {string}
+ */
+const fmtTimestamp = (ts) => {
+    const n = Number(ts) || 0;
+    if (n <= 0) {
+        return '';
+    }
+    const d = new Date(n * 1000);
+    const pad = (x) => String(x).padStart(2, '0');
+    return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear()
+        + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
 };
 
 /**
@@ -200,6 +238,7 @@ export default function BlockView({initial}) {
     const courseid = Number(initial.courseid) || 0;
 
     const [groups, setGroups] = useState(Array.isArray(initial.groups) ? initial.groups : []);
+    const [lastsynced, setLastsynced] = useState(Number(initial.lastsynced) || 0);
     const [sort, setSort] = useState('default');
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState(null);
@@ -222,6 +261,9 @@ export default function BlockView({initial}) {
             const result = await getResponsiveness({courseid, force: true});
             if (result && Array.isArray(result.groups)) {
                 setGroups(result.groups);
+                if (result.lastsynced) {
+                    setLastsynced(Number(result.lastsynced) || 0);
+                }
             } else if (result && result.success === false) {
                 setError(i18n.block_refresh_error || 'Refresh failed.');
             }
@@ -235,17 +277,14 @@ export default function BlockView({initial}) {
     };
 
     const showSort = groups.length > 1;
+    const synctext = (lastsynced
+        ? (i18n.card_footer_sync || 'Last synced {$a}').replace('{$a}', fmtTimestamp(lastsynced)) + ' · '
+        : '') + (i18n.card_footer_cache || 'Updates automatically every 15 minutes.');
 
     return html`
         <div class="bft-block-root">
-            <div class="bft-block-controls">
-                <button type="button"
-                        class=${'bft-refresh' + (refreshing ? ' bft-refresh-busy' : '')}
-                        disabled=${refreshing}
-                        title=${i18n.card_refresh}
-                        aria-label=${i18n.card_refresh}
-                        onClick=${handleRefresh}>⟳</button>
-                ${showSort && html`
+            ${showSort && html`
+                <div class="bft-block-controls">
                     <label class="bft-sort-label">
                         <span class="bft-sort-label-text">${i18n.block_sort_label}</span>
                         <select class="bft-sort-select"
@@ -256,8 +295,8 @@ export default function BlockView({initial}) {
                             <option value="wait">${i18n.block_sort_wait}</option>
                         </select>
                     </label>
-                `}
-            </div>
+                </div>
+            `}
             ${error && html`
                 <div class="bft-error" role="alert">${error}</div>
             `}
@@ -282,6 +321,14 @@ export default function BlockView({initial}) {
                         `)}
                     </div>
                 `}
+            <div class="bft-block-foot">
+                <span class="bft-block-foot-note">${synctext}</span>
+                <button type="button"
+                        class=${'bft-refresh' + (refreshing ? ' bft-refresh-busy' : '')}
+                        disabled=${refreshing}
+                        aria-label=${i18n.card_refresh}
+                        onClick=${handleRefresh}>⟳ ${i18n.card_refresh}</button>
+            </div>
         </div>
     `;
 }

@@ -209,7 +209,8 @@ class get_dashboard extends external_api {
         if (empty($courseids)) {
             return [];
         }
-        $window = self::trend_window(30);
+        // 14-day (two-week) sparkline window — matches the in-course block.
+        $window = self::trend_window(14);
 
         [$insql, $params] = $DB->get_in_or_equal($courseids, SQL_PARAMS_NAMED, 'tc');
         $params['oldest'] = (int) $window[0];

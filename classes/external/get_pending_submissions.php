@@ -65,6 +65,13 @@ class get_pending_submissions extends external_api {
                 VALUE_DEFAULT,
                 'submitted'
             ),
+            'band' => new external_value(
+                PARAM_ALPHA,
+                'Pending-band filter (effective-hours range): aguardando | atencao | prioridade. '
+                    . 'Takes precedence over bucket when set.',
+                VALUE_DEFAULT,
+                ''
+            ),
         ]);
     }
 
@@ -78,6 +85,7 @@ class get_pending_submissions extends external_api {
      * @param int $page
      * @param int $perpage
      * @param string $status submitted (default) | draft
+     * @param string $band aguardando | atencao | prioridade (effective-hours range)
      * @return array
      */
     public static function execute(
@@ -87,13 +95,15 @@ class get_pending_submissions extends external_api {
         string $sort = 'longestwait',
         int $page = 0,
         int $perpage = self::DEFAULT_PAGE_SIZE,
-        string $status = submission_status::SUBMITTED
+        string $status = submission_status::SUBMITTED,
+        string $band = ''
     ): array {
         global $DB, $USER;
 
         $params = self::validate_parameters(self::execute_parameters(), [
             'courseid' => $courseid, 'groupid' => $groupid, 'bucket' => $bucket,
             'sort' => $sort, 'page' => $page, 'perpage' => $perpage, 'status' => $status,
+            'band' => $band,
         ]);
         $courseid = (int) $params['courseid'];
         $groupid = max(0, (int) $params['groupid']);
@@ -107,6 +117,7 @@ class get_pending_submissions extends external_api {
         $status = $params['status'] === submission_status::DRAFT
             ? submission_status::DRAFT
             : submission_status::SUBMITTED;
+        $band = trim((string) $params['band']);
 
         $context = \context_course::instance($courseid);
         self::validate_context($context);
@@ -147,7 +158,26 @@ class get_pending_submissions extends external_api {
             $where .= ' AND sub.groupid = :groupid';
             $sqlparams['groupid'] = $groupid;
         }
-        if ($bucket !== '') {
+        // Band filter (effective-hours range) takes precedence over the
+        // slabucket filter — it matches the block's aguardando / atenção /
+        // prioridade tiles, which partition pending by the SLA goal and the
+        // critical threshold rather than by slabucket.
+        if ($band !== '') {
+            $goal = (float) (get_config('block_feedback_tracker', 'sla_goal_hours') ?: 24);
+            $thresholds = \block_feedback_tracker\local\sla\bucket::parse_thresholds_eff();
+            $criticalmin = (float) $thresholds[2];
+            if ($band === 'prioridade') {
+                $where .= ' AND sub.effectivehours >= :bandcrit';
+                $sqlparams['bandcrit'] = $criticalmin;
+            } else if ($band === 'atencao') {
+                $where .= ' AND sub.effectivehours > :bandgoal AND sub.effectivehours < :bandcrit';
+                $sqlparams['bandgoal'] = $goal;
+                $sqlparams['bandcrit'] = $criticalmin;
+            } else if ($band === 'aguardando') {
+                $where .= ' AND sub.effectivehours <= :bandgoal';
+                $sqlparams['bandgoal'] = $goal;
+            }
+        } else if ($bucket !== '') {
             $where .= ' AND sub.slabucket = :bucket';
             $sqlparams['bucket'] = $bucket;
         }

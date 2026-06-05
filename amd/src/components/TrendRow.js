@@ -14,11 +14,12 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Trend row — arrow + percentage + verbal label + 30-day sparkline.
+ * Trend row — arrow + percentage + verbal label + 14-day sparkline.
  *
- * The trend percentage in the payload is "% change in median effective
- * hours over the last 30 days". A negative number means work was returned
- * faster (hours dropped), so we present it as speed: faster = ▲ green,
+ * The trend percentage in the payload is the week-over-week change in median
+ * effective hours (rolling 7-day vs the prior 7-day window). A negative number
+ * means work was returned faster (hours dropped), so we present it as speed:
+ * faster = ▲ green,
  * slower = ▼ priority/red, within ±2% = stable (muted). The magnitude is
  * shown unsigned — direction is carried by the arrow, colour and label.
  *
@@ -34,7 +35,7 @@ import {classifySpeed, speedLabel} from 'block_feedback_tracker/lib/trend';
 /**
  * @param {object} props
  * @param {number|null|undefined} props.pct  Trend percentage; negative = faster.
- * @param {Array<number|null>} props.series  30-day sparkline values.
+ * @param {Array<number|null>} props.series  14-day sparkline values.
  * @param {object} props.i18n  Bundle with trend_faster / trend_slower / trend_stable / trend_window_label.
  * @param {number|null} [props.goal]  Optional SLA goal line on the sparkline.
  * @returns {object|null} vnode
@@ -47,7 +48,7 @@ export default function TrendRow({pct, series, i18n, goal}) {
     return html`
         <div class=${'bft-trend-row bft-trend-tone-' + tone}>
             <div class="bft-trend-row-text">
-                <div class="bft-trend-row-eyebrow">${i18n.trend_window_label || 'Last 30 days'}</div>
+                <div class="bft-trend-row-eyebrow">${i18n.trend_window_label || 'Last 14 days'}</div>
                 <div class="bft-trend-row-line">
                     <span class="bft-trend-row-arrow">${arrow}</span>
                     ${tone !== 'stable'

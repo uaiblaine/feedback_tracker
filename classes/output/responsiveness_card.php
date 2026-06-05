@@ -26,7 +26,6 @@ declare(strict_types=1);
 
 namespace block_feedback_tracker\output;
 
-use block_feedback_tracker\local\score\responsiveness_calculator;
 
 /**
  * One responsiveness card per (course, group). Composes the score gauge,
@@ -64,6 +63,8 @@ class responsiveness_card implements \renderable, \templatable {
         $p = $this->payload;
 
         $title = format_string(($p['groupname'] !== '' ? $p['groupname'] : $p['coursename']));
+        $subtitle = isset($p['groupsubtitle']) && (string) $p['groupsubtitle'] !== ''
+            ? format_string((string) $p['groupsubtitle']) : '';
 
         $gauge = new score_gauge(
             $p['responsiveness_score'] !== null ? (float) $p['responsiveness_score'] : null,
@@ -74,16 +75,20 @@ class responsiveness_card implements \renderable, \templatable {
         $showperceived = (int) (get_config('block_feedback_tracker', 'show_perceived_time') ?: 1) === 1;
         $showpause = (int) (get_config('block_feedback_tracker', 'show_paused_today_indicator') ?: 1) === 1;
 
+        // Mutually-exclusive pending bands (sum = total pending): aguardando
+        // (within SLA, derived) | atenção (overgoal) | prioridade (critical).
+        $prioridade = (int) $p['critical'];
+        $atencao = (int) $p['overgoal'];
+        $aguardando = max(0, (int) $p['pending'] - $atencao - $prioridade);
         $counts = [
-            ['label' => get_string('card_pending', 'block_feedback_tracker'), 'value' => (int) $p['pending']],
-            ['label' => get_string('card_critical', 'block_feedback_tracker'), 'value' => (int) $p['critical']],
-            ['label' => get_string('card_overgoal', 'block_feedback_tracker'), 'value' => (int) $p['overgoal']],
+            ['label' => get_string('card_pending', 'block_feedback_tracker'), 'value' => $aguardando],
+            ['label' => get_string('card_overgoal', 'block_feedback_tracker'), 'value' => $atencao],
+            ['label' => get_string('card_critical', 'block_feedback_tracker'), 'value' => $prioridade],
         ];
 
         $metrics = $this->build_metrics($p, $showperceived);
         $pausestrip = $showpause ? $this->build_pause_strip($p) : '';
 
-        $breakdownctx = $this->build_breakdown($p);
         $sparklinectx = $this->build_sparkline($p, $output);
 
         $drilldownurl = new \moodle_url('/blocks/feedback_tracker/pages/group_drilldown.php', [
@@ -93,6 +98,8 @@ class responsiveness_card implements \renderable, \templatable {
 
         return [
             'title'         => $title,
+            'hassubtitle'   => $subtitle !== '',
+            'subtitle'      => $subtitle,
             'band'          => $p['score_band'] !== null ? (string) $p['score_band'] : '',
             'bandlabel'     => self::band_label($p['score_band'] !== null ? (string) $p['score_band'] : ''),
             'gauge'         => $gauge->export_for_template($output),
@@ -100,8 +107,6 @@ class responsiveness_card implements \renderable, \templatable {
             'metrics'       => $metrics,
             'haspause'      => $pausestrip !== '',
             'pausestrip'    => $pausestrip,
-            'hasbreakdown'  => $breakdownctx !== null,
-            'breakdown'     => $breakdownctx ?? [],
             'hassparkline'  => $sparklinectx !== null,
             'sparkline'     => $sparklinectx ?? [],
             'courseid'      => $this->courseid,
@@ -174,72 +179,6 @@ class responsiveness_card implements \renderable, \templatable {
     }
 
     /**
-     * Build the score-breakdown table context, or null when no components
-     * are persisted on the rollup row yet.
-     *
-     * @param array $p
-     * @return array|null
-     */
-    private function build_breakdown(array $p): ?array {
-        $components = [
-            'compliance' => $p['comp_compliance'] ?? null,
-            'median'     => $p['comp_median'] ?? null,
-            'critical'   => $p['comp_critical'] ?? null,
-            'pending'    => $p['comp_pending'] ?? null,
-            'trend'      => $p['comp_trend'] ?? null,
-        ];
-        $present = array_keys(array_filter($components, static fn($v) => $v !== null));
-        if (empty($present)) {
-            return null;
-        }
-        $adminweights = responsiveness_calculator::load_weights();
-        // V1.0.7 — renormalise weights against the terms that carry data so
-        // the breakdown's weight + points columns match the score the
-        // calculator actually produced. Mirrors the JS-side math in
-        // GroupCard::buildBreakdown().
-        $available = array_fill_keys(array_keys($components), false);
-        foreach ($present as $k) {
-            $available[$k] = true;
-        }
-        $effective = responsiveness_calculator::effective_weights($adminweights, $available);
-        $rows = [];
-        $totalpts = 0.0;
-        $totalmax = 0.0;
-        foreach ($present as $key) {
-            $value = (float) $components[$key];
-            $weight = (float) $effective[$key];
-            $maxpts = $weight * 100.0;
-            $pts = $value * $maxpts;
-            $totalpts += $pts;
-            $totalmax += $maxpts;
-            $rows[] = [
-                'label'     => self::breakdown_label($key),
-                'valuestr'  => format_float($value, 2),
-                'weightstr' => format_float($weight, 2),
-                'ptsstr'    => format_float($pts, 1) . ' / ' . format_float($maxpts, 1),
-            ];
-        }
-        $excluded = array_diff(array_keys($components), $present);
-        $footnote = '';
-        if (!empty($excluded)) {
-            $names = array_map(static fn($k) => self::breakdown_label($k), $excluded);
-            $footnote = get_string('breakdown_excluded_prefix', 'block_feedback_tracker')
-                . ' ' . implode(', ', $names) . '.';
-        }
-        return [
-            'summary'   => get_string('breakdown_summary', 'block_feedback_tracker'),
-            'strterm'   => get_string('breakdown_term', 'block_feedback_tracker'),
-            'strvalue'  => get_string('breakdown_value', 'block_feedback_tracker'),
-            'strweight' => get_string('breakdown_weight', 'block_feedback_tracker'),
-            'strpts'    => get_string('breakdown_pts', 'block_feedback_tracker'),
-            'strtotal'  => get_string('breakdown_total', 'block_feedback_tracker'),
-            'rows'      => $rows,
-            'totalstr'  => format_float($totalpts, 1) . ' / ' . format_float($totalmax, 1),
-            'footnote'  => $footnote,
-        ];
-    }
-
-    /**
      * Build the sparkline context, or null when no trend data is available.
      *
      * @param array $p
@@ -266,29 +205,6 @@ class responsiveness_card implements \renderable, \templatable {
         $goal = (float) (get_config('block_feedback_tracker', 'sla_goal_hours') ?: 24);
         $spark = new sparkline($values, $goal);
         return $spark->export_for_template($output);
-    }
-
-    /**
-     * Localised label for one breakdown term.
-     *
-     * @param string $key
-     * @return string
-     */
-    private static function breakdown_label(string $key): string {
-        switch ($key) {
-            case 'compliance':
-                return get_string('breakdown_compliance', 'block_feedback_tracker');
-            case 'median':
-                return get_string('breakdown_median', 'block_feedback_tracker');
-            case 'critical':
-                return get_string('breakdown_critical', 'block_feedback_tracker');
-            case 'pending':
-                return get_string('breakdown_pending', 'block_feedback_tracker');
-            case 'trend':
-                return get_string('breakdown_trend', 'block_feedback_tracker');
-            default:
-                return $key;
-        }
     }
 
     /**
