@@ -46,16 +46,42 @@ class responsiveness_payload {
     /**
      * Build the payload for one course as seen by one user.
      *
+     * When $limit is greater than zero the groups are paginated and the result
+     * carries total / offset / limit / hasmore so the caller can fetch the
+     * next page. $sort orders the whole visible group list server-side, so the
+     * first page reflects the true top-priority groups (not just whatever is
+     * loaded). $limit = 0 keeps the legacy behaviour: every visible group in
+     * one call, hasmore false. overall_score is the pending-weighted mean over
+     * the entire visible course, independent of pagination.
+     *
      * @param int $courseid
      * @param int $userid
      * @param bool $force Skip the session cache read and write a fresh entry.
-     * @return array{success:bool, courseid:int, lastsynced:int, groups:array<int, array>}
+     * @param int $limit Page size; 0 returns every visible group.
+     * @param int $offset Zero-based offset into the ordered group list.
+     * @param string $sort Order key: 'default' (groupid), 'priority', or 'wait'.
+     * @return array{success:bool, courseid:int, lastsynced:int, total:int,
+     *               offset:int, limit:int, hasmore:bool, overall_score:float|null,
+     *               groups:array<int, array>}
      */
-    public static function for_course(int $courseid, int $userid, bool $force = false): array {
+    public static function for_course(
+        int $courseid,
+        int $userid,
+        bool $force = false,
+        int $limit = 0,
+        int $offset = 0,
+        string $sort = 'default'
+    ): array {
         global $DB;
 
         $cache = \cache::make('block_feedback_tracker', 'responsiveness_payload');
         $key = calendar::current_version() . '_' . $userid . '_' . $courseid;
+        if ($limit > 0) {
+            $key .= '_' . $offset . '_' . $limit;
+        }
+        if ($sort !== 'default') {
+            $key .= '_' . $sort;
+        }
         if (!$force) {
             $cached = $cache->get($key);
             if (
@@ -70,29 +96,82 @@ class responsiveness_payload {
         $course = $DB->get_record('course', ['id' => $courseid], '*', MUST_EXIST);
         $groupmode = (int) groups_get_course_groupmode($course);
 
-        $allgroups = groups_get_all_groups($courseid);
-        $groupnames = [];
-        foreach ($allgroups as $g) {
-            $groupnames[(int) $g->id] = (string) $g->name;
-        }
-        // Composed display titles + subtitles, driven by the
-        // group_title_fields / group_subtitle_fields custom-field settings.
-        $grouptitles = self::resolve_group_titles($groupnames);
-
         // Delegate the visibility decision (NOGROUPS / accessallgroups /
         // VISIBLEGROUPS / SEPARATEGROUPS) to the shared helper used by the
         // WS endpoints. null = unrestricted; array = named-group whitelist
         // (empty = SEPARATEGROUPS teacher with no group membership →
         // nothing renders).
         $visible = \block_feedback_tracker\local\sla\group_access::visible_group_ids($courseid, $userid);
-        $allgroupsvisible = $visible === null;
-        $visibleids = $visible ?? [];
 
-        $rollups = $DB->get_records(
+        // A restricted user with zero visible groups has nothing to render —
+        // short-circuit to an empty (but well-formed) paginated result. This
+        // also guards get_in_or_equal() below, which rejects an empty set.
+        if ($visible === []) {
+            $result = [
+                'success'    => true,
+                'courseid'   => $courseid,
+                'lastsynced' => time(),
+                'total'      => 0,
+                'offset'     => $offset,
+                'limit'      => $limit,
+                'hasmore'    => false,
+                'overall_score' => null,
+                'groups'     => [],
+            ];
+            $cache->set($key, $result);
+            return $result;
+        }
+
+        // Fold the visibility whitelist into the rollup query so pagination
+        // totals + offsets count only rows the caller can see. Unrestricted
+        // users (null) match every rollup, including groupid 0 ("ungrouped").
+        $where = 'courseid = :courseid';
+        $params = ['courseid' => $courseid];
+        if ($visible !== null) {
+            [$insql, $inparams] = $DB->get_in_or_equal($visible, SQL_PARAMS_NAMED, 'grp');
+            $where .= ' AND groupid ' . $insql;
+            $params = array_merge($params, $inparams);
+        }
+
+        $total = $DB->count_records_select('block_feedback_tracker_group', $where, $params);
+
+        // Whole-course overall score (pending-weighted mean of per-group
+        // scores, mirroring the JS overallScore()) so the block's banner
+        // stays accurate no matter how many pages are loaded. Single indexed
+        // aggregate over the visible rows; the result is MUC-cached per page.
+        $overallscore = self::overall_score($where, $params);
+
+        $rollups = $DB->get_records_select(
             'block_feedback_tracker_group',
-            ['courseid' => $courseid],
-            'groupid ASC'
+            $where,
+            $params,
+            self::order_by_for_sort($sort),
+            '*',
+            $offset,
+            $limit
         );
+
+        // Resolve display names for ONLY this page's real groups (gid > 0).
+        // Naming the whole course on every page is O(total) and was a major
+        // cost on courses with thousands of groups; page-scoping keeps it
+        // O(batch).
+        $pagegroupids = [];
+        foreach ($rollups as $r) {
+            $gid = (int) $r->groupid;
+            if ($gid > 0) {
+                $pagegroupids[] = $gid;
+            }
+        }
+        $groupnames = [];
+        if (!empty($pagegroupids)) {
+            $namerows = $DB->get_records_list('groups', 'id', $pagegroupids, '', 'id, name');
+            foreach ($namerows as $nr) {
+                $groupnames[(int) $nr->id] = (string) $nr->name;
+            }
+        }
+        // Composed display titles + subtitles, driven by the
+        // group_title_fields / group_subtitle_fields custom-field settings.
+        $grouptitles = self::resolve_group_titles($groupnames);
 
         // Pre-compute the trend-sparkline window once. 14 days (two weeks)
         // frames the rolling 7-day-vs-prior-7-day comparison and fits the
@@ -109,9 +188,6 @@ class responsiveness_payload {
         $payloadgroups = [];
         foreach ($rollups as $r) {
             $gid = (int) $r->groupid;
-            if (!$allgroupsvisible && !in_array($gid, $visibleids, true)) {
-                continue;
-            }
             if ($gid === 0) {
                 $name = $groupmode === NOGROUPS
                     ? get_string('card_nogroup', 'block_feedback_tracker')
@@ -137,15 +213,71 @@ class responsiveness_payload {
             );
         }
 
+        $hasmore = $limit > 0 ? ($offset + count($rollups)) < $total : false;
+
         $result = [
             'success'    => true,
             'courseid'   => $courseid,
             'lastsynced' => time(),
+            'total'      => $total,
+            'offset'     => $offset,
+            'limit'      => $limit,
+            'hasmore'    => $hasmore,
+            'overall_score' => $overallscore,
             'groups'     => $payloadgroups,
         ];
 
         $cache->set($key, $result);
         return $result;
+    }
+
+    /**
+     * Map a sort key to a cross-DB ORDER BY clause over the rollup table.
+     * Always tie-breaks on groupid so pagination stays stable across pages.
+     * Unknown keys fall back to the default (groupid) order.
+     *
+     * @param string $sort One of 'priority', 'wait', or 'default'.
+     * @return string SQL ORDER BY clause (without the "ORDER BY" keyword).
+     */
+    private static function order_by_for_sort(string $sort): string {
+        switch ($sort) {
+            case 'priority':
+                // Most urgent first: more critical, then more overgoal, then
+                // the worse (lower) score. NULL scores (no data) sort last via
+                // COALESCE to a large sentinel (no PG-only NULLS LAST).
+                return 'critical DESC, overgoal DESC, '
+                    . 'COALESCE(responsiveness_score, 100000) ASC, groupid ASC';
+            case 'wait':
+                // Longest median effective wait first; NULL waits sort last.
+                return 'COALESCE(median_eff_h, -1) DESC, groupid ASC';
+            default:
+                return 'groupid ASC';
+        }
+    }
+
+    /**
+     * Pending-weighted mean of per-group responsiveness scores over the
+     * visible rollup rows, mirroring the JS overallScore() so the block's
+     * banner matches the headline figure regardless of pagination. Groups
+     * with no score are excluded; each contributing group's weight is
+     * max(1, pending).
+     *
+     * @param string $where WHERE fragment already scoping course + visibility.
+     * @param array<string, mixed> $params Bound params for $where.
+     * @return float|null Weighted mean, or null when no group carries a score.
+     */
+    private static function overall_score(string $where, array $params): ?float {
+        global $DB;
+        $weight = 'CASE WHEN pending > 1 THEN pending ELSE 1 END';
+        $sql = "SELECT SUM(responsiveness_score * ($weight)) AS wsum,
+                       SUM($weight) AS wtot
+                  FROM {block_feedback_tracker_group}
+                 WHERE $where AND responsiveness_score IS NOT NULL";
+        $agg = $DB->get_record_sql($sql, $params);
+        if (!$agg || $agg->wtot === null || (float) $agg->wtot <= 0) {
+            return null;
+        }
+        return (float) $agg->wsum / (float) $agg->wtot;
     }
 
     /**

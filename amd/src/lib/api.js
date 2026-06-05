@@ -58,11 +58,14 @@ const call = (methodname, args) => Promise.resolve(Ajax.call([{methodname, args}
  * @param {object} options
  * @param {number} options.courseid
  * @param {boolean} [options.force]  Bypass the session cache.
+ * @param {number} [options.limit]   Page size; 0 returns every visible group.
+ * @param {number} [options.offset]  Zero-based offset into the group list.
+ * @param {string} [options.sort]    Order key: 'default' | 'priority' | 'wait'.
  * @returns {Promise<object>}
  */
-export const getResponsiveness = ({courseid, force = false}) =>
+export const getResponsiveness = ({courseid, force = false, limit = 0, offset = 0, sort = 'default'}) =>
     call('block_feedback_tracker_get_responsiveness',
-        {courseid, force: force ? 1 : 0});
+        {courseid, force: force ? 1 : 0, limit, offset, sort});
 
 /**
  * Paginated list of pending submissions in a course.

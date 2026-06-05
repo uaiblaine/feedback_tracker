@@ -53,6 +53,14 @@ class get_responsiveness extends external_api {
         return new external_function_parameters([
             'courseid' => new external_value(PARAM_INT, 'Course id'),
             'force'    => new external_value(PARAM_BOOL, 'Bypass session cache', VALUE_DEFAULT, false),
+            'limit'    => new external_value(PARAM_INT, 'Page size; 0 returns every visible group', VALUE_DEFAULT, 0),
+            'offset'   => new external_value(PARAM_INT, 'Zero-based offset into the group list', VALUE_DEFAULT, 0),
+            'sort'     => new external_value(
+                PARAM_ALPHA,
+                'Order key: default (groupid), priority, or wait',
+                VALUE_DEFAULT,
+                'default'
+            ),
         ]);
     }
 
@@ -61,22 +69,34 @@ class get_responsiveness extends external_api {
      *
      * @param int $courseid
      * @param bool $force
+     * @param int $limit
+     * @param int $offset
+     * @param string $sort
      * @return array
      */
-    public static function execute(int $courseid, bool $force = false): array {
+    public static function execute(
+        int $courseid,
+        bool $force = false,
+        int $limit = 0,
+        int $offset = 0,
+        string $sort = 'default'
+    ): array {
         global $USER;
 
         $params = self::validate_parameters(self::execute_parameters(), [
-            'courseid' => $courseid, 'force' => $force,
+            'courseid' => $courseid, 'force' => $force, 'limit' => $limit, 'offset' => $offset, 'sort' => $sort,
         ]);
         $courseid = (int) $params['courseid'];
         $force = (bool) $params['force'];
+        $limit = (int) $params['limit'];
+        $offset = (int) $params['offset'];
+        $sort = (string) $params['sort'];
 
         $context = \context_course::instance($courseid);
         self::validate_context($context);
         require_capability('block/feedback_tracker:viewresponsiveness', $context);
 
-        return responsiveness_payload::for_course($courseid, (int) $USER->id, $force);
+        return responsiveness_payload::for_course($courseid, (int) $USER->id, $force, $limit, $offset, $sort);
     }
 
     /**
@@ -89,6 +109,17 @@ class get_responsiveness extends external_api {
             'success'    => new external_value(PARAM_BOOL, 'Whether the call succeeded'),
             'courseid'   => new external_value(PARAM_INT, 'Course id'),
             'lastsynced' => new external_value(PARAM_INT, 'Unix ts when payload was assembled'),
+            'total'      => new external_value(PARAM_INT, 'Total visible groups across all pages'),
+            'offset'     => new external_value(PARAM_INT, 'Zero-based offset of this page'),
+            'limit'      => new external_value(PARAM_INT, 'Page size requested; 0 means all groups'),
+            'hasmore'    => new external_value(PARAM_BOOL, 'Whether more groups remain after this page'),
+            'overall_score' => new external_value(
+                PARAM_FLOAT,
+                'Pending-weighted mean score across the whole visible course',
+                VALUE_DEFAULT,
+                null,
+                NULL_ALLOWED
+            ),
             'groups'     => new external_multiple_structure(self::group_structure()),
         ]);
     }

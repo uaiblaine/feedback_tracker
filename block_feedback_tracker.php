@@ -45,11 +45,12 @@ class block_feedback_tracker extends block_base {
     /**
      * Get content
      *
-     * On a course page, emits a React mount-point div carrying the initial
-     * payload + i18n + config as JSON. The existing server-rendered Mustache
-     * cards are wrapped inside <noscript> for graceful degradation. On the
-     * site front page or dashboard the block emits a short hint instead —
-     * those surfaces aren't supported in this MVP.
+     * On a course page, emits a React mount-point div carrying a light
+     * bootstrap payload (empty groups + i18n + config) as JSON. block_app.js
+     * fetches the group cards asynchronously in sequential pages after mount;
+     * a short no-JS hint is wrapped inside <noscript> for graceful
+     * degradation. On the site front page or dashboard the block emits a
+     * short hint instead — those surfaces aren't supported in this MVP.
      *
      * @return stdClass
      */
@@ -75,26 +76,22 @@ class block_feedback_tracker extends block_base {
             return $this->content;
         }
 
-        global $USER;
+        // The group cards load asynchronously from block_app.js via the
+        // get_responsiveness web service (paginated), so the initial payload
+        // ships an empty groups array and a light shell — no synchronous
+        // rollup read blocks first paint here.
         $groups = [];
         $lastsynced = 0;
-        try {
-            $result = \block_feedback_tracker\local\payload\responsiveness_payload::for_course(
-                $courseid,
-                (int) $USER->id
-            );
-            $groups = is_array($result['groups'] ?? null) ? $result['groups'] : [];
-            $lastsynced = (int) ($result['lastsynced'] ?? 0);
-        } catch (\Throwable $e) {
-            debugging('block_feedback_tracker: payload assembly failed: ' . $e->getMessage());
-        }
 
         $renderer = $this->page->get_renderer('block_feedback_tracker');
-        $ssrhtml = $renderer->render_course_responsiveness($courseid, $groups);
+        $ssrhtml = $renderer->render_from_template(
+            'block_feedback_tracker/empty_hint',
+            ['message' => get_string('block_nojs', 'block_feedback_tracker')]
+        );
 
-        // Bootstrap payload for the React tree — initial groups + every
-        // localised label + the score-formula config. Phase 2C/2D will reuse
-        // the same shape from their own bootstrap helpers.
+        // Bootstrap payload for the React tree — empty groups + every
+        // localised label + the score-formula config. block_app.js fetches
+        // the groups in sequential pages after mount.
         $payload = $this->build_block_payload($courseid, $groups, $lastsynced);
         // JSON_HEX_TAG protects against "</script>" appearing inside a
         // payload string from breaking out of the inline JSON island.
@@ -135,6 +132,10 @@ class block_feedback_tracker extends block_base {
         return [
             'courseid' => $courseid,
             'lastsynced' => $lastsynced,
+            // Calendar version — the client folds it into its sessionStorage
+            // cache key so a calendar-affecting save naturally invalidates any
+            // stored pages (mirrors the server's MUC calver keying).
+            'calver' => \block_feedback_tracker\local\calendar\calendar::current_version(),
             'groups' => $groups,
             'i18n' => \block_feedback_tracker\local\output\bootstrap::i18n_bundle(),
             'config' => \block_feedback_tracker\local\output\bootstrap::config_bundle(),

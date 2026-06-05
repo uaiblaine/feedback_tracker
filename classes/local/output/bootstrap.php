@@ -72,6 +72,13 @@ class bootstrap {
             'block_sort_priority' => get_string('block_sort_priority', 'block_feedback_tracker'),
             'block_sort_wait' => get_string('block_sort_wait', 'block_feedback_tracker'),
             'block_refresh_error' => get_string('block_refresh_error', 'block_feedback_tracker'),
+            'block_loading' => get_string('block_loading', 'block_feedback_tracker'),
+            'block_loadmore' => get_string('block_loadmore', 'block_feedback_tracker'),
+            'block_capnotice' => get_string(
+                'block_capnotice',
+                'block_feedback_tracker',
+                (object) ['shown' => '{shown}', 'total' => '{total}']
+            ),
             'sparkline_zone_label' => get_string('sparkline_zone_label', 'block_feedback_tracker', '{$a}'),
             // Phase 3B additions — block recomposition (hero, KPI tiles, trend row, peer, paused note, activities).
             'card_activities_head' => get_string('card_activities_head', 'block_feedback_tracker'),
