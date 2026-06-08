@@ -58,6 +58,47 @@ const buildDrilldownUrl = (courseid, groupid, band) => {
 };
 
 /**
+ * Group-override editor URL for an assign course-module.
+ *
+ * @param {number} cmid
+ * @returns {string}
+ */
+const buildOverridesUrl = (cmid) => {
+    // eslint-disable-next-line no-undef
+    const wwwroot = (typeof M !== 'undefined' && M.cfg && M.cfg.wwwroot) || '';
+    return wwwroot + '/mod/assign/overrides.php?cmid=' + encodeURIComponent(String(cmid)) + '&mode=group';
+};
+
+/**
+ * Main view URL for an assign course-module.
+ *
+ * @param {number} cmid
+ * @returns {string}
+ */
+const buildActivityUrl = (cmid) => {
+    // eslint-disable-next-line no-undef
+    const wwwroot = (typeof M !== 'undefined' && M.cfg && M.cfg.wwwroot) || '';
+    return wwwroot + '/mod/assign/view.php?id=' + encodeURIComponent(String(cmid));
+};
+
+/**
+ * Localised label for an activity action chip. 'norule' (no manage capability)
+ * reuses the rule_off string; the rest are the actionable verbs.
+ *
+ * @param {string} action  One of 'done', 'create', 'override', 'norule'.
+ * @param {object} i18n
+ * @returns {string}
+ */
+const actionLabel = (action, i18n) => {
+    switch (action) {
+        case 'done': return i18n.rule_done;
+        case 'create': return i18n.rule_create;
+        case 'override': return i18n.rule_override;
+        default: return i18n.rule_off;
+    }
+};
+
+/**
  * Format hours as "Xh" or "—".
  *
  * @param {number|null|undefined} h
@@ -200,23 +241,23 @@ export default function GroupCard({group, courseid, i18n, config}) {
                             href=${prioridadehref} />
                     </div>
 
-                    <${PeerContext}
-                        you=${score}
-                        youband=${band}
-                        department=${group.peer_department_score}
-                        top10=${group.peer_top10_score}
-                        i18n=${i18n} />
-
                     ${hasActivities && html`
                         <div class="bft-activities">
                             <div class="bft-activities-head">${i18n.card_activities_head}</div>
                             ${group.activities.map((act) => html`
-                                <div class="bft-activity" key=${'act-' + (act.id || act.cmid || act.name)}>
+                                <div class="bft-activity" key=${'act-' + (act.cmid || act.name)}>
                                     <div class="bft-activity-row">
-                                        <span class="bft-activity-title">${act.name}</span>
-                                        ${act.hasrule
-                                            ? html`<span class="bft-activity-rule-on">${i18n.rule_on}</span>`
-                                            : html`<span class="bft-activity-rule-off">${i18n.rule_off}</span>`}
+                                        <a class="bft-activity-title"
+                                           href=${buildActivityUrl(act.cmid)}
+                                           title=${act.name}>${act.name}</a>
+                                        ${act.editable
+                                            ? html`<a class=${'bft-activity-action bft-activity-action-' + act.action}
+                                                      href=${buildOverridesUrl(act.cmid)}>
+                                                ${actionLabel(act.action, i18n)}
+                                            </a>`
+                                            : html`<span class=${'bft-activity-action bft-activity-action-' + act.action}>
+                                                ${actionLabel(act.action, i18n)}
+                                            </span>`}
                                     </div>
                                     <${TimelineBar}
                                         opens=${act.opens}
@@ -226,6 +267,13 @@ export default function GroupCard({group, courseid, i18n, config}) {
                             `)}
                         </div>
                     `}
+
+                    <${PeerContext}
+                        you=${score}
+                        youband=${band}
+                        department=${group.peer_department_score}
+                        top10=${group.peer_top10_score}
+                        i18n=${i18n} />
 
                     <div class="bft-card-foot">
                         <a class="bft-drilldown" href=${allhref} style=${'color: ' + colourFor(band) + ';'}>

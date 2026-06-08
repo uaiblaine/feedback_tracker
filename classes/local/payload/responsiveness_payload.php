@@ -29,6 +29,7 @@ namespace block_feedback_tracker\local\payload;
 use block_feedback_tracker\local\calendar\calendar;
 use block_feedback_tracker\local\calendar\paused_aggregator;
 use block_feedback_tracker\local\score\peer_stats;
+use block_feedback_tracker\local\sla\activity_schedule;
 
 /**
  * Builds the responsiveness payload (groups array + lastsynced) without
@@ -185,6 +186,11 @@ class responsiveness_payload {
         $pausedwindowstart = $now - 30 * 86400;
         $pausedaggregate = paused_aggregator::for_window($courseid, $pausedwindowstart, $now);
 
+        // Course-level assign catalog (global dates, group mode, manage
+        // capability, group overrides), built once and resolved per group
+        // below. Activities surface only on real-group cards.
+        $activitycatalog = activity_schedule::catalog_for_course($course, $userid);
+
         $payloadgroups = [];
         foreach ($rollups as $r) {
             $gid = (int) $r->groupid;
@@ -201,6 +207,7 @@ class responsiveness_payload {
             }
             $series = self::trend_series_for_group($courseid, $gid, $trendwindow);
             $peer = peer_stats::for_exclusion($gid);
+            $activities = $gid > 0 ? activity_schedule::for_group($activitycatalog, $gid) : [];
             $payloadgroups[] = self::group_payload(
                 $gid,
                 $name,
@@ -209,7 +216,8 @@ class responsiveness_payload {
                 $series,
                 $pausedaggregate,
                 $peer,
-                $subtitle
+                $subtitle,
+                $activities
             );
         }
 
@@ -420,6 +428,7 @@ class responsiveness_payload {
      * @param array<string, int>|null $pausedaggregate Output of paused_aggregator::for_window().
      * @param array<string, float|null>|null $peer Output of peer_stats::for_exclusion().
      * @param string|null $groupsubtitle Optional smaller line shown under the title.
+     * @param array<int, array<string, mixed>> $activities Per-group assign schedule rows from activity_schedule::for_group().
      * @return array
      */
     public static function group_payload(
@@ -430,7 +439,8 @@ class responsiveness_payload {
         array $trendseries = [],
         ?array $pausedaggregate = null,
         ?array $peer = null,
-        ?string $groupsubtitle = null
+        ?string $groupsubtitle = null,
+        array $activities = []
     ): array {
         $pausedaggregate = $pausedaggregate ?? ['total_days' => 0, 'weekend' => 0, 'holiday' => 0, 'recess' => 0, 'events' => []];
         $peer = $peer ?? ['department_score' => null, 'department_hours' => null,
@@ -506,6 +516,8 @@ class responsiveness_payload {
             'peer_department_hours' => $peer['department_hours'] !== null ? (float) $peer['department_hours'] : null,
             'peer_top10_score'      => $peer['top10_score'] !== null ? (float) $peer['top10_score'] : null,
             'peer_top10_hours'      => $peer['top10_hours'] !== null ? (float) $peer['top10_hours'] : null,
+            // Per-group assign open/close schedule and override action; empty for the ungrouped card.
+            'activities'            => array_values($activities),
         ];
     }
 

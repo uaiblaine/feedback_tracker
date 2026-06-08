@@ -1413,8 +1413,11 @@ table.bft-sortable th.bft-sort-desc::after {
 }
 
 .bft-stat-tile {
-    flex: 1 1 4.5rem;
-    min-width: 0;
+    /* Don't shrink below a label-friendly width — wrap the row instead so a
+     * long translation reflows (3-up → 2/1 → one per line) rather than the
+     * label leaking past the tile. */
+    flex: 1 1 6.5rem;
+    min-width: 6.5rem;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
@@ -1435,6 +1438,8 @@ table.bft-sortable th.bft-sort-desc::after {
     text-transform: uppercase;
     letter-spacing: 0.05em;
     opacity: 0.78;
+    /* Break an over-long single word onto two lines rather than overflow. */
+    overflow-wrap: anywhere;
 }
 
 .bft-stat-tile-value {
@@ -1563,7 +1568,7 @@ table.bft-sortable th.bft-sort-desc::after {
 }
 
 .bft-timeline-bar-date-overdue {
-    color: var(--bft-band-critical-fg);
+    color: #c2410c;
     font-weight: 700;
 }
 
@@ -1593,36 +1598,31 @@ table.bft-sortable th.bft-sort-desc::after {
     box-shadow: 0 0 0 1.5px #fff;
 }
 
-.bft-timeline-bar-on-track .bft-timeline-bar-track {
+/* Before the open date: teal track, thumb pinned at the left. */
+.bft-timeline-bar-before .bft-timeline-bar-track {
     background: var(--bft-band-excellent-bg);
 }
-.bft-timeline-bar-on-track .bft-timeline-bar-fill,
-.bft-timeline-bar-on-track .bft-timeline-bar-thumb {
+.bft-timeline-bar-before .bft-timeline-bar-fill,
+.bft-timeline-bar-before .bft-timeline-bar-thumb {
     background: var(--bft-band-excellent-fg);
 }
 
-.bft-timeline-bar-soon .bft-timeline-bar-track {
-    background: var(--bft-band-good-bg);
+/* Running: orange fill up to today's position. */
+.bft-timeline-bar-running .bft-timeline-bar-track {
+    background: #fbe9d0;
 }
-.bft-timeline-bar-soon .bft-timeline-bar-fill,
-.bft-timeline-bar-soon .bft-timeline-bar-thumb {
-    background: var(--bft-band-good-fg);
-}
-
-.bft-timeline-bar-urgent .bft-timeline-bar-track {
-    background: var(--bft-band-regular-bg);
-}
-.bft-timeline-bar-urgent .bft-timeline-bar-fill,
-.bft-timeline-bar-urgent .bft-timeline-bar-thumb {
-    background: var(--bft-band-regular-fg);
+.bft-timeline-bar-running .bft-timeline-bar-fill,
+.bft-timeline-bar-running .bft-timeline-bar-thumb {
+    background: #ea8a1f;
 }
 
-.bft-timeline-bar-overdue .bft-timeline-bar-track {
-    background: var(--bft-band-critical-bg);
+/* Closed (close date reached or passed): dark orange, thumb pinned at the end. */
+.bft-timeline-bar-closed .bft-timeline-bar-track {
+    background: #f3dcc9;
 }
-.bft-timeline-bar-overdue .bft-timeline-bar-fill,
-.bft-timeline-bar-overdue .bft-timeline-bar-thumb {
-    background: var(--bft-band-critical-fg);
+.bft-timeline-bar-closed .bft-timeline-bar-fill,
+.bft-timeline-bar-closed .bft-timeline-bar-thumb {
+    background: #c2410c;
 }
 
 /* Hero row inside GroupCard. */
@@ -1701,34 +1701,62 @@ table.bft-sortable th.bft-sort-desc::after {
 }
 
 .bft-activity-title {
+    flex: 1;
+    min-width: 0;
     font-size: 0.78rem;
     font-weight: 600;
     color: var(--bft-text);
+    text-decoration: none;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.bft-activity-rule-on {
-    font-size: 0.55rem;
-    font-weight: 700;
-    color: var(--bft-band-excellent-fg);
-    background: var(--bft-band-excellent-bg);
-    padding: 0.1rem 0.3rem;
-    border-radius: 3px;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+.bft-activity-title:hover,
+.bft-activity-title:focus {
+    text-decoration: underline;
 }
 
-.bft-activity-rule-off {
+/* Clickable action chip: links to the group-override editor. Variant colour
+ * signals the state — done (teal), override (orange), create (neutral). */
+.bft-activity-action {
+    flex: none;
     font-size: 0.55rem;
     font-weight: 700;
-    color: var(--bft-text-muted);
-    background: var(--bft-surface-dim);
     padding: 0.1rem 0.3rem;
     border-radius: 3px;
     letter-spacing: 0.04em;
     text-transform: uppercase;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+a.bft-activity-action:hover,
+a.bft-activity-action:focus {
+    text-decoration: underline;
+}
+
+.bft-activity-action-done {
+    color: var(--bft-band-excellent-fg);
+    background: var(--bft-band-excellent-bg);
+}
+
+.bft-activity-action-override {
+    color: #c2410c;
+    background: #fbe9d0;
+}
+
+.bft-activity-action-create {
+    color: var(--bft-text-muted);
+    background: var(--bft-surface-dim);
+    border: 1px solid var(--bft-border);
+}
+
+/* Static, non-editable badge: "Sem regra" (no manage capability + no schedule).
+ * Same look as the old rule_off chip, but as a non-interactive span. */
+.bft-activity-action-norule {
+    color: var(--bft-text-muted);
+    background: var(--bft-surface-dim);
     border: 1px dashed var(--bft-border);
 }
 

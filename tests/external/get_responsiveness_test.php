@@ -147,6 +147,17 @@ final class get_responsiveness_test extends \advanced_testcase {
         $this->assertArrayHasKey('peer_department_score', $card);
         $this->assertNull($card['peer_department_score']);
         $this->assertNull($card['peer_top10_score']);
+
+        // Per-group assign schedule: the single date-less assign surfaces with
+        // the create-rule action and null open/close, viewed by an editing
+        // teacher (who holds mod/assign:manageoverrides).
+        $this->assertArrayHasKey('activities', $card);
+        $this->assertCount(1, $card['activities']);
+        $this->assertSame((int) $cm->id, $card['activities'][0]['cmid']);
+        $this->assertSame('create', $card['activities'][0]['action']);
+        $this->assertTrue($card['activities'][0]['editable']);
+        $this->assertNull($card['activities'][0]['opens']);
+        $this->assertNull($card['activities'][0]['closes']);
     }
 
     /**

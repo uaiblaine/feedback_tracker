@@ -44,7 +44,7 @@ import {getResponsiveness} from 'block_feedback_tracker/lib/api';
 /** Client cache: how long a stored page set stays fresh (matches server TTL). */
 const CACHE_TTL_SECONDS = 900;
 /** sessionStorage key prefix + schema version (bump to invalidate old shapes). */
-const CACHE_PREFIX = 'bft-resp-v1-';
+const CACHE_PREFIX = 'bft-resp-v2-';
 
 /**
  * Build the sessionStorage key for one (course, calver, session, sort) tuple.

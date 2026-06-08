@@ -18,6 +18,11 @@
  * activity's open and close timestamps as a coloured progress bar with
  * dates flanking the track.
  *
+ * Three phases drive the colour and the thumb position:
+ *   - before  (now <= open):   teal track, thumb pinned at the left.
+ *   - running (open < now < close): orange track, thumb at the elapsed %.
+ *   - closed  (now >= close):   dark-orange track, thumb pinned at the end.
+ *
  * Renders an "EMPTY" pill when the activity has no open/close rule rather
  * than guessing — a "no rule" assignment is information, not an error.
  *
@@ -42,29 +47,22 @@ const fmtDay = (ts) => {
 };
 
 /**
- * Pick the urgency slug for the activity based on how close the close date is.
+ * Pick the calendar phase: teal before the open date, orange while running,
+ * dark-orange once the close date is reached or passed.
  *
  * @param {number} opens
  * @param {number} closes
  * @param {number} now
- * @returns {'on-track'|'soon'|'urgent'|'overdue'}
+ * @returns {'before'|'running'|'closed'}
  */
-const urgencyFor = (opens, closes, now) => {
+const phaseFor = (opens, closes, now) => {
     if (now >= closes) {
-        return 'overdue';
+        return 'closed';
     }
-    const total = closes - opens;
-    if (total <= 0) {
-        return 'on-track';
+    if (now <= opens) {
+        return 'before';
     }
-    const remainingpct = (closes - now) / total;
-    if (remainingpct < 0.15) {
-        return 'urgent';
-    }
-    if (remainingpct < 0.35) {
-        return 'soon';
-    }
-    return 'on-track';
+    return 'running';
 };
 
 /**
@@ -88,10 +86,10 @@ export default function TimelineBar({opens, closes, norulelabel}) {
     const total = safecloses - safeopens;
     const elapsed = Math.max(0, Math.min(total, now - safeopens));
     const pct = (elapsed / total) * 100;
-    const urgency = urgencyFor(safeopens, safecloses, now);
+    const phase = phaseFor(safeopens, safecloses, now);
 
     return html`
-        <div class=${'bft-timeline-bar bft-timeline-bar-' + urgency}>
+        <div class=${'bft-timeline-bar bft-timeline-bar-' + phase}>
             <span class="bft-timeline-bar-date bft-mono">${fmtDay(safeopens)}</span>
             <div class="bft-timeline-bar-track">
                 <div class="bft-timeline-bar-fill"
@@ -100,7 +98,7 @@ export default function TimelineBar({opens, closes, norulelabel}) {
                      style=${'left: calc(' + Math.min(100, pct).toFixed(1) + '% - 4px);'}></div>
             </div>
             <span class=${'bft-timeline-bar-date bft-mono'
-                + (urgency === 'overdue' ? ' bft-timeline-bar-date-overdue' : '')}>
+                + (phase === 'closed' ? ' bft-timeline-bar-date-overdue' : '')}>
                 ${fmtDay(safecloses)}
             </span>
         </div>

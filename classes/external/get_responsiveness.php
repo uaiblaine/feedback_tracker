@@ -193,6 +193,19 @@ class get_responsiveness extends external_api {
             'peer_department_hours' => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
             'peer_top10_score'      => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
             'peer_top10_hours'      => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
+            'activities'            => new external_multiple_structure(
+                new external_single_structure([
+                    'cmid'   => new external_value(PARAM_INT, 'Course-module id of the assign'),
+                    'name'   => new external_value(PARAM_TEXT, 'Activity name'),
+                    'opens'  => new external_value(PARAM_INT, 'Effective open ts', VALUE_DEFAULT, null, NULL_ALLOWED),
+                    'closes' => new external_value(PARAM_INT, 'Effective close ts', VALUE_DEFAULT, null, NULL_ALLOWED),
+                    'action' => new external_value(PARAM_ALPHA, 'done | create | override | norule'),
+                    'editable' => new external_value(PARAM_BOOL, 'Whether the chip links to the override editor'),
+                ]),
+                '',
+                VALUE_DEFAULT,
+                []
+            ),
         ]);
     }
 }

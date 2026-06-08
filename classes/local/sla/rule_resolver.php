@@ -80,6 +80,36 @@ class rule_resolver {
     }
 
     /**
+     * Pure merge of one optional override row over the assign defaults, with no
+     * DB access. Used by the activity-schedule catalog, which batch-loads the
+     * group overrides itself and resolves many (assign, group) pairs in memory
+     * rather than one query per pair.
+     *
+     * @param \stdClass $assign An {assign} row (id, allowsubmissionsfromdate,
+     *                          duedate, cutoffdate).
+     * @param \stdClass|null $override A single override row, or null.
+     * @return array{timeopens:?int, timecloses:?int, timecutoff:?int, hasrule:int}
+     */
+    public static function merge_override(\stdClass $assign, ?\stdClass $override): array {
+        $timeopens = self::nonzero_or_null($assign->allowsubmissionsfromdate ?? null);
+        $timecloses = self::nonzero_or_null($assign->duedate ?? null);
+        $timecutoff = self::nonzero_or_null($assign->cutoffdate ?? null);
+
+        if ($override !== null) {
+            $timeopens = self::override_value($override->allowsubmissionsfromdate ?? null, $timeopens);
+            $timecloses = self::override_value($override->duedate ?? null, $timecloses);
+            $timecutoff = self::override_value($override->cutoffdate ?? null, $timecutoff);
+        }
+
+        return [
+            'timeopens' => $timeopens,
+            'timecloses' => $timecloses,
+            'timecutoff' => $timecutoff,
+            'hasrule' => ($timeopens !== null || $timecloses !== null || $timecutoff !== null) ? 1 : 0,
+        ];
+    }
+
+    /**
      * Treat 0 / null / empty-string as "not set", everything else as an int.
      *
      * @param mixed $raw
