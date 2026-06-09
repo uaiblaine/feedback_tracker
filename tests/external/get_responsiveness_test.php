@@ -338,7 +338,7 @@ final class get_responsiveness_test extends \advanced_testcase {
 
         $course = $this->getDataGenerator()->create_course();
         $teacher = $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
-        // critical / overgoal / score chosen so priority order is B, A, C:
+        // Critical / overgoal / score chosen so priority order is B, A, C:
         // A,B tie on critical (5); B wins on overgoal (2 > 0); C last (0 crit).
         $ga = $this->getDataGenerator()->create_group(['courseid' => $course->id]);
         $gb = $this->getDataGenerator()->create_group(['courseid' => $course->id]);
@@ -407,7 +407,7 @@ final class get_responsiveness_test extends \advanced_testcase {
         $teacher = $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
         $ga = $this->getDataGenerator()->create_group(['courseid' => $course->id]);
         $gb = $this->getDataGenerator()->create_group(['courseid' => $course->id]);
-        // score 80 weight max(1,2)=2 -> 160; score 20 weight max(1,0)=1 -> 20.
+        // Score 80 weight max(1,2)=2 -> 160; score 20 weight max(1,0)=1 -> 20.
         // (160 + 20) / (2 + 1) = 60.
         $this->seed_rollup($course, (int) $ga->id, 1, 1, 80.0, 10.0, 2);
         $this->seed_rollup($course, (int) $gb->id, 1, 1, 20.0, 10.0, 0);

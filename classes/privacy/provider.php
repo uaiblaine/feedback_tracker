@@ -114,6 +114,11 @@ class provider implements
             'block_feedback_tracker_dashboard_collapsed',
             'privacy:metadata:preference:dashboard_collapsed'
         );
+        // V1.0.27 — report page hero+heatmap collapse state.
+        $collection->add_user_preference(
+            'block_feedback_tracker_report_collapsed',
+            'privacy:metadata:preference:report_collapsed'
+        );
 
         return $collection;
     }
@@ -128,21 +133,31 @@ class provider implements
      * @return void
      */
     public static function export_user_preferences(int $userid): void {
-        $name = 'block_feedback_tracker_dashboard_collapsed';
-        $value = get_user_preferences($name, null, $userid);
-        if ($value === null) {
-            return;
+        $dashboard = get_user_preferences('block_feedback_tracker_dashboard_collapsed', null, $userid);
+        if ($dashboard !== null) {
+            $description = (string) $dashboard === '1'
+                ? get_string('privacy:preference:dashboard_collapsed_collapsed', 'block_feedback_tracker')
+                : get_string('privacy:preference:dashboard_collapsed_expanded', 'block_feedback_tracker');
+            writer::export_user_preference(
+                'block_feedback_tracker',
+                'block_feedback_tracker_dashboard_collapsed',
+                (string) $dashboard,
+                $description
+            );
         }
-        $iscollapsed = (string) $value === '1';
-        $description = $iscollapsed
-            ? get_string('privacy:preference:dashboard_collapsed_collapsed', 'block_feedback_tracker')
-            : get_string('privacy:preference:dashboard_collapsed_expanded', 'block_feedback_tracker');
-        writer::export_user_preference(
-            'block_feedback_tracker',
-            $name,
-            (string) $value,
-            $description
-        );
+
+        $report = get_user_preferences('block_feedback_tracker_report_collapsed', null, $userid);
+        if ($report !== null) {
+            $description = (string) $report === '1'
+                ? get_string('privacy:preference:report_collapsed_collapsed', 'block_feedback_tracker')
+                : get_string('privacy:preference:report_collapsed_expanded', 'block_feedback_tracker');
+            writer::export_user_preference(
+                'block_feedback_tracker',
+                'block_feedback_tracker_report_collapsed',
+                (string) $report,
+                $description
+            );
+        }
     }
 
     /**

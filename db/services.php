@@ -39,6 +39,20 @@ $functions = [
         'ajax'        => true,
         'capabilities' => 'block/feedback_tracker:viewresponsiveness',
     ],
+    'block_feedback_tracker_get_graded_submissions' => [
+        'classname'   => 'block_feedback_tracker\external\get_graded_submissions',
+        'description' => 'Paginated list of already-graded submissions.',
+        'type'        => 'read',
+        'ajax'        => true,
+        'capabilities' => 'block/feedback_tracker:viewresponsiveness',
+    ],
+    'block_feedback_tracker_get_academic_days' => [
+        'classname'   => 'block_feedback_tracker\external\get_academic_days',
+        'description' => 'Last 30 academic days heatmap series for the report page.',
+        'type'        => 'read',
+        'ajax'        => true,
+        'capabilities' => 'block/feedback_tracker:viewresponsiveness',
+    ],
     'block_feedback_tracker_get_pause_timeline' => [
         'classname'   => 'block_feedback_tracker\external\get_pause_timeline',
         'description' => 'Per-submission pause timeline.',

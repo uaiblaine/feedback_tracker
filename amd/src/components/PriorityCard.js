@@ -61,6 +61,28 @@ const perceivedDays = (effectivehours) => {
 };
 
 /**
+ * Label for a priority card's band badge. The priority list is pending work,
+ * so it uses the Waiting / Attention / Priority vocabulary shared with the
+ * group-card stat tiles rather than the score-gauge words — "Excellent" /
+ * "Good" never read right on a "grade now" card and stay reserved for the
+ * score gauge. The band slug still drives the badge colour; only the text
+ * changes. Falls back to the score band label for non-bucket bands.
+ *
+ * @param {string} band   SLA bucket slug (excellent|good|regular|critical|…).
+ * @param {object} i18n   Label bundle.
+ * @returns {string}
+ */
+const priorityLabel = (band, i18n) => {
+    switch (band) {
+        case 'critical': return i18n.card_critical || '';
+        case 'regular': return i18n.card_overgoal || '';
+        case 'good':
+        case 'excellent': return i18n.card_pending || '';
+        default: return (i18n.bands || {})[band] || '';
+    }
+};
+
+/**
  * @param {object} props
  * @param {number} props.idx          1-based rank shown in the header.
  * @param {object} props.submission   Row from get_grader_priority_list.
@@ -69,7 +91,7 @@ const perceivedDays = (effectivehours) => {
  */
 export default function PriorityCard({idx, submission, i18n}) {
     const band = submission.slabucket || 'pending';
-    const bandLabel = (i18n.bands || {})[band] || '';
+    const bandLabel = priorityLabel(band, i18n);
     const studentname = submission.studentname || '';
     const initials = initialsOf(studentname);
     const eff = Number(submission.effectivehours) || 0;

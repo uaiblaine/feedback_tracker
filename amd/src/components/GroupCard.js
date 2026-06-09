@@ -153,16 +153,16 @@ export default function GroupCard({group, courseid, i18n, config}) {
     const perceived = group.cur_median_raw_h !== undefined && group.cur_median_raw_h !== null
         ? Number(group.cur_median_raw_h) : null;
 
-    // Mutually-exclusive pending bands (sum = total pending): prioridade
-    // (critical) | atenção (overgoal) | aguardando (the within-SLA remainder).
-    const prioridade = Number(group.critical) || 0;
-    const atencao = Number(group.overgoal) || 0;
-    const aguardando = Math.max(0, (Number(group.pending) || 0) - atencao - prioridade);
+    // Mutually-exclusive pending bands (sum = total pending): critical
+    // | over-goal | within-goal (the remainder within SLA).
+    const critical = Number(group.critical) || 0;
+    const overgoal = Number(group.overgoal) || 0;
+    const waiting = Math.max(0, (Number(group.pending) || 0) - overgoal - critical);
 
     const allhref = buildDrilldownUrl(courseid, groupid);
-    const aguardandohref = buildDrilldownUrl(courseid, groupid, 'aguardando');
-    const atencaohref = buildDrilldownUrl(courseid, groupid, 'atencao');
-    const prioridadehref = buildDrilldownUrl(courseid, groupid, 'prioridade');
+    const waitinghref = buildDrilldownUrl(courseid, groupid, 'aguardando');
+    const overgoalhref = buildDrilldownUrl(courseid, groupid, 'atencao');
+    const criticalhref = buildDrilldownUrl(courseid, groupid, 'prioridade');
 
     const hasActivities = Array.isArray(group.activities) && group.activities.length > 0;
 
@@ -226,19 +226,19 @@ export default function GroupCard({group, courseid, i18n, config}) {
                     <div class="bft-stat-row">
                         <${StatTile}
                             label=${i18n.card_pending}
-                            value=${aguardando}
+                            value=${waiting}
                             tone="neutral"
-                            href=${aguardandohref} />
+                            href=${waitinghref} />
                         <${StatTile}
                             label=${i18n.card_overgoal}
-                            value=${atencao}
+                            value=${overgoal}
                             tone="warn"
-                            href=${atencaohref} />
+                            href=${overgoalhref} />
                         <${StatTile}
                             label=${i18n.card_critical}
-                            value=${prioridade}
+                            value=${critical}
                             tone="critical"
-                            href=${prioridadehref} />
+                            href=${criticalhref} />
                     </div>
 
                     ${hasActivities && html`

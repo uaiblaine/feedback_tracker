@@ -15,9 +15,10 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Pending grading · detailed report (Phase 2C) — React-driven full-page
- * view of pending submissions for one course, with bucket / group / sort
- * filters, client-side search, and a pause-timeline modal.
+ * Pending grading · detailed report — React-driven full-page view of pending
+ * and graded submissions for one course: a collapsible dashboard-style hero,
+ * a last-30-academic-days heatmap, a status distribution with a graded view,
+ * and a table with server-side search / sort / paging plus grade actions.
  *
  * @package    block_feedback_tracker
  * @copyright  2026 Anderson Blaine <anderson@blaine.com.br>
@@ -91,13 +92,17 @@ $draftpending = \block_feedback_tracker\external\get_pending_submissions::execut
 global $USER;
 $availablegroups = [];
 $payloadgroups = [];
-$scope = null;
+$groupscopes = [];
 try {
     $result = \block_feedback_tracker\local\payload\responsiveness_payload::for_course(
         $courseid,
         (int) $USER->id
     );
     $payloadgroups = $result['groups'] ?? [];
+    // Trimmed per-group metrics so PendingReportView can recompute the hero
+    // scope (selected group vs whole-course aggregate) on the client when the
+    // class filter changes, with no round-trip. Display medians use the
+    // include-pending cur_median_* family, matching the block + dashboard.
     foreach ($payloadgroups as $g) {
         $availablegroups[] = [
             'id' => (int) ($g['groupid'] ?? 0),
@@ -105,110 +110,21 @@ try {
                 ? $g['groupname']
                 : get_string('card_nogroup', 'block_feedback_tracker')),
         ];
+        $groupscopes[] = [
+            'groupid' => (int) ($g['groupid'] ?? 0),
+            'responsiveness_score' => $g['responsiveness_score'] ?? null,
+            'score_band' => $g['score_band'] ?? null,
+            'cur_median_eff_h' => $g['cur_median_eff_h'] ?? null,
+            'cur_median_raw_h' => $g['cur_median_raw_h'] ?? null,
+            'compliance_pct' => $g['compliance_pct'] ?? null,
+            'trend_pct_30d' => $g['trend_pct_30d'] ?? null,
+            'pending' => (int) ($g['pending'] ?? 0),
+            'critical' => (int) ($g['critical'] ?? 0),
+            'overgoal' => (int) ($g['overgoal'] ?? 0),
+        ];
     }
-    $scope = build_pending_report_scope($payloadgroups, (int) $groupid);
 } catch (\Throwable $e) {
     debugging('block_feedback_tracker: group list assembly failed: ' . $e->getMessage());
-}
-
-/**
- * Pick a single hero-row payload for the report. When the user has filtered
- * to one group, surface that group's stats verbatim. When the report is
- * unfiltered ("all groups"), average the scored groups and sum the counts
- * so the hero shows a course-level picture.
- *
- * @param array $groups        Group payloads from responsiveness_payload.
- * @param int   $activegroupid 0 = whole course.
- * @return array|null
- */
-function build_pending_report_scope(array $groups, int $activegroupid): ?array {
-    if (empty($groups)) {
-        return null;
-    }
-    if ($activegroupid > 0) {
-        foreach ($groups as $g) {
-            if ((int) ($g['groupid'] ?? -1) === $activegroupid) {
-                return [
-                    'score'                => $g['responsiveness_score'],
-                    'band'                 => $g['score_band'] ?? 'pending',
-                    'median_eff_h'         => $g['median_eff_h'],
-                    'perceived_median_hours' => $g['perceived_median_hours'],
-                    'compliance_pct'       => $g['compliance_pct'],
-                    'trend_pct_30d'        => $g['trend_pct_30d'],
-                    'trend_series'         => $g['trend_series'] ?? [],
-                    'paused_days_30d'      => $g['paused_days_30d'] ?? 0,
-                    'paused_breakdown_30d' => $g['paused_breakdown_30d']
-                        ?? ['weekend' => 0, 'holiday' => 0, 'recess' => 0],
-                    'paused_events_30d'    => $g['paused_events_30d'] ?? [],
-                    'total_pending'        => (int) ($g['pending'] ?? 0),
-                    'total_critical'       => (int) ($g['critical'] ?? 0),
-                    'total_overgoal'       => (int) ($g['overgoal'] ?? 0),
-                ];
-            }
-        }
-        return null;
-    }
-
-    // Whole-course aggregate. Average scored groups (pending-weighted to
-    // match the OverallBanner math from BlockView), sum counts, take any
-    // group's paused aggregate (course-level).
-    $totalpending = 0;
-    $totalcritical = 0;
-    $totalovergoal = 0;
-    $scoresum = 0.0;
-    $scoreweight = 0.0;
-    $effsum = 0.0;
-    $effcount = 0;
-    $rawsum = 0.0;
-    $rawcount = 0;
-    $compsum = 0.0;
-    $compcount = 0;
-    $trendsum = 0.0;
-    $trendcount = 0;
-    foreach ($groups as $g) {
-        $totalpending += (int) ($g['pending'] ?? 0);
-        $totalcritical += (int) ($g['critical'] ?? 0);
-        $totalovergoal += (int) ($g['overgoal'] ?? 0);
-        if (isset($g['responsiveness_score']) && $g['responsiveness_score'] !== null) {
-            $weight = max(1, (int) ($g['pending'] ?? 0));
-            $scoresum += (float) $g['responsiveness_score'] * $weight;
-            $scoreweight += $weight;
-        }
-        if (isset($g['median_eff_h']) && $g['median_eff_h'] !== null) {
-            $effsum += (float) $g['median_eff_h'];
-            $effcount++;
-        }
-        if (isset($g['perceived_median_hours']) && $g['perceived_median_hours'] !== null) {
-            $rawsum += (float) $g['perceived_median_hours'];
-            $rawcount++;
-        }
-        if (isset($g['compliance_pct']) && $g['compliance_pct'] !== null) {
-            $compsum += (float) $g['compliance_pct'];
-            $compcount++;
-        }
-        if (isset($g['trend_pct_30d']) && $g['trend_pct_30d'] !== null) {
-            $trendsum += (float) $g['trend_pct_30d'];
-            $trendcount++;
-        }
-    }
-    $first = reset($groups);
-    return [
-        'score'                => $scoreweight > 0 ? round($scoresum / $scoreweight, 2) : null,
-        'band'                 => null,
-        'median_eff_h'         => $effcount > 0 ? round($effsum / $effcount, 2) : null,
-        'perceived_median_hours' => $rawcount > 0 ? round($rawsum / $rawcount, 2) : null,
-        'compliance_pct'       => $compcount > 0 ? round($compsum / $compcount, 2) : null,
-        'trend_pct_30d'        => $trendcount > 0 ? round($trendsum / $trendcount, 2) : null,
-        'trend_series'         => is_array($first) ? ($first['trend_series'] ?? []) : [],
-        'paused_days_30d'      => is_array($first) ? (int) ($first['paused_days_30d'] ?? 0) : 0,
-        'paused_breakdown_30d' => is_array($first)
-            ? ($first['paused_breakdown_30d'] ?? ['weekend' => 0, 'holiday' => 0, 'recess' => 0])
-            : ['weekend' => 0, 'holiday' => 0, 'recess' => 0],
-        'paused_events_30d'    => is_array($first) ? ($first['paused_events_30d'] ?? []) : [],
-        'total_pending'        => $totalpending,
-        'total_critical'       => $totalcritical,
-        'total_overgoal'       => $totalovergoal,
-    ];
 }
 
 // Shared block-level labels (band names, card_*, breakdown_*) + page-
@@ -226,6 +142,13 @@ $i18n['drafts_note'] = get_string('drilldown_drafts_note', 'block_feedback_track
 $i18n['drilldown_col_lastsaved'] = get_string('drilldown_col_lastsaved', 'block_feedback_tracker');
 $i18n['status_draft'] = get_string('status_draft', 'block_feedback_tracker');
 
+// Collapse state for the hero + academic-days container (per-user pref).
+$reportcollapsed = (bool) get_user_preferences(
+    'block_feedback_tracker_report_collapsed',
+    '0',
+    (int) $USER->id
+);
+
 $initial = [
     'courseid' => (int) $courseid,
     'coursename' => format_string($course->fullname),
@@ -234,10 +157,12 @@ $initial = [
         'band' => $band,
         'groupid' => $groupid,
         'sort' => $sortmode,
+        'perpage' => $perpage,
     ]),
     'drafts' => $draftpending,
     'groups' => $availablegroups,
-    'scope' => $scope,
+    'groupscopes' => $groupscopes,
+    'report_collapsed' => $reportcollapsed,
     'i18n' => $i18n,
     'config' => \block_feedback_tracker\local\output\bootstrap::config_bundle(),
 ];

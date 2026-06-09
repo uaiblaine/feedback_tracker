@@ -1,0 +1,169 @@
+<?php
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * Tests for the get_graded_submissions external function.
+ *
+ * @package    block_feedback_tracker
+ * @copyright  2026 Anderson Blaine <anderson@blaine.com.br>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
+declare(strict_types=1);
+
+namespace block_feedback_tracker\external;
+
+use core_external\external_api;
+
+/**
+ * Covers the graded listing: it returns only submitted work that now carries a
+ * timegraded, partitions the result bands into counts, and respects the result
+ * band filter.
+ *
+ * @covers \block_feedback_tracker\external\get_graded_submissions
+ */
+final class get_graded_submissions_test extends \advanced_testcase {
+    /**
+     * The listing returns only graded rows; pending work never surfaces.
+     *
+     * @return void
+     */
+    public function test_lists_graded_only(): void {
+        $this->resetAfterTest();
+
+        [$course, $teacher] = $this->seed_course_with_teacher();
+        $this->seed_row($course, 'good', true);
+        $this->seed_row($course, 'excellent', true);
+        $this->seed_row($course, 'good', false);
+
+        $this->setUser($teacher);
+        $result = external_api::clean_returnvalue(
+            get_graded_submissions::execute_returns(),
+            get_graded_submissions::execute((int) $course->id)
+        );
+
+        $this->assertSame(2, (int) $result['total']);
+        foreach ($result['submissions'] as $row) {
+            $this->assertGreaterThan(0, (int) $row['timegraded']);
+        }
+    }
+
+    /**
+     * Counts partition the graded set by result band (slabucket).
+     *
+     * @return void
+     */
+    public function test_counts_by_result_band(): void {
+        $this->resetAfterTest();
+
+        [$course, $teacher] = $this->seed_course_with_teacher();
+        $this->seed_row($course, 'excellent', true);
+        $this->seed_row($course, 'good', true);
+        $this->seed_row($course, 'good', true);
+        $this->seed_row($course, 'critical', true);
+
+        $this->setUser($teacher);
+        $result = external_api::clean_returnvalue(
+            get_graded_submissions::execute_returns(),
+            get_graded_submissions::execute((int) $course->id)
+        );
+
+        $this->assertSame(1, (int) $result['counts']['excellent']);
+        $this->assertSame(2, (int) $result['counts']['good']);
+        $this->assertSame(0, (int) $result['counts']['regular']);
+        $this->assertSame(1, (int) $result['counts']['critical']);
+    }
+
+    /**
+     * The bucket filter narrows the rows to one result band while the counts
+     * still describe the whole graded set.
+     *
+     * @return void
+     */
+    public function test_bucket_filter_narrows_rows(): void {
+        $this->resetAfterTest();
+
+        [$course, $teacher] = $this->seed_course_with_teacher();
+        $this->seed_row($course, 'excellent', true);
+        $this->seed_row($course, 'good', true);
+
+        $this->setUser($teacher);
+        $result = external_api::clean_returnvalue(
+            get_graded_submissions::execute_returns(),
+            get_graded_submissions::execute((int) $course->id, 0, 'good')
+        );
+
+        $this->assertSame(1, (int) $result['total']);
+        $this->assertSame('good', $result['submissions'][0]['slabucket']);
+        $this->assertSame(1, (int) $result['counts']['excellent']);
+        $this->assertSame(1, (int) $result['counts']['good']);
+    }
+
+    // Helpers.
+
+    /**
+     * Create a course with a feedback_tracker block instance and an editing
+     * teacher who can view the responsiveness data.
+     *
+     * @return array{0: \stdClass, 1: \stdClass} [course, teacher]
+     */
+    private function seed_course_with_teacher(): array {
+        $course = $this->getDataGenerator()->create_course();
+        $coursectx = \context_course::instance($course->id);
+        $this->getDataGenerator()->create_block('feedback_tracker', [
+            'parentcontextid' => $coursectx->id,
+        ]);
+        $teacher = $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
+        return [$course, $teacher];
+    }
+
+    /**
+     * Insert one submitted ledger row, optionally graded.
+     *
+     * @param \stdClass $course
+     * @param string $slabucket Result band recorded at grading time.
+     * @param bool $graded When true, set timegraded so the row counts as graded.
+     * @return void
+     */
+    private function seed_row(\stdClass $course, string $slabucket, bool $graded): void {
+        global $DB;
+
+        $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
+        $assign = $this->getDataGenerator()->create_module('assign', ['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('assign', $assign->id);
+
+        $now = time();
+        $DB->insert_record('block_feedback_tracker_sub', (object) [
+            'courseid'         => (int) $course->id,
+            'groupid'          => 0,
+            'cmid'             => (int) $cm->id,
+            'iteminstance'     => (int) $assign->id,
+            'userid'           => (int) $student->id,
+            'attemptnumber'    => 0,
+            'submissionstatus' => 'submitted',
+            'timesubmitted'    => $now - 7200,
+            'timegraded'       => $graded ? $now - 3600 : null,
+            'hasrule'          => 0,
+            'waitinghours'     => 6.0,
+            'effectivehours'   => 5.0,
+            'effectiveasof'    => $now,
+            'effectivecalver'  => 1,
+            'slabucket'        => $slabucket,
+            'timecreated'      => $now - 7200,
+            'timemodified'     => $now,
+        ]);
+    }
+}

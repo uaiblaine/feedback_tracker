@@ -14,109 +14,174 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Full-page React view for pages/pending_report.php — redesigned for MVP3.
+ * Full-page React view for pages/pending_report.php — MVP3 redesign that
+ * inherits the dashboard's hero + collapse pattern and the block's vocabulary.
  *
  * Composition (top → bottom):
- *   1. Breadcrumb (back link + current crumb)
+ *   1. Breadcrumb (back to course + current crumb)
  *   2. Title row (course name H1 + overall status pill)
- *   3. Hero row — 4 cards: Score / Effective / SLA / Trend
- *   4. PausedCallout — transparency about excluded paused periods
- *   5. StatusDistributionBar — click a segment to filter the table
- *   6. Toolbar — class select, segmented status filter, sort select, search, refresh
- *   7. Table — Student / Activity / Class / Submitted / Effective / Perceived / Status / Action
+ *   3. Collapsible container: ResponsivenessModule hero + AcademicDaysStrip
+ *   4. StatusDistributionBar — pending bands (Waiting/Attention/Priority) with a
+ *      "Já avaliados" toggle into the graded view (Excellent/Good/Up Next/Priority)
+ *   5. Toolbar — class select, real (server-side) search, refresh
+ *   6. Table — Student / Activity / Class / Submitted / Effective / Perceived |
+ *      Graded / Status|Result / Action (grade + pause-timeline)
  *
- * State split is unchanged from MVP2:
- *   - Server-driven (re-fetches WS):  groupid, bucket, serverSort, page
- *   - Client-only (no fetch):         search, clientSortKey, clientSortOrder
+ * Everything is server-driven: the group filter, distribution filter, search,
+ * column sort, paging, and the distribution counts all re-fetch the WS so they
+ * span every matching row, not just the page on screen. The hero scope is the
+ * one client-side computation — it recomputes instantly from the groupscopes
+ * payload when the class filter changes (no round-trip).
  *
  * @module    block_feedback_tracker/views/PendingReportView
  * @copyright 2026 Anderson Blaine <anderson@blaine.com.br>
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-import {html, useState, useMemo, useEffect, useRef} from 'block_feedback_tracker/lib/preact';
+import {html, useState, useEffect, useRef} from 'block_feedback_tracker/lib/preact';
 import Badge from 'block_feedback_tracker/components/Badge';
-import ScoreRing from 'block_feedback_tracker/components/ScoreRing';
-import Sparkline from 'block_feedback_tracker/components/Sparkline';
-import PausedCallout from 'block_feedback_tracker/components/PausedCallout';
+import ResponsivenessModule from 'block_feedback_tracker/components/ResponsivenessModule';
+import AcademicDaysStrip from 'block_feedback_tracker/components/AcademicDaysStrip';
 import StatusDistributionBar from 'block_feedback_tracker/components/StatusDistributionBar';
-import HeroMetricCard from 'block_feedback_tracker/components/HeroMetricCard';
-import SegmentedFilter from 'block_feedback_tracker/components/SegmentedFilter';
 import {bandForScore, colourFor} from 'block_feedback_tracker/lib/bands';
-import {getPendingSubmissions} from 'block_feedback_tracker/lib/api';
-import {formatHours, formatDate, formatPercent} from 'block_feedback_tracker/lib/format';
-import * as PauseTimelineModal from 'block_feedback_tracker/components/PauseTimelineModal';
+import {getPendingSubmissions, getGradedSubmissions, getAcademicDays}
+    from 'block_feedback_tracker/lib/api';
+import {formatHours, formatDate} from 'block_feedback_tracker/lib/format';
+import {setUserPreference} from 'core_user/repository';
+import Notification from 'core/notification';
 
-/**
- * Threshold (in business hours) above which the difference between effective
- * and perceived is meaningful enough to surface a "paused" tag on the row.
- */
+/** Moodle user-preference name persisting the hero+heatmap collapse state. */
+const PREF_REPORT_COLLAPSED = 'block_feedback_tracker_report_collapsed';
+
+/** Business hours above which effective/perceived differ enough to tag a row. */
 const PAUSED_TAG_EPSILON = 0.5;
 
 /**
- * Convert effective hours to a rough calendar-day approximation. Uses an
- * 8-hour business day (matches the install.php seed); we round up to keep
- * "perceived" honest (a 1-hour wait still feels like "today").
+ * Perceived calendar-days label from raw (wall-clock) median hours. The raw
+ * median already includes weekends and holidays so it converts straight to
+ * calendar days.
  *
- * @param {number|null|undefined} effectivehours
- * @returns {string} Formatted "Nd" or "—".
+ * @param {number|null|undefined} rawhours
+ * @returns {string}
  */
-const formatPerceivedDays = (effectivehours) => {
-    if (effectivehours === null || effectivehours === undefined) {
+const perceivedLabel = (rawhours) => {
+    const n = Number(rawhours);
+    if (!Number.isFinite(n) || n <= 0) {
         return '—';
     }
-    const n = Number(effectivehours);
-    if (!Number.isFinite(n) || n <= 0) {
-        return '0d';
-    }
-    const days = Math.max(1, Math.round(n / 24 * 1.35));
-    return days + 'd';
+    return Math.max(1, Math.round(n / 24)) + 'd';
 };
 
 /**
- * Apply the client-side search + sort to a fetched page of submissions.
- * Pure — no side effects.
+ * Map a pending row's band to its Status badge {colour band slug, label}. Uses
+ * the Waiting / Attention / Priority vocabulary (card_* strings) and the same
+ * colour tones as the distribution bar, so the badge always agrees with the
+ * filter that produced the row.
  *
- * @param {Array<object>} rows
- * @param {string} search
- * @param {string|null} sortKey
- * @param {string} sortOrder  'asc' or 'desc'
- * @returns {Array<object>}
+ * @param {string} pendingband  aguardando | atencao | prioridade.
+ * @param {object} i18n
+ * @returns {{band: string, label: string}}
  */
-const decorate = (rows, search, sortKey, sortOrder) => {
-    const needle = (search || '').trim().toLowerCase();
-    let out = Array.isArray(rows) ? rows.slice() : [];
-    if (needle.length > 0) {
-        out = out.filter((r) => {
-            const hay = (r.studentname + ' ' + r.activityname + ' ' + (r.groupname || '')).toLowerCase();
-            return hay.indexOf(needle) !== -1;
-        });
+const pendingBadge = (pendingband, i18n) => {
+    switch (pendingband) {
+        case 'prioridade': return {band: 'critical', label: i18n.card_critical || 'Priority'};
+        case 'atencao': return {band: 'regular', label: i18n.card_overgoal || 'Attention'};
+        default: return {band: 'pending', label: i18n.card_pending || 'Waiting'};
     }
-    if (sortKey) {
-        const dir = sortOrder === 'asc' ? 1 : -1;
-        const numeric = sortKey === 'timesubmitted' || sortKey === 'waitinghours' || sortKey === 'effectivehours';
-        out.sort((a, b) => {
-            const va = a[sortKey];
-            const vb = b[sortKey];
-            if (numeric) {
-                return ((Number(va) || 0) - (Number(vb) || 0)) * dir;
-            }
-            return String(va || '').localeCompare(String(vb || '')) * dir;
-        });
-    }
-    return out;
 };
 
 /**
- * Header cell — renders the column label as a clickable button that
- * toggles client-side sort on the bound key. Stateless; emits onClick.
+ * Compute the hero scope for the active class filter. Single group → that
+ * group's metrics; "all" → pending-weighted score, mean of the include-pending
+ * medians, summed counts. Mirrors the server's old build_pending_report_scope
+ * and the dashboard's aggregate().
+ *
+ * @param {Array<object>} scopes  Trimmed per-group metrics from the payload.
+ * @param {number} gid            Active group id, 0 = whole course.
+ * @returns {object|null}
+ */
+const computeScope = (scopes, gid) => {
+    if (!Array.isArray(scopes) || scopes.length === 0) {
+        return null;
+    }
+    if (gid > 0) {
+        const g = scopes.find((s) => Number(s.groupid) === gid);
+        if (!g) {
+            return null;
+        }
+        return {
+            score: g.responsiveness_score,
+            band: g.score_band || null,
+            effective: g.cur_median_eff_h,
+            perceivedraw: g.cur_median_raw_h,
+            compliance: g.compliance_pct,
+            trendpct: g.trend_pct_30d,
+            total_pending: Number(g.pending) || 0,
+            total_critical: Number(g.critical) || 0,
+            total_overgoal: Number(g.overgoal) || 0,
+        };
+    }
+    let pending = 0;
+    let critical = 0;
+    let overgoal = 0;
+    let scoreSum = 0;
+    let scoreWeight = 0;
+    let effSum = 0;
+    let effCount = 0;
+    let rawSum = 0;
+    let rawCount = 0;
+    let compSum = 0;
+    let compCount = 0;
+    let trendSum = 0;
+    let trendCount = 0;
+    scopes.forEach((g) => {
+        pending += Number(g.pending) || 0;
+        critical += Number(g.critical) || 0;
+        overgoal += Number(g.overgoal) || 0;
+        if (g.responsiveness_score !== null && g.responsiveness_score !== undefined) {
+            const weight = Math.max(1, Number(g.pending) || 0);
+            scoreSum += Number(g.responsiveness_score) * weight;
+            scoreWeight += weight;
+        }
+        if (g.cur_median_eff_h !== null && g.cur_median_eff_h !== undefined) {
+            effSum += Number(g.cur_median_eff_h);
+            effCount += 1;
+        }
+        if (g.cur_median_raw_h !== null && g.cur_median_raw_h !== undefined) {
+            rawSum += Number(g.cur_median_raw_h);
+            rawCount += 1;
+        }
+        if (g.compliance_pct !== null && g.compliance_pct !== undefined) {
+            compSum += Number(g.compliance_pct);
+            compCount += 1;
+        }
+        if (g.trend_pct_30d !== null && g.trend_pct_30d !== undefined) {
+            trendSum += Number(g.trend_pct_30d);
+            trendCount += 1;
+        }
+    });
+    return {
+        score: scoreWeight > 0 ? scoreSum / scoreWeight : null,
+        band: null,
+        effective: effCount > 0 ? effSum / effCount : null,
+        perceivedraw: rawCount > 0 ? rawSum / rawCount : null,
+        compliance: compCount > 0 ? compSum / compCount : null,
+        trendpct: trendCount > 0 ? trendSum / trendCount : null,
+        total_pending: pending,
+        total_critical: critical,
+        total_overgoal: overgoal,
+    };
+};
+
+/**
+ * Header cell — column label as a button that drives the server-side sort.
  *
  * @param {object} props
- * @param {string} props.label         Column label.
- * @param {string} props.sortKey       Key this header sorts by.
- * @param {string|null} props.currentKey Currently-active sort key.
- * @param {string} props.currentOrder  'asc' or 'desc' on the active key.
- * @param {Function} props.onClick     Callback fired with sortKey on click.
+ * @param {string} props.label
+ * @param {string} props.sortKey
+ * @param {string} props.currentKey
+ * @param {string} props.currentOrder
+ * @param {Function} props.onClick
  * @returns {object} vnode
  */
 const SortableHeader = ({label, sortKey, currentKey, currentOrder, onClick}) => {
@@ -136,31 +201,10 @@ const SortableHeader = ({label, sortKey, currentKey, currentOrder, onClick}) => 
 };
 
 /**
- * Bucket counts grouped by band slug.
- *
- * @param {Array<object>} rows
- * @returns {Object<string, number>}
- */
-const countByBand = (rows) => {
-    const out = {excellent: 0, good: 0, regular: 0, critical: 0};
-    if (!Array.isArray(rows)) {
-        return out;
-    }
-    for (const r of rows) {
-        const b = r.slabucket;
-        if (out[b] !== undefined) {
-            out[b]++;
-        }
-    }
-    return out;
-};
-
-/**
  * Top-level view.
  *
  * @param {object} props
- * @param {object} props.initial  Mount-point payload: {courseid, coursename,
- *                                pending, groups, scope, i18n, config}.
+ * @param {object} props.initial  Mount-point payload.
  * @returns {object} vnode
  */
 export default function PendingReportView({initial}) {
@@ -169,53 +213,67 @@ export default function PendingReportView({initial}) {
     const scoreThresholds = config.score_thresholds || null;
     const courseid = Number(initial.courseid) || 0;
     const availableGroups = Array.isArray(initial.groups) ? initial.groups : [];
+    const groupScopes = Array.isArray(initial.groupscopes) ? initial.groupscopes : [];
     const initialPending = initial.pending || {};
-    const scope = initial.scope || null;
 
-    // --- Server-driven filters (each change refetches the WS). ---
+    // eslint-disable-next-line no-undef
+    const wwwroot = (typeof M !== 'undefined' && M.cfg && M.cfg.wwwroot) || '';
+    const courseUrl = wwwroot + '/course/view.php?id=' + encodeURIComponent(String(courseid));
+
+    // --- Mode + server-driven filters. ---
+    const [mode, setMode] = useState('pending');
+    const [groupid, setGroupid] = useState(Number(initialPending.groupid) || 0);
+    const [filter, setFilter] = useState(String(initialPending.band || ''));
+    const [serverSort, setServerSort] = useState(String(initialPending.sort || 'longestwait'));
+    const [sortOrder, setSortOrder] = useState('desc');
     const [page, setPage] = useState(Number(initialPending.page) || 0);
     const [perpage] = useState(Number(initialPending.perpage) || 25);
-    const [bucket, setBucket] = useState(String(initialPending.bucket || ''));
-    const [band, setBand] = useState(String(initialPending.band || ''));
-    const [groupid, setGroupid] = useState(Number(initialPending.groupid) || 0);
-    const [serverSort, setServerSort] = useState(String(initialPending.sort || 'longestwait'));
 
-    // --- Page data, refreshed by every WS call. ---
+    // Debounced search: searchInput is bound to the box; search drives the WS.
+    const [searchInput, setSearchInput] = useState('');
+    const [search, setSearch] = useState('');
+
+    // --- Page data. ---
     const [submissions, setSubmissions] = useState(
         Array.isArray(initialPending.submissions) ? initialPending.submissions : []
     );
     const [total, setTotal] = useState(Number(initialPending.total) || 0);
+    const [counts, setCounts] = useState(initialPending.counts || {});
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
-    // Drafts (not-yet-submitted work) — a separate, de-emphasised list that
-    // never counts toward the SLA. Seeded server-side; re-fetched only when
-    // the class filter changes (bucket / sort / paging don't apply to drafts).
+    // Drafts (pending mode only) — seeded server-side, refetched on class change.
     const initialDrafts = initial.drafts || {};
     const [drafts, setDrafts] = useState(
         Array.isArray(initialDrafts.submissions) ? initialDrafts.submissions : []
     );
 
-    // --- Client-only state (no refetch). ---
-    const [search, setSearch] = useState('');
-    const [clientSortKey, setClientSortKey] = useState(null);
-    const [clientSortOrder, setClientSortOrder] = useState('asc');
+    // Collapse state for the hero + heatmap container (Moodle user preference).
+    const [collapsed, setCollapsed] = useState(Boolean(initial.report_collapsed));
 
-    // Skip the first fetch — the initial payload is already on the screen.
+    // Academic-days heatmap (async).
+    const [acaDays, setAcaDays] = useState([]);
+    const [acaSummary, setAcaSummary] = useState(null);
+    const [acaEvents, setAcaEvents] = useState([]);
+    const [acaLoading, setAcaLoading] = useState(true);
+
     const firstRun = useRef(true);
+    const firstRunDrafts = useRef(true);
 
     /**
-     * Fetch a page from the WS using the current server-side filters.
+     * Fetch a page using the current mode + filters.
      */
     const fetchPage = async () => {
         setLoading(true);
         setError(null);
+        const args = {courseid, groupid, sort: serverSort, order: sortOrder, search, page, perpage};
         try {
-            const result = await getPendingSubmissions({
-                courseid, groupid, bucket, band, sort: serverSort, page, perpage,
-            });
+            const result = mode === 'graded'
+                ? await getGradedSubmissions(Object.assign({}, args, {bucket: filter}))
+                : await getPendingSubmissions(Object.assign({}, args, {band: filter}));
             setSubmissions(Array.isArray(result.submissions) ? result.submissions : []);
             setTotal(Number(result.total) || 0);
+            setCounts(result.counts || {});
         } catch (e) {
             setError(i18n.pendingreport_error || 'Failed to load.');
         } finally {
@@ -223,18 +281,25 @@ export default function PendingReportView({initial}) {
         }
     };
 
-    // Re-fetch when any server-driven knob changes.
+    // Debounce keystrokes into the search term (reset to page 0 on change).
+    useEffect(() => {
+        const t = setTimeout(() => {
+            setPage(0);
+            setSearch(searchInput);
+        }, 350);
+        return () => clearTimeout(t);
+    }, [searchInput]);
+
+    // Re-fetch on any server-driven change. The first render is seeded server-side.
     useEffect(() => {
         if (firstRun.current) {
             firstRun.current = false;
             return;
         }
         fetchPage();
-    }, [groupid, bucket, band, serverSort, page]);
+    }, [mode, groupid, filter, serverSort, sortOrder, search, page]);
 
-    // Drafts depend only on the class filter. Re-fetch on groupid change; the
-    // initial list is already seeded from the server payload.
-    const firstRunDrafts = useRef(true);
+    // Drafts depend only on the class filter.
     const fetchDrafts = async () => {
         try {
             const result = await getPendingSubmissions({
@@ -242,8 +307,6 @@ export default function PendingReportView({initial}) {
             });
             setDrafts(Array.isArray(result.submissions) ? result.submissions : []);
         } catch (e) {
-            // Drafts are a secondary aid — the main list already surfaces load
-            // failures, so fail quiet here.
             setDrafts([]);
         }
     };
@@ -255,79 +318,135 @@ export default function PendingReportView({initial}) {
         fetchDrafts();
     }, [groupid]);
 
-    // Derived: filtered + client-sorted submissions + distribution counts.
-    const visible = useMemo(
-        () => decorate(submissions, search, clientSortKey, clientSortOrder),
-        [submissions, search, clientSortKey, clientSortOrder]
-    );
-    const distCounts = useMemo(() => countByBand(submissions), [submissions]);
-    const visibleDrafts = useMemo(
-        () => decorate(drafts, search, null, 'asc'),
-        [drafts, search]
-    );
+    // Academic-days heatmap loads on mount and on class change.
+    const fetchAcademic = async () => {
+        setAcaLoading(true);
+        try {
+            const result = await getAcademicDays({courseid, groupid});
+            setAcaDays(Array.isArray(result.days) ? result.days : []);
+            setAcaSummary(result.summary || null);
+            setAcaEvents(Array.isArray(result.events) ? result.events : []);
+        } catch (e) {
+            setAcaDays([]);
+        } finally {
+            setAcaLoading(false);
+        }
+    };
+    useEffect(() => {
+        fetchAcademic();
+    }, [groupid]);
 
     const totalPages = Math.max(1, Math.ceil(total / perpage));
+    const graded = mode === 'graded';
 
     /**
-     * Toggle client-side sort on the clicked column header.
+     * Toggle the collapse state, persisting it as a user preference.
+     *
+     * @param {boolean} next
+     */
+    const handleToggleCollapsed = (next) => {
+        setCollapsed(next);
+        setUserPreference(PREF_REPORT_COLLAPSED, next ? '1' : '0')
+            .catch((e) => {
+                setCollapsed(!next);
+                Notification.exception(e);
+            });
+    };
+
+    /**
+     * Switch pending ↔ graded, resetting the dependent filters.
+     *
+     * @param {string} m
+     */
+    const handleModeChange = (m) => {
+        if (m === mode) {
+            return;
+        }
+        setMode(m);
+        setFilter('');
+        setCounts({});
+        setPage(0);
+        setServerSort(m === 'graded' ? 'graded' : 'longestwait');
+        setSortOrder('desc');
+    };
+
+    /**
+     * Toggle / set the server-side column sort.
      *
      * @param {string} key
      */
-    const handleHeaderClick = (key) => {
-        if (clientSortKey === key) {
-            setClientSortOrder(clientSortOrder === 'asc' ? 'desc' : 'asc');
+    const handleSort = (key) => {
+        if (serverSort === key) {
+            setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
         } else {
-            setClientSortKey(key);
-            setClientSortOrder('asc');
+            setServerSort(key);
+            const textcol = key === 'student' || key === 'activity' || key === 'class';
+            setSortOrder(textcol ? 'asc' : 'desc');
         }
+        setPage(0);
     };
 
     /**
-     * Open the pause timeline modal for one row.
+     * Deep-link to the single-student grader for one submission.
      *
-     * @param {object} submission
+     * @param {object} row
+     * @returns {string}
      */
-    const openTimeline = (submission) => {
-        PauseTimelineModal.open({submission, i18n});
-    };
+    const graderUrl = (row) => wwwroot + '/mod/assign/view.php?id='
+        + encodeURIComponent(String(row.cmid))
+        + '&action=grader&userid=' + encodeURIComponent(String(row.userid));
 
-    // --- Scope-derived hero values. ---
+    // --- Hero scope. ---
+    const scope = computeScope(groupScopes, groupid);
     const scopeScore = scope && scope.score !== null && scope.score !== undefined
         ? Number(scope.score) : null;
     const scopeBand = (scope && scope.band) || bandForScore(scopeScore, scoreThresholds);
     const scopeBandLabel = (i18n.bands || {})[scopeBand] || '';
-    const trendSeries = (scope && Array.isArray(scope.trend_series))
-        ? scope.trend_series.map((p) => (p && p.value !== null && p.value !== undefined ? Number(p.value) : null))
-        : [];
-    const trendPct = scope && scope.trend_pct_30d !== null && scope.trend_pct_30d !== undefined
-        ? Number(scope.trend_pct_30d) : null;
-    const trendTone = trendPct === null || Math.abs(trendPct) < 2
-        ? 'pending'
-        : trendPct < 0 ? 'excellent' : 'critical';
-    const effective = scope && scope.median_eff_h !== null && scope.median_eff_h !== undefined
-        ? Number(scope.median_eff_h) : null;
-    const perceivedDays = formatPerceivedDays(effective);
 
-    // --- Status filter options. ---
-    const labels = i18n.bands || {};
-    const statusOptions = [
-        {value: '',          label: i18n.pendingreport_filter_bucket_all || 'All'},
-        {value: 'excellent', label: labels.excellent || 'Excellent', tone: 'excellent'},
-        {value: 'good',      label: labels.good      || 'Good',      tone: 'good'},
-        {value: 'regular',   label: labels.regular   || 'Up Next',   tone: 'regular'},
-        {value: 'critical',  label: labels.critical  || 'Priority',  tone: 'critical'},
-    ];
+    const chips = [];
+    if (scope) {
+        if (scope.compliance !== null && scope.compliance !== undefined) {
+            chips.push({
+                label: Math.round(Number(scope.compliance)) + '% ' + (i18n.report_chip_sla || 'within SLA'),
+                tone: scopeBand,
+            });
+        }
+        if (scope.total_overgoal > 0) {
+            chips.push({label: scope.total_overgoal + ' ' + (i18n.hero_sla_atrisk || 'at risk'), tone: 'regular'});
+        }
+        if (scope.total_critical > 0) {
+            chips.push({label: scope.total_critical + ' ' + (i18n.hero_sla_critical || 'critical'), tone: 'critical'});
+        }
+    }
 
-    // Build a course-page URL for the "← Block" breadcrumb.
-    // eslint-disable-next-line no-undef
-    const wwwroot = (typeof M !== 'undefined' && M.cfg && M.cfg.wwwroot) || '';
-    const courseUrl = wwwroot + '/course/view.php?id=' + encodeURIComponent(String(courseid));
+    const heroprops = {
+        score: scopeScore,
+        band: scopeBand,
+        bandlabel: scopeBandLabel,
+        effectivehours: scope && scope.effective !== null && scope.effective !== undefined
+            ? Number(scope.effective) : null,
+        perceivedlabel: scope ? perceivedLabel(scope.perceivedraw) : '—',
+        compliancepct: scope && scope.compliance !== null && scope.compliance !== undefined
+            ? Number(scope.compliance) : null,
+        trendpct: scope && scope.trendpct !== null && scope.trendpct !== undefined
+            ? Number(scope.trendpct) : null,
+        i18n,
+        config,
+        chips,
+        eyebrow: i18n.report_hero_eyebrow,
+        headline: i18n.report_hero_headline,
+        body: i18n.report_hero_body,
+    };
+
+    const sublineLabel = (graded
+        ? (i18n.pendingreport_subline_graded || '{$a} graded')
+        : (i18n.pendingreport_subline_pending || '{$a} awaiting feedback')).replace('{$a}', String(total));
 
     return html`
         <div class="bft-report">
             <nav class="bft-breadcrumb" aria-label="breadcrumb">
                 <a class="bft-crumb-link" href=${courseUrl}>
-                    ${i18n.pendingreport_breadcrumb_block || '← Block'}
+                    ${i18n.pendingreport_breadcrumb_course || '← Back to course'}
                 </a>
                 <span class="bft-crumb-sep">/</span>
                 <span class="bft-crumb-current">
@@ -338,15 +457,7 @@ export default function PendingReportView({initial}) {
             <div class="bft-report-title-row">
                 <div class="bft-report-title-text">
                     <h1 class="bft-report-h1">${initial.coursename}</h1>
-                    <div class="bft-report-subline">
-                        <strong>${total}</strong>
-                        ${' ' + (i18n.pendingreport_search_placeholder ? '' : '')}
-                        ${availableGroups.length > 0 && html`
-                            <span class="bft-report-subline-classes">
-                                · ${availableGroups.length} ${availableGroups.length === 1 ? 'class' : 'classes'}
-                            </span>
-                        `}
-                    </div>
+                    <div class="bft-report-subline">${sublineLabel}</div>
                 </div>
                 ${scopeBand && scopeBandLabel && html`
                     <${Badge} band=${scopeBand} label=${scopeBandLabel} />
@@ -354,98 +465,27 @@ export default function PendingReportView({initial}) {
             </div>
 
             ${scope && html`
-                <div class="bft-hero-row">
-                    <${HeroMetricCard}
-                        wide=${true}
-                        eyebrow=${i18n.hero_score_eyebrow || 'Academic Responsiveness'}
-                        tip=${i18n.hero_score_tip}>
-                        <div class="bft-hero-score">
-                            <${ScoreRing} score=${scopeScore} band=${scopeBand} size=${72} thickness=${7} />
-                            <div class="bft-hero-score-text">
-                                <div class="bft-hero-score-row">
-                                    <span class=${'bft-hero-score-val bft-mono bft-overall-score-tone-' + scopeBand}>
-                                        ${scopeScore === null ? '—' : Math.round(scopeScore)}
-                                    </span>
-                                    <span class="bft-hero-score-of bft-mono">/ 100</span>
-                                </div>
-                                <span class="bft-hero-score-note">
-                                    ${scopeBandLabel} · ${i18n.hero_score_note || 'business-time'}
-                                </span>
-                            </div>
-                        </div>
-                    <//>
-                    <${HeroMetricCard}
-                        eyebrow=${i18n.hero_effective_eyebrow || 'Effective feedback time'}
-                        tip=${i18n.hero_effective_tip}>
-                        <div class="bft-hero-kpi">
-                            <span class=${'bft-hero-kpi-val bft-mono bft-overall-score-tone-' + scopeBand}>
-                                ${effective === null ? '—' : formatHours(effective)}
-                            </span>
-                            <span class="bft-hero-kpi-unit">${i18n.hero_effective_unit || 'business hrs'}</span>
-                        </div>
-                        <div class="bft-hero-kpi-sub">
-                            <span class="bft-hero-kpi-sub-label">${i18n.hero_perceived_label || 'Perceived wait'}</span>
-                            <span class="bft-hero-kpi-sub-value bft-mono">
-                                ${perceivedDays} ${i18n.hero_perceived_unit || 'calendar days'}
-                            </span>
-                        </div>
-                    <//>
-                    <${HeroMetricCard}
-                        eyebrow=${i18n.hero_sla_eyebrow || 'SLA compliance'}
-                        tip=${i18n.hero_sla_tip}>
-                        <div class="bft-hero-kpi">
-                            <span class=${'bft-hero-kpi-val bft-mono bft-overall-score-tone-' + scopeBand}>
-                                ${scope.compliance_pct === null || scope.compliance_pct === undefined
-                                    ? '—' : formatPercent(scope.compliance_pct)}
-                            </span>
-                            <span class="bft-hero-kpi-unit">${i18n.hero_sla_unit || 'within'}</span>
-                        </div>
-                        <div class="bft-hero-kpi-chips">
-                            ${(scope.total_overgoal || 0) > 0 && html`
-                                <span class="bft-hero-chip bft-hero-chip-regular">
-                                    ${scope.total_overgoal} ${i18n.hero_sla_atrisk || 'at risk'}
-                                </span>
-                            `}
-                            ${(scope.total_critical || 0) > 0 && html`
-                                <span class="bft-hero-chip bft-hero-chip-critical">
-                                    ${scope.total_critical} ${i18n.hero_sla_critical || 'critical'}
-                                </span>
-                            `}
-                        </div>
-                    <//>
-                    <${HeroMetricCard}
-                        eyebrow=${i18n.hero_trend_eyebrow || 'Trend'}
-                        tip=${i18n.hero_trend_tip}>
-                        <div class="bft-hero-kpi">
-                            <span class=${'bft-hero-kpi-val bft-mono bft-overall-score-tone-' + trendTone}>
-                                ${trendPct === null ? '—' : (trendPct > 0 ? '+' : '') + Math.round(trendPct) + '%'}
-                            </span>
-                            <span class="bft-hero-kpi-unit">${i18n.hero_trend_unit || 'vs last month'}</span>
-                        </div>
-                        ${trendSeries.length > 0 && html`
-                            <div class="bft-hero-spark">
-                                <${Sparkline}
-                                    values=${trendSeries}
-                                    width=${120}
-                                    height=${26} />
-                            </div>
-                        `}
-                    <//>
-                </div>
+                <${ResponsivenessModule}
+                    collapsed=${collapsed}
+                    onToggle=${handleToggleCollapsed}
+                    heroprops=${heroprops} />
             `}
 
-            ${scope && html`
-                <${PausedCallout}
-                    totaldays=${scope.paused_days_30d || 0}
-                    breakdown=${scope.paused_breakdown_30d || {}}
-                    events=${scope.paused_events_30d || []}
+            ${!collapsed && html`
+                <${AcademicDaysStrip}
+                    days=${acaDays}
+                    summary=${acaSummary}
+                    events=${acaEvents}
+                    loading=${acaLoading}
                     i18n=${i18n} />
             `}
 
             <${StatusDistributionBar}
-                counts=${distCounts}
-                activeband=${bucket}
-                onSelect=${(b) => { setPage(0); setBucket(b); }}
+                mode=${mode}
+                counts=${counts}
+                active=${filter}
+                onSelect=${(slug) => { setPage(0); setFilter(slug); }}
+                onModeChange=${handleModeChange}
                 i18n=${i18n} />
 
             <div class="bft-report-controls">
@@ -461,33 +501,13 @@ export default function PendingReportView({initial}) {
                         </select>
                     </label>
                 `}
-                <div class="bft-filter-label">
-                    <span>${i18n.pendingreport_filter_bucket_label || 'Status'}</span>
-                    <${SegmentedFilter}
-                        options=${statusOptions}
-                        value=${bucket}
-                        onChange=${(v) => { setPage(0); setBand(''); setBucket(v); }}
-                        ariaLabel=${i18n.pendingreport_filter_bucket_label || 'Status'} />
-                </div>
                 <div class="bft-report-controls-spacer"></div>
                 <input type="search"
                        class="bft-search"
                        placeholder=${i18n.pendingreport_search_placeholder || 'Search by name…'}
                        aria-label=${i18n.pendingreport_search_placeholder || 'Search by name'}
-                       value=${search}
-                       onInput=${(e) => setSearch(e.target.value)} />
-                <label class="bft-filter-label">
-                    <span>${i18n.pendingreport_filter_serversort_label || 'Order'}</span>
-                    <select value=${serverSort}
-                            onChange=${(e) => { setPage(0); setServerSort(e.target.value); }}>
-                        <option value="longestwait">
-                            ${i18n.pendingreport_serversort_longestwait || 'Longest wait first'}
-                        </option>
-                        <option value="recent">
-                            ${i18n.pendingreport_serversort_recent || 'Most recent first'}
-                        </option>
-                    </select>
-                </label>
+                       value=${searchInput}
+                       onInput=${(e) => setSearchInput(e.target.value)} />
                 <button type="button"
                         class=${'bft-refresh' + (loading ? ' bft-refresh-busy' : '')}
                         disabled=${loading}
@@ -498,10 +518,10 @@ export default function PendingReportView({initial}) {
 
             ${error && html`<div class="bft-error" role="alert">${error}</div>`}
 
-            ${visible.length === 0 && !loading
+            ${submissions.length === 0 && !loading
                 ? html`
                     <div class="bft-empty">
-                        ${i18n.pendingreport_empty || 'No pending submissions match the current filter.'}
+                        ${i18n.pendingreport_empty || 'No submissions match the current filter.'}
                     </div>
                 `
                 : html`
@@ -509,65 +529,85 @@ export default function PendingReportView({initial}) {
                         <thead>
                             <tr>
                                 <${SortableHeader} label=${i18n.drilldown_col_student}
-                                    sortKey="studentname" currentKey=${clientSortKey}
-                                    currentOrder=${clientSortOrder} onClick=${handleHeaderClick} />
+                                    sortKey="student" currentKey=${serverSort}
+                                    currentOrder=${sortOrder} onClick=${handleSort} />
                                 <${SortableHeader} label=${i18n.drilldown_col_activity}
-                                    sortKey="activityname" currentKey=${clientSortKey}
-                                    currentOrder=${clientSortOrder} onClick=${handleHeaderClick} />
+                                    sortKey="activity" currentKey=${serverSort}
+                                    currentOrder=${sortOrder} onClick=${handleSort} />
                                 <${SortableHeader} label=${(i18n.pendingreport_filter_class_label || 'Class')}
-                                    sortKey="groupname" currentKey=${clientSortKey}
-                                    currentOrder=${clientSortOrder} onClick=${handleHeaderClick} />
+                                    sortKey="class" currentKey=${serverSort}
+                                    currentOrder=${sortOrder} onClick=${handleSort} />
                                 <${SortableHeader} label=${i18n.drilldown_col_submitted}
-                                    sortKey="timesubmitted" currentKey=${clientSortKey}
-                                    currentOrder=${clientSortOrder} onClick=${handleHeaderClick} />
+                                    sortKey="submitted" currentKey=${serverSort}
+                                    currentOrder=${sortOrder} onClick=${handleSort} />
+                                ${graded && html`
+                                    <${SortableHeader} label=${i18n.pendingreport_col_graded || 'Graded'}
+                                        sortKey="graded" currentKey=${serverSort}
+                                        currentOrder=${sortOrder} onClick=${handleSort} />
+                                `}
                                 <${SortableHeader} label=${i18n.pendingreport_col_effective || 'Effective'}
-                                    sortKey="effectivehours" currentKey=${clientSortKey}
-                                    currentOrder=${clientSortOrder} onClick=${handleHeaderClick} />
-                                <${SortableHeader} label=${i18n.pendingreport_col_perceived || 'Perceived'}
-                                    sortKey="waitinghours" currentKey=${clientSortKey}
-                                    currentOrder=${clientSortOrder} onClick=${handleHeaderClick} />
-                                <th>${i18n.drilldown_col_status}</th>
+                                    sortKey="effective" currentKey=${serverSort}
+                                    currentOrder=${sortOrder} onClick=${handleSort} />
+                                ${!graded && html`
+                                    <${SortableHeader} label=${i18n.pendingreport_col_perceived || 'Perceived'}
+                                        sortKey="perceived" currentKey=${serverSort}
+                                        currentOrder=${sortOrder} onClick=${handleSort} />
+                                `}
+                                <${SortableHeader} label=${i18n.drilldown_col_status}
+                                    sortKey="status" currentKey=${serverSort}
+                                    currentOrder=${sortOrder} onClick=${handleSort} />
+                                <th class="bft-report-col-action">
+                                    ${i18n.pendingreport_col_action || 'Action'}
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${visible.map((row) => {
+                            ${submissions.map((row) => {
                                 const paused = Number(row.waitinghours || 0)
                                     - Number(row.effectivehours || 0) > PAUSED_TAG_EPSILON;
                                 const rowColor = colourFor(row.slabucket);
                                 return html`
-                                    <tr class="bft-report-row"
-                                        key=${'r-' + row.submissionid}
-                                        tabindex="0"
-                                        role="button"
-                                        aria-label=${(row.studentname || '') + ' — ' + (row.activityname || '')}
-                                        onClick=${() => openTimeline(row)}
-                                        onKeyDown=${(e) => {
-                                            if (e.key === 'Enter' || e.key === ' ') {
-                                                e.preventDefault();
-                                                openTimeline(row);
-                                            }
-                                        }}>
+                                    <tr class="bft-report-row" key=${'r-' + row.submissionid}>
                                         <td>${row.studentname}</td>
                                         <td>${row.activityname}</td>
                                         <td>${row.groupname || '-'}</td>
                                         <td class="bft-mono">${formatDate(row.timesubmitted)}</td>
+                                        ${graded && html`
+                                            <td class="bft-mono">${formatDate(row.timegraded)}</td>
+                                        `}
                                         <td class="bft-report-effective bft-mono"
                                             style=${'color: ' + rowColor + ';'}>
                                             ${formatHours(row.effectivehours)}
                                         </td>
-                                        <td class="bft-report-perceived bft-mono">
-                                            ${formatHours(row.waitinghours)}
-                                            ${paused && html`
-                                                <span class="bft-row-paused-tag"
-                                                      title=${i18n.pendingreport_row_paused_tip || ''}>
-                                                    <span class="bft-row-paused-swatch" aria-hidden="true"></span>
-                                                    ${i18n.pendingreport_row_paused || 'paused'}
+                                        ${!graded && html`
+                                            <td class="bft-mono">
+                                                <span class="bft-report-perceived">
+                                                    ${formatHours(row.waitinghours)}
+                                                    ${paused && html`
+                                                        <span class="bft-row-paused-tag"
+                                                              title=${i18n.pendingreport_row_paused_tip || ''}>
+                                                            <span class="bft-row-paused-swatch" aria-hidden="true"></span>
+                                                            ${i18n.pendingreport_row_paused || 'paused'}
+                                                        </span>
+                                                    `}
                                                 </span>
-                                            `}
-                                        </td>
+                                            </td>
+                                        `}
                                         <td>
-                                            <${Badge} band=${row.slabucket}
-                                                      label=${(i18n.bands || {})[row.slabucket] || row.slabucket} />
+                                            ${graded
+                                                ? html`<${Badge} band=${row.slabucket}
+                                                          label=${(i18n.bands || {})[row.slabucket] || row.slabucket} />`
+                                                : (() => {
+                                                    const pb = pendingBadge(row.pendingband, i18n);
+                                                    return html`<${Badge} band=${pb.band} label=${pb.label} />`;
+                                                })()}
+                                        </td>
+                                        <td class="bft-report-col-action">
+                                            <a class="bft-report-action-grade" href=${graderUrl(row)}>
+                                                ${graded
+                                                    ? (i18n.pendingreport_action_review || 'Review')
+                                                    : (i18n.pendingreport_action_grade || 'Grade')}
+                                            </a>
                                         </td>
                                     </tr>
                                 `;
@@ -597,7 +637,7 @@ export default function PendingReportView({initial}) {
                 </div>
             `}
 
-            ${visibleDrafts.length > 0 && html`
+            ${!graded && drafts.length > 0 && html`
                 <div class="bft-report-drafts">
                     <h2 class="bft-report-drafts-heading">
                         ${i18n.drafts_heading || 'Not yet submitted'}
@@ -616,7 +656,7 @@ export default function PendingReportView({initial}) {
                             </tr>
                         </thead>
                         <tbody>
-                            ${visibleDrafts.map((row) => html`
+                            ${drafts.map((row) => html`
                                 <tr class="bft-report-row bft-report-row--draft"
                                     key=${'d-' + row.submissionid}>
                                     <td>${row.studentname}</td>

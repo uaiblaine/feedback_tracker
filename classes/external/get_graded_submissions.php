@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * External: paginated drilldown of pending submissions.
+ * External: paginated list of already-graded submissions.
  *
  * @package    block_feedback_tracker
  * @copyright  2026 Anderson Blaine <anderson@blaine.com.br>
@@ -27,7 +27,6 @@ declare(strict_types=1);
 namespace block_feedback_tracker\external;
 
 use block_feedback_tracker\local\sla\submission_browser;
-use block_feedback_tracker\local\sla\submission_status;
 use core_external\external_api;
 use core_external\external_function_parameters;
 use core_external\external_multiple_structure;
@@ -35,18 +34,16 @@ use core_external\external_single_structure;
 use core_external\external_value;
 
 /**
- * Lists pending submissions for one course, optionally narrowed by group,
- * SLA bucket / pending band, and a free-text name search, sorted by any
- * column. Returns student names, activity names, group, submission timestamp,
- * current effective/wall-clock waits, plus the pending-band distribution
- * counts for the whole filtered set. Delegates the query to
+ * Lists graded submissions (submitted work that now carries a timegraded) for
+ * one course — the report page's "Já avaliados" view. Each row shows the SLA
+ * result band (slabucket) recorded at grading time; the response carries the
+ * result-band distribution counts for the whole filtered set. Shares the
+ * query, visibility scoping, search, and sort with the pending list via
  * {@see submission_browser}.
  */
-class get_pending_submissions extends external_api {
+class get_graded_submissions extends external_api {
     /** Default page size. */
     public const DEFAULT_PAGE_SIZE = 25;
-    /** Maximum page size to discourage all-the-things queries. */
-    public const MAX_PAGE_SIZE = submission_browser::MAX_PAGE_SIZE;
 
     /**
      * Parameters.
@@ -57,29 +54,20 @@ class get_pending_submissions extends external_api {
         return new external_function_parameters([
             'courseid' => new external_value(PARAM_INT, 'Course id'),
             'groupid' => new external_value(PARAM_INT, 'Group id, 0 = all', VALUE_DEFAULT, 0),
-            'bucket' => new external_value(PARAM_ALPHA, 'Bucket filter (slabucket)', VALUE_DEFAULT, ''),
-            'sort' => new external_value(
+            'bucket' => new external_value(
                 PARAM_ALPHA,
-                'Sort key: longestwait|recent|student|activity|class|submitted|effective|perceived',
-                VALUE_DEFAULT,
-                'longestwait'
-            ),
-            'page' => new external_value(PARAM_INT, '0-based page index', VALUE_DEFAULT, 0),
-            'perpage' => new external_value(PARAM_INT, 'Page size', VALUE_DEFAULT, self::DEFAULT_PAGE_SIZE),
-            'status' => new external_value(
-                PARAM_ALPHA,
-                'Submission status: submitted (default) lists work awaiting feedback; '
-                    . 'draft lists not-yet-submitted work',
-                VALUE_DEFAULT,
-                'submitted'
-            ),
-            'band' => new external_value(
-                PARAM_ALPHA,
-                'Pending-band filter (effective-hours range): aguardando | atencao | prioridade. '
-                    . 'Takes precedence over bucket when set.',
+                'Result-band filter (slabucket): excellent | good | regular | critical',
                 VALUE_DEFAULT,
                 ''
             ),
+            'sort' => new external_value(
+                PARAM_ALPHA,
+                'Sort key: graded|student|activity|class|submitted|effective|perceived',
+                VALUE_DEFAULT,
+                'graded'
+            ),
+            'page' => new external_value(PARAM_INT, '0-based page index', VALUE_DEFAULT, 0),
+            'perpage' => new external_value(PARAM_INT, 'Page size', VALUE_DEFAULT, self::DEFAULT_PAGE_SIZE),
             'search' => new external_value(
                 PARAM_TEXT,
                 'Free-text needle matched against student and activity name',
@@ -100,25 +88,21 @@ class get_pending_submissions extends external_api {
      *
      * @param int $courseid
      * @param int $groupid
-     * @param string $bucket
-     * @param string $sort
+     * @param string $bucket excellent | good | regular | critical (slabucket result)
+     * @param string $sort graded | student | activity | class | submitted | effective | perceived
      * @param int $page
      * @param int $perpage
-     * @param string $status submitted (default) | draft
-     * @param string $band aguardando | atencao | prioridade (effective-hours range)
      * @param string $search Free-text needle (student / activity name)
-     * @param string $order asc | desc (column sorts)
+     * @param string $order asc | desc
      * @return array
      */
     public static function execute(
         int $courseid,
         int $groupid = 0,
         string $bucket = '',
-        string $sort = 'longestwait',
+        string $sort = 'graded',
         int $page = 0,
         int $perpage = self::DEFAULT_PAGE_SIZE,
-        string $status = submission_status::SUBMITTED,
-        string $band = '',
         string $search = '',
         string $order = 'desc'
     ): array {
@@ -126,29 +110,22 @@ class get_pending_submissions extends external_api {
 
         $params = self::validate_parameters(self::execute_parameters(), [
             'courseid' => $courseid, 'groupid' => $groupid, 'bucket' => $bucket,
-            'sort' => $sort, 'page' => $page, 'perpage' => $perpage, 'status' => $status,
-            'band' => $band, 'search' => $search, 'order' => $order,
+            'sort' => $sort, 'page' => $page, 'perpage' => $perpage,
+            'search' => $search, 'order' => $order,
         ]);
         $courseid = (int) $params['courseid'];
         $page = max(0, (int) $params['page']);
-        $perpage = max(1, min((int) $params['perpage'], self::MAX_PAGE_SIZE));
-        // Only two statuses are listable here: submitted (work awaiting
-        // feedback) and draft (saved but not submitted). Anything else falls
-        // back to submitted so the default list is never accidentally widened.
-        $mode = $params['status'] === submission_status::DRAFT
-            ? submission_browser::MODE_DRAFT
-            : submission_browser::MODE_PENDING;
+        $perpage = max(1, min((int) $params['perpage'], submission_browser::MAX_PAGE_SIZE));
 
         $context = \context_course::instance($courseid);
         self::validate_context($context);
         require_capability('block/feedback_tracker:viewresponsiveness', $context);
 
         $result = submission_browser::browse($courseid, (int) $USER->id, [
-            'mode' => $mode,
+            'mode' => submission_browser::MODE_GRADED,
             'groupid' => (int) $params['groupid'],
             'search' => (string) $params['search'],
             'bucket' => (string) $params['bucket'],
-            'band' => (string) $params['band'],
             'sort' => (string) $params['sort'],
             'order' => (string) $params['order'],
             'page' => $page,
@@ -163,9 +140,10 @@ class get_pending_submissions extends external_api {
             'perpage'      => $perpage,
             'lastsynced'   => time(),
             'counts'       => [
-                'aguardando' => (int) ($result['counts']['aguardando'] ?? 0),
-                'atencao'    => (int) ($result['counts']['atencao'] ?? 0),
-                'prioridade' => (int) ($result['counts']['prioridade'] ?? 0),
+                'excellent' => (int) ($result['counts']['excellent'] ?? 0),
+                'good'      => (int) ($result['counts']['good'] ?? 0),
+                'regular'   => (int) ($result['counts']['regular'] ?? 0),
+                'critical'  => (int) ($result['counts']['critical'] ?? 0),
             ],
             'submissions'  => $result['rows'],
         ];
@@ -185,36 +163,12 @@ class get_pending_submissions extends external_api {
             'perpage'    => new external_value(PARAM_INT, ''),
             'lastsynced' => new external_value(PARAM_INT, ''),
             'counts'     => new external_single_structure([
-                'aguardando' => new external_value(PARAM_INT, 'Within-goal pending count'),
-                'atencao'    => new external_value(PARAM_INT, 'Over-goal pending count'),
-                'prioridade' => new external_value(PARAM_INT, 'Critical pending count'),
+                'excellent' => new external_value(PARAM_INT, 'Excellent result count'),
+                'good'      => new external_value(PARAM_INT, 'Good result count'),
+                'regular'   => new external_value(PARAM_INT, 'Regular result count'),
+                'critical'  => new external_value(PARAM_INT, 'Critical result count'),
             ]),
-            'submissions' => new external_multiple_structure(self::row_structure()),
-        ]);
-    }
-
-    /**
-     * Shared row structure for a listed submission. Reused by
-     * {@see get_graded_submissions} so the two tables share one shape.
-     *
-     * @return external_single_structure
-     */
-    public static function row_structure(): external_single_structure {
-        return new external_single_structure([
-            'submissionid'   => new external_value(PARAM_INT, ''),
-            'cmid'           => new external_value(PARAM_INT, ''),
-            'userid'         => new external_value(PARAM_INT, ''),
-            'studentname'    => new external_value(PARAM_TEXT, ''),
-            'activityname'   => new external_value(PARAM_TEXT, ''),
-            'groupid'        => new external_value(PARAM_INT, ''),
-            'groupname'      => new external_value(PARAM_TEXT, ''),
-            'timesubmitted'  => new external_value(PARAM_INT, ''),
-            'timegraded'     => new external_value(PARAM_INT, '0 while pending'),
-            'waitinghours'   => new external_value(PARAM_FLOAT, ''),
-            'effectivehours' => new external_value(PARAM_FLOAT, ''),
-            'slabucket'      => new external_value(PARAM_ALPHA, ''),
-            'pendingband'    => new external_value(PARAM_ALPHA, 'aguardando | atencao | prioridade'),
-            'submissionstatus' => new external_value(PARAM_ALPHA, ''),
+            'submissions' => new external_multiple_structure(get_pending_submissions::row_structure()),
         ]);
     }
 }

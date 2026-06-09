@@ -43,10 +43,14 @@ import {classifySpeed} from 'block_feedback_tracker/lib/trend';
  * @param {object} props.i18n
  * @param {() => void} [props.onCollapse]     Click handler for the floating collapse button.
  * @param {object} [props.config]             Dashboard config bundle (feature flags).
+ * @param {Array<{label: string, tone: string}>} [props.chips]  Optional chips (e.g. SLA %, at-risk, critical).
+ * @param {string} [props.eyebrow]            Overrides the default eyebrow copy.
+ * @param {string} [props.headline]           Overrides the default headline copy.
+ * @param {string} [props.body]               Overrides the default body copy.
  * @returns {object} vnode
  */
 export default function ResponsivenessHero({score, band, bandlabel, effectivehours, perceivedlabel,
-    trendpct, i18n, onCollapse, config}) {
+    trendpct, i18n, onCollapse, config, chips, eyebrow, headline, body}) {
     const display = score === null || score === undefined ? '—' : Math.round(Number(score));
     const trend = classifySpeed(trendpct);
     const trendTone = trend.colour;
@@ -56,6 +60,12 @@ export default function ResponsivenessHero({score, band, bandlabel, effectivehou
     const wwwroot = (typeof M !== 'undefined' && M.cfg && M.cfg.wwwroot) || '';
     const simulatorurl = wwwroot + '/blocks/feedback_tracker/pages/score_simulator.php';
     const showsimulator = !!(config && config.enable_teacher_simulator);
+    const heroEyebrow = eyebrow || i18n.dashboard_hero_eyebrow || 'Your academic responsiveness';
+    const heroHeadline = headline || i18n.dashboard_hero_headline
+        || 'Here is how things are flowing this month.';
+    const heroBody = body || i18n.dashboard_hero_body
+        || 'Score uses business-time only — weekends, holidays and recess are paused and excluded.';
+    const herochips = Array.isArray(chips) ? chips : [];
 
     return html`
         <section class=${'bft-rh bft-rh-tone-' + (band || 'pending')}>
@@ -87,15 +97,25 @@ export default function ResponsivenessHero({score, band, bandlabel, effectivehou
 
             <div class="bft-rh-copy">
                 <div class="bft-rh-eyebrow">
-                    ${i18n.dashboard_hero_eyebrow || 'Your academic responsiveness'}
+                    ${heroEyebrow}
                 </div>
                 <div class="bft-rh-headline">
-                    ${i18n.dashboard_hero_headline || 'Here is how things are flowing this month.'}
+                    ${heroHeadline}
                 </div>
                 <div class="bft-rh-body">
-                    ${i18n.dashboard_hero_body
-                        || 'Score uses business-time only — weekends, holidays and recess are paused and excluded.'}
+                    ${heroBody}
                 </div>
+
+                ${herochips.length > 0 && html`
+                    <div class="bft-rh-chips">
+                        ${herochips.map((chip, i) => html`
+                            <span class=${'bft-rh-chip bft-rh-chip-' + (chip.tone || 'pending')}
+                                  key=${'chip-' + i}>
+                                ${chip.label}
+                            </span>
+                        `)}
+                    </div>
+                `}
 
                 <aside class="bft-rh-mini-col">
                     <div class="bft-rh-mini">

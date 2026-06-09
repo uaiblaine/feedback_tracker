@@ -5,6 +5,153 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.27] - Unreleased
+
+### Added
+- **Graded view** on the pending-grading report — switch between work that's
+  still waiting and work already graded, sharing one unified browser. New
+  `get_graded_submissions` web service.
+- **Academic-days strip** on the report — a 30-day view of on-goal, paused and
+  other academic days. New `get_academic_days` web service.
+- Drafts (not-yet-submitted work) are surfaced read-only on the report,
+  clearly separated from work awaiting feedback.
+
+### Changed
+- The report reuses the dashboard hero (Score / Effective / SLA / Trend) for a
+  consistent look, with an action column and a collapse toggle.
+- `get_pending_submissions` gained pagination, sorting and a status filter.
+- Brazilian Portuguese language pack brought to full key parity with English.
+- Standardised all in-code comments to English (user-facing strings
+  unaffected).
+
+### Removed
+- Dropped an unused legacy dashboard-greeting fallback.
+
+## [1.0.25] - 2026-06-08
+
+### Added
+- Per-group **assignment open/close schedule** in the block: each course
+  assignment shows its effective open/close dates per group and a four-state
+  action chip (done / create rule / override rule / no rule), gated on the
+  manage-overrides capability and deep-linking to the group overrides page.
+- `get_responsiveness` now returns each group's activities.
+
+### Changed
+- The activity timeline bar shows before / running / closed phases; the stat
+  row reflows gracefully on narrow blocks instead of overflowing.
+
+## [1.0.24] - 2026-06-05
+
+### Added
+- `get_responsiveness` gained pagination (`limit` / `offset`) and sorting,
+  with skeleton loading states and a "load more" control in the block.
+- Settings to compose the group-card title and subtitle from custom group
+  fields.
+
+### Changed
+- In-course block overhaul: collapsible group cards, accessibility and
+  typography improvements (WCAG AA contrast, focus rings, larger touch
+  targets), a footer with last-sync time and a cache note, and a smarter
+  priority sort.
+- The pending tiles (Waiting / Attention / Priority) now partition the whole
+  backlog exactly; the score is unchanged.
+- 14-day sparkline window; the score breakdown moved out of the block (the
+  simulator covers it); comparison is score-only.
+
+## [1.0.23] - 2026-06-04
+
+### Added
+- Optional **teacher access to the score simulator** (admin master switch,
+  default off).
+
+### Changed
+- The score's **trend** term now compares this week against last week (rolling
+  7-day windows); compliance, median, counts and the 30-day sparkline stay
+  monthly. The formula itself is unchanged.
+
+### Fixed
+- The collapsed dashboard hero no longer overflows on intermediate widths, and
+  the sort control is now translatable.
+
+## [1.0.21] - 2026-06-03
+
+### Changed
+- Dashboard polish: the effective / perceived / trend mini-stats move into the
+  hero copy column; a responsive courses table with mobile reflow; a scoped
+  typography and accessibility token scale.
+- Block effective / perceived KPIs now use backlog-aware "current" medians,
+  matching the dashboard; the score stays graded-only.
+
+## [1.0.20] - 2026-06-02
+
+### Added
+- Interactive **Academic Responsiveness Score simulator** (admin sandbox) —
+  tune the five weights and a group scenario and watch the score, band and
+  per-term breakdown update live. Nothing is saved.
+
+## [1.0.19] - 2026-06-02
+
+### Fixed
+- Unified every surface on a single **"speed" model** for trend (faster =
+  better, green ▲; slower = red ▼), correcting inverted arrows and an inverted
+  sparkline.
+- Hero effective / perceived times now include currently-pending work, so the
+  backlog shows through (the score stays graded-only).
+- The dashboard's global trend and SLA now populate (the service was omitting
+  fields the view expected).
+
+## [1.0.18] - 2026-05-31
+
+### Fixed
+- The teacher dashboard rendered an empty shell because a web-service call
+  resolved a jQuery promise with no native `.finally()`. Every WS call now
+  returns a native Promise. (Supersedes 1.0.17, whose rebuilt bundle was never
+  regenerated.)
+
+## [1.0.16] - 2026-05-31
+
+### Added
+- `cli/recompute_all.php` to refresh stored rollups in place after a
+  scoring-rule change.
+
+### Changed
+- Teacher dashboard access scope made correct and configurable: the "admins
+  see all" setting now works; non-admins are scoped to active
+  teacher-or-higher enrolments.
+- The dashboard loads asynchronously (ships a shell, fetches on mount) instead
+  of running a large query batch before the page renders.
+- Groups with no submitted work now score as a neutral "no data" instead of a
+  misleading 100, and are excluded from averages, insights and peer stats.
+
+### Fixed
+- Priority cards deep-link to the single-student grader; course titles link to
+  the pending report.
+
+## [1.0.14] – [1.0.15] - 2026-05-30
+
+### Fixed
+- Continuous-integration hardening: resolved PHP CodeSniffer violations and a
+  PHPUnit ordering flake; temporarily disabled Behat pending a CI image fix.
+
+## [1.0.13] - 2026-05-30
+
+### Fixed
+- Trend backfill now covers every group (a multi-group course previously
+  collapsed to one group per course).
+- Clamp the 30-day trend percentage so a near-zero prior window can't overflow
+  the stored column.
+
+## [1.0.12] - 2026-05-29
+
+### Changed
+- Only **submitted** work counts toward pending counts, response time, score,
+  compliance and trend. Draft / new / reopened attempts are awaiting the
+  student, so they no longer inflate the metrics.
+
+### Added
+- Drafts are surfaced read-only and de-emphasised on the report and drilldown,
+  never reaching the block or dashboard counts.
+
 ## [1.0.11] - 2026-05-27
 
 ### Fixed

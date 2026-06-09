@@ -32,7 +32,7 @@ namespace block_feedback_tracker\local\sla;
  *
  * @covers \block_feedback_tracker\local\sla\dashboard_scope
  */
-class dashboard_scope_test extends \advanced_testcase {
+final class dashboard_scope_test extends \advanced_testcase {
     /**
      * An active enrolment with a teacher-or-higher role puts the course in
      * scope.

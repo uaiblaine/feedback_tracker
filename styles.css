@@ -2111,7 +2111,11 @@ a.bft-activity-action:focus {
     color: #fff;
     font-family: inherit;
     transition: opacity 0.15s;
-    min-width: 0;
+    overflow: hidden;
+    /* Floor wide enough that a zero-count segment still shows its full label
+     * instead of clipping (the flex-basis is 0, so without this the label is
+     * cropped when a band has no rows). */
+    min-width: 5.25rem;
 }
 
 .bft-dist-seg-dim {
@@ -2130,6 +2134,15 @@ a.bft-activity-action:focus {
 .bft-dist-seg-critical {
     background: var(--bft-band-critical-fg);
 }
+.bft-dist-seg-aguardando {
+    background: var(--bft-band-pending-fg);
+}
+.bft-dist-seg-atencao {
+    background: var(--bft-band-regular-fg);
+}
+.bft-dist-seg-prioridade {
+    background: var(--bft-band-critical-fg);
+}
 
 .bft-dist-seg-n {
     font-size: 1.1rem;
@@ -2143,6 +2156,10 @@ a.bft-activity-action:focus {
     opacity: 0.95;
     letter-spacing: 0.02em;
     text-transform: uppercase;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .bft-dist-scale {
@@ -3383,4 +3400,224 @@ a.bft-activity-action:focus {
     .bft-sim-grid {
         grid-template-columns: 1fr;
     }
+}
+
+/* ====================================================================
+ * MVP3 report redesign — hero chips, distribution mode toggle,
+ * last-30-academic-days heatmap, and the table action column.
+ * ==================================================================== */
+
+/* Optional chips in the reused dashboard hero (SLA %, at-risk, critical). */
+.bft-rh-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.75rem;
+}
+
+.bft-rh-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    font-size: var(--bft-fs-meta);
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.65);
+    color: var(--bft-text);
+    border: 1px solid var(--bft-border);
+}
+
+.bft-rh-chip-excellent {
+    color: var(--bft-band-excellent-fg);
+    border-color: var(--bft-band-excellent-fg);
+}
+
+.bft-rh-chip-good {
+    color: var(--bft-band-good-fg);
+    border-color: var(--bft-band-good-fg);
+}
+
+.bft-rh-chip-regular {
+    color: var(--bft-band-regular-fg);
+    border-color: var(--bft-band-regular-fg);
+}
+
+.bft-rh-chip-critical {
+    color: var(--bft-band-critical-fg);
+    border-color: var(--bft-band-critical-fg);
+}
+
+.bft-rh-chip-pending {
+    color: var(--bft-band-pending-fg);
+}
+
+/* Distribution bar — "Já avaliados" / "Pendentes" mode toggle. */
+.bft-dist-modebtn {
+    display: inline-flex;
+    align-items: center;
+    align-self: stretch;
+    flex: 0 0 auto;
+    padding: 0.4rem 0.85rem;
+    border: 1px dashed var(--bft-border);
+    border-radius: 8px;
+    background: var(--bft-surface-alt);
+    color: var(--bft-text-muted);
+    font-family: inherit;
+    font-size: var(--bft-fs-meta);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.bft-dist-modebtn:hover {
+    border-color: var(--bft-text-muted);
+    color: var(--bft-text);
+}
+
+.bft-dist-modebtn-active {
+    background: var(--bft-text);
+    border-style: solid;
+    border-color: var(--bft-text);
+    color: #fff;
+}
+
+/* Keep the active (graded) toggle legible on hover — the base hover rule
+ * darkens the text, which has no contrast on the dark active background. */
+.bft-dist-modebtn-active:hover {
+    color: #fff;
+    border-color: var(--bft-text);
+    opacity: 0.92;
+}
+
+/* Last 30 academic days heatmap. */
+.bft-acaday {
+    background: var(--bft-surface);
+    border: 1px solid var(--bft-border);
+    border-radius: 12px;
+    padding: 1rem 1.125rem;
+    margin: 0 0 1rem;
+}
+
+.bft-acaday-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.bft-acaday-title {
+    font-size: var(--bft-fs-eyebrow);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: var(--bft-ls-eyebrow);
+    color: var(--bft-text-muted);
+}
+
+.bft-acaday-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.bft-acaday-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: var(--bft-fs-meta);
+    color: var(--bft-text-muted);
+}
+
+.bft-acaday-swatch {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+}
+
+.bft-acaday-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.bft-acaday-cell {
+    display: inline-block;
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    background: var(--bft-surface-dim);
+}
+
+.bft-acaday-ongoal {
+    background: var(--bft-band-excellent-fg);
+}
+
+.bft-acaday-good {
+    background: var(--bft-band-good-fg);
+}
+
+.bft-acaday-regular {
+    background: var(--bft-band-regular-fg);
+}
+
+.bft-acaday-nodata {
+    background: var(--bft-surface-dim);
+    border: 1px solid var(--bft-border);
+}
+
+.bft-acaday-paused {
+    background: repeating-linear-gradient(45deg, #cbd5e1 0 2px, #e2e8f0 2px 4px);
+}
+
+.bft-acaday-summary {
+    margin-top: 0.75rem;
+    font-size: var(--bft-fs-body);
+    color: var(--bft-text-muted);
+    line-height: 1.5;
+}
+
+.bft-acaday-summary strong {
+    color: var(--bft-text);
+}
+
+.bft-acaday-skeleton {
+    height: 26px;
+    border-radius: 6px;
+    background: linear-gradient(90deg, var(--bft-surface-dim), var(--bft-surface-alt), var(--bft-surface-dim));
+}
+
+.bft-acaday-loadnote {
+    margin-top: 0.5rem;
+    font-size: var(--bft-fs-meta);
+    color: var(--bft-text-faint);
+}
+
+/* Report table — action column (Grade / Review + pause timeline). */
+.bft-report-col-action {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.bft-report-action-grade {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.3rem 0.7rem;
+    border-radius: 6px;
+    background: var(--bft-band-excellent-fg);
+    color: #fff;
+    font-size: var(--bft-fs-meta);
+    font-weight: 700;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.bft-report-action-grade:hover,
+.bft-report-action-grade:focus {
+    color: #fff;
+    text-decoration: none;
+    opacity: 0.9;
 }

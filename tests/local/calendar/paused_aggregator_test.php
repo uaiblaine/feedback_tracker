@@ -228,6 +228,46 @@ final class paused_aggregator_test extends \advanced_testcase {
         $this->assertSame(0, $result['weekend']);
     }
 
+    public function test_per_day_map_matches_for_window_counts(): void {
+        $this->resetAfterTest();
+        $this->seed_calendar();
+
+        global $DB;
+        $DB->insert_record('block_feedback_tracker_cday', (object) [
+            'daydate' => 20260525, 'daytype' => 'holiday',
+            'note' => null, 'timecreated' => time(), 'timemodified' => time(),
+        ]);
+
+        $start = (new \DateTimeImmutable('2026-05-18', new \DateTimeZone('UTC')))->getTimestamp();
+        $end = (new \DateTimeImmutable('2026-06-01', new \DateTimeZone('UTC')))->getTimestamp();
+
+        $perday = paused_aggregator::per_day_for_window(0, $start, $end);
+        $counts = paused_aggregator::for_window(0, $start, $end);
+
+        // One entry per calendar day in the [start, end) window (14 days).
+        $this->assertCount(14, $perday);
+        $this->assertArrayHasKey(20260525, $perday);
+        $this->assertTrue($perday[20260525]['paused']);
+        $this->assertSame('holiday', $perday[20260525]['reason']);
+
+        // Counts derived from the per-day map equal for_window()'s own counts —
+        // the two share one classification pass, so they can never diverge.
+        $weekend = 0;
+        $holiday = 0;
+        $recess = 0;
+        foreach ($perday as $info) {
+            if (!$info['paused']) {
+                continue;
+            }
+            $weekend += $info['reason'] === 'weekend' ? 1 : 0;
+            $holiday += $info['reason'] === 'holiday' ? 1 : 0;
+            $recess += $info['reason'] === 'recess' ? 1 : 0;
+        }
+        $this->assertSame($counts['weekend'], $weekend);
+        $this->assertSame($counts['holiday'], $holiday);
+        $this->assertSame($counts['recess'], $recess);
+    }
+
     /**
      * Seed enough calendar config for the aggregator to read.
      *

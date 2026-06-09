@@ -43,10 +43,11 @@ import {classifySpeed} from 'block_feedback_tracker/lib/trend';
  * @param {number|null} props.trendpct
  * @param {object} props.i18n
  * @param {() => void} props.onExpand   Click handler for the trailing expand button.
+ * @param {string} [props.eyebrow]      Overrides the default caption copy.
  * @returns {object} vnode
  */
 export default function ResponsivenessHeroSlim({score, band, bandlabel, effectivehours, perceivedlabel,
-    compliancepct, trendpct, i18n, onExpand}) {
+    compliancepct, trendpct, i18n, onExpand, eyebrow}) {
     const display = score === null || score === undefined ? '—' : Math.round(Number(score));
     const trend = classifySpeed(trendpct);
     const trendTone = trend.colour;
@@ -66,7 +67,7 @@ export default function ResponsivenessHeroSlim({score, band, bandlabel, effectiv
                         <span class="bft-rh-slim-of bft-mono">/ 100</span>
                     </div>
                     <span class="bft-rh-slim-caption">
-                        ${i18n.dashboard_hero_eyebrow || 'Academic responsiveness'}
+                        ${eyebrow || i18n.dashboard_hero_eyebrow || 'Academic responsiveness'}
                     </span>
                 </div>
             </div>

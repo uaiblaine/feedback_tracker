@@ -68,24 +68,64 @@ export const getResponsiveness = ({courseid, force = false, limit = 0, offset = 
         {courseid, force: force ? 1 : 0, limit, offset, sort});
 
 /**
- * Paginated list of pending submissions in a course.
+ * Paginated list of pending submissions in a course. Search + sort + the
+ * pending-band distribution counts are all server-side, so they span every
+ * matching row, not just the current page.
  *
  * @param {object} options
  * @param {number} options.courseid
  * @param {number} [options.groupid]
  * @param {string} [options.bucket]   "excellent" | "good" | "regular" | "critical"
- * @param {string} [options.sort]     "longestwait" | "recent"
+ * @param {string} [options.sort]     "longestwait" | "recent" | column key
  * @param {number} [options.page]
  * @param {number} [options.perpage]
  * @param {string} [options.status]   "submitted" (default, awaiting feedback) | "draft"
  * @param {string} [options.band]     "aguardando" | "atencao" | "prioridade" (effective-hours range)
+ * @param {string} [options.search]   Free-text needle (student / activity name)
+ * @param {string} [options.order]    "asc" | "desc" for column sorts
  * @returns {Promise<object>}
  */
 export const getPendingSubmissions = ({
     courseid, groupid = 0, bucket = '', sort = 'longestwait', page = 0, perpage = 25,
-    status = 'submitted', band = '',
+    status = 'submitted', band = '', search = '', order = 'desc',
 }) => call('block_feedback_tracker_get_pending_submissions',
-    {courseid, groupid, bucket, sort, page, perpage, status, band});
+    {courseid, groupid, bucket, sort, page, perpage, status, band, search, order});
+
+/**
+ * Paginated list of already-graded submissions in a course (the report's
+ * "Já avaliados" view). Mirrors getPendingSubmissions but each row carries a
+ * timegraded and a result band (slabucket recorded at grading time); the
+ * counts cover the four result bands.
+ *
+ * @param {object} options
+ * @param {number} options.courseid
+ * @param {number} [options.groupid]
+ * @param {string} [options.bucket]   "excellent" | "good" | "regular" | "critical" (result band)
+ * @param {string} [options.sort]     "graded" | column key
+ * @param {number} [options.page]
+ * @param {number} [options.perpage]
+ * @param {string} [options.search]   Free-text needle (student / activity name)
+ * @param {string} [options.order]    "asc" | "desc" for column sorts
+ * @returns {Promise<object>}
+ */
+export const getGradedSubmissions = ({
+    courseid, groupid = 0, bucket = '', sort = 'graded', page = 0, perpage = 25,
+    search = '', order = 'desc',
+}) => call('block_feedback_tracker_get_graded_submissions',
+    {courseid, groupid, bucket, sort, page, perpage, search, order});
+
+/**
+ * Last-30-academic-days heatmap series for the report page. Each entry is one
+ * calendar day, flagged paused (with a reason) or coloured by that day's
+ * responsiveness band. Loaded asynchronously after first paint.
+ *
+ * @param {object} options
+ * @param {number} options.courseid
+ * @param {number} [options.groupid]  0 = aggregate over all visible groups
+ * @returns {Promise<object>}
+ */
+export const getAcademicDays = ({courseid, groupid = 0}) =>
+    call('block_feedback_tracker_get_academic_days', {courseid, groupid});
 
 /**
  * Pause timeline for one submission (weekend / holiday / manual pause

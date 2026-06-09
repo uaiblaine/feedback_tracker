@@ -75,15 +75,15 @@ class responsiveness_card implements \renderable, \templatable {
         $showperceived = (int) (get_config('block_feedback_tracker', 'show_perceived_time') ?: 1) === 1;
         $showpause = (int) (get_config('block_feedback_tracker', 'show_paused_today_indicator') ?: 1) === 1;
 
-        // Mutually-exclusive pending bands (sum = total pending): aguardando
-        // (within SLA, derived) | atenção (overgoal) | prioridade (critical).
-        $prioridade = (int) $p['critical'];
-        $atencao = (int) $p['overgoal'];
-        $aguardando = max(0, (int) $p['pending'] - $atencao - $prioridade);
+        // Mutually-exclusive pending bands (sum = total pending): within-goal
+        // (derived) | over-goal | critical.
+        $critical = (int) $p['critical'];
+        $overgoal = (int) $p['overgoal'];
+        $waiting = max(0, (int) $p['pending'] - $overgoal - $critical);
         $counts = [
-            ['label' => get_string('card_pending', 'block_feedback_tracker'), 'value' => $aguardando],
-            ['label' => get_string('card_overgoal', 'block_feedback_tracker'), 'value' => $atencao],
-            ['label' => get_string('card_critical', 'block_feedback_tracker'), 'value' => $prioridade],
+            ['label' => get_string('card_pending', 'block_feedback_tracker'), 'value' => $waiting],
+            ['label' => get_string('card_overgoal', 'block_feedback_tracker'), 'value' => $overgoal],
+            ['label' => get_string('card_critical', 'block_feedback_tracker'), 'value' => $critical],
         ];
 
         $metrics = $this->build_metrics($p, $showperceived);

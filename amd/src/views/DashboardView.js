@@ -264,7 +264,6 @@ export default function DashboardView({initial}) {
 
     // Local-clock greeting, recomputed every render (cheap).
     const greetingTemplate = i18n[greetingKey()]
-        || i18n.dashboard_hero_greeting
         || 'Hi there, {$a->firstname}';
     const greeting = greetingTemplate.replace('{$a->firstname}', initial.greeting_firstname || '');
 

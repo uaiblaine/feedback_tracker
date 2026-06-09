@@ -55,7 +55,9 @@ namespace block_feedback_tracker\local\calendar;
  */
 class paused_aggregator {
     /**
-     * Count paused days in a [start, end) window.
+     * Count paused days in a [start, end) window, by reason. Derived from the
+     * per-day classification so the counts and the per-day map (consumed by
+     * the report-page heatmap) can never drift apart.
      *
      * @param int $courseid Course context for manual-pause scoping; 0 for site-wide.
      * @param int $start    Unix seconds; inclusive lower bound.
@@ -64,8 +66,71 @@ class paused_aggregator {
      *               events:array<int, array{date:int, starttime:int, endtime:int, label:string}>}
      */
     public static function for_window(int $courseid, int $start, int $end): array {
+        $classified = self::classify_window($courseid, $start, $end);
+
+        $weekend = 0;
+        $holiday = 0;
+        $recess = 0;
+        foreach ($classified['perday'] as $info) {
+            if (!$info['paused']) {
+                continue;
+            }
+            switch ($info['reason']) {
+                case 'weekend':
+                    $weekend++;
+                    break;
+                case 'holiday':
+                    $holiday++;
+                    break;
+                case 'recess':
+                    $recess++;
+                    break;
+            }
+        }
+
+        return [
+            'total_days' => $weekend + $holiday + $recess,
+            'weekend'    => $weekend,
+            'holiday'    => $holiday,
+            'recess'     => $recess,
+            'events'     => $classified['events'],
+        ];
+    }
+
+    /**
+     * Per-day pause classification for a [start, end) window. Returns one
+     * entry per calendar day (keyed by YYYYMMDD) carrying whether the day is
+     * paused and, if so, the bucketed reason (weekend / holiday / recess).
+     * Powers the report-page "last 30 academic days" heatmap.
+     *
+     * Sub-day optional events do not mark the day paused (they are hour-scale);
+     * they still surface via for_window()'s events sidecar.
+     *
+     * @param int $courseid Course context for manual-pause scoping; 0 for site-wide.
+     * @param int $start    Unix seconds; inclusive lower bound.
+     * @param int $end      Unix seconds; exclusive upper bound. Must be > $start.
+     * @return array<int, array{paused:bool, reason:string}> Keyed by YYYYMMDD, oldest first.
+     */
+    public static function per_day_for_window(int $courseid, int $start, int $end): array {
+        return self::classify_window($courseid, $start, $end)['perday'];
+    }
+
+    /**
+     * Walk every day in [start, end) and classify it as paused (with a bucketed
+     * reason) or active, collecting sub-day optional events as a sidecar. The
+     * single source of truth behind both for_window() (counts) and
+     * per_day_for_window() (map).
+     *
+     * @param int $courseid Course context for manual-pause scoping; 0 for site-wide.
+     * @param int $start    Unix seconds; inclusive lower bound.
+     * @param int $end      Unix seconds; exclusive upper bound.
+     * @return array{perday:array<int, array{paused:bool, reason:string}>,
+     *               events:array<int, array{date:int, starttime:int, endtime:int, label:string}>}
+     */
+    private static function classify_window(int $courseid, int $start, int $end): array {
+        $empty = ['perday' => [], 'events' => []];
         if ($end <= $start) {
-            return ['total_days' => 0, 'weekend' => 0, 'holiday' => 0, 'recess' => 0, 'events' => []];
+            return $empty;
         }
 
         $tz = calendar::timezone();
@@ -88,15 +153,13 @@ class paused_aggregator {
             $cur = $cur->modify('+1 day');
         }
         if (empty($dayymds)) {
-            return ['total_days' => 0, 'weekend' => 0, 'holiday' => 0, 'recess' => 0, 'events' => []];
+            return $empty;
         }
 
         $overrides = self::day_overrides($dayymds);
         $pausespans = self::pause_spans($courseid, $start, $end);
 
-        $weekend = 0;
-        $holiday = 0;
-        $recess = 0;
+        $perday = [];
         $events = [];
 
         foreach ($days as $ymd => $dow) {
@@ -111,11 +174,11 @@ class paused_aggregator {
 
             // Priority: holiday > recess/closed/full-day-optional/manual-pause > weekend.
             if ($type === calendar::DAYTYPE_HOLIDAY && $excludeholidays) {
-                $holiday++;
+                $perday[$ymd] = ['paused' => true, 'reason' => 'holiday'];
                 continue;
             }
             if (($type === calendar::DAYTYPE_RECESS || $type === calendar::DAYTYPE_CLOSED) && $excluderecesses) {
-                $recess++;
+                $perday[$ymd] = ['paused' => true, 'reason' => 'recess'];
                 continue;
             }
             if ($type === calendar::DAYTYPE_OPTIONAL) {
@@ -124,7 +187,7 @@ class paused_aggregator {
                 $optend = $override['endtime'];
                 if ($optstart !== null && $optend !== null) {
                     // Sub-day — surface in the events sidecar but do NOT
-                    // bump the recess bucket (it's hour-scale, not day).
+                    // mark the day paused (it's hour-scale, not day).
                     $events[] = [
                         'date'      => (int) $ymd,
                         'starttime' => (int) $optstart,
@@ -137,28 +200,20 @@ class paused_aggregator {
                     ];
                 } else if ($excluderecesses) {
                     // Full-day optional — fold into the recess bucket.
-                    $recess++;
+                    $perday[$ymd] = ['paused' => true, 'reason' => 'recess'];
                     continue;
                 }
                 // Fall through — sub-day events still get the weekend
                 // check applied below in case the day is a Saturday.
             }
             if (self::ymd_in_pause_span($ymd, $tz, $pausespans)) {
-                $recess++;
+                $perday[$ymd] = ['paused' => true, 'reason' => 'recess'];
                 continue;
             }
-            if ($isweekend) {
-                $weekend++;
-            }
+            $perday[$ymd] = ['paused' => $isweekend, 'reason' => $isweekend ? 'weekend' : ''];
         }
 
-        return [
-            'total_days' => $weekend + $holiday + $recess,
-            'weekend'    => $weekend,
-            'holiday'    => $holiday,
-            'recess'     => $recess,
-            'events'     => $events,
-        ];
+        return ['perday' => $perday, 'events' => $events];
     }
 
     /**

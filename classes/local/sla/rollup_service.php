@@ -137,9 +137,9 @@ class rollup_service {
             $pendingeffvals[] = $eff;
             $pendingrawvals[] = (float) ($r->waitinghours ?? 0.0);
             // Mutually-exclusive pending bands that partition $pending, so the
-            // three displayed counts sum to the total: prioridade (critical,
-            // eff >= criticalmin) | atenção (overgoal, goal < eff < criticalmin)
-            // | aguardando (the remainder, eff <= goal, derived at display as
+            // three displayed counts sum to the total: critical (eff >=
+            // criticalmin) | over-goal (goal < eff < criticalmin) | within-goal
+            // (the remainder, eff <= goal, derived at display as
             // $pending - $overgoal - $critical). $pending stays the total — the
             // score and the overall-weighting depend on it.
             if ($eff >= $criticalmin) {

@@ -43,6 +43,7 @@ Local raw PHPUnit (if wired up) reads `phpunit.xml` at the **repo root**
 block_feedback_tracker.php   Block class (get_content / instance config)
 lib.php                      Procedural hooks + bootstrapping guard
 settings.php                 Admin settings tree
+manage.php                   Management landing page (viewdashboard-gated)
 classes/
   event/                     Custom plugin events (cal_*_updated)
   external/                  Web-service functions (one class each)
@@ -57,10 +58,16 @@ classes/
     payload/                 responsiveness_payload (block + WS share this)
     score/                   responsiveness_calculator (5-term formula) + peer_stats
     sla/                     Ledger, rollup, observer, course_access gate
-cli/                         reset / recompute_one / backfill_* maintenance scripts
+cli/                         reset / recompute_all / recompute_one / backfill_* maintenance scripts
 pages/                       Admin + teacher UIs (dashboard, calendar editor, drilldown)
 templates/                   Mustache (server-rendered UI)
-amd/src/                     Preact components + lib shim (Phase 2A)
+amd/src/                     Preact UI (Phase 2A) — see "React conventions"
+  *_app.js                   Per-surface entrypoints (block_app, dashboard_app,
+                             pending_report_app, simulator_app, spike_react)
+  views/                     Entrypoint orchestrators (BlockView, DashboardView,
+                             PendingReportView, SimulatorView)
+  components/                Leaf components (one per file, PascalCase)
+  lib/                       preact shim + helpers (api, bands, format, score, trend)
 db/                          install.xml, upgrade.php, events, tasks, caches, access
 tests/                       PHPUnit (local/ external/ task/ privacy/) + behat/
 ```
@@ -659,6 +666,13 @@ and the `bft-*-tone-<slug>` CSS classes are frozen identifiers; relabel a band b
 only its `band_*` lang string (e.g. `regular` → "Up Next" / "Atenção", `critical` →
 "Priority" / "Prioridade"). Labels resolve via literal switches, so no code change is needed.
 
+Two vocabularies share these slugs: the **score** gauge shows the `band_*` strings
+(Excelente / Bom / …); **pending/priority** surfaces (group-card stat tiles,
+`PriorityCard`) show the `card_pending` / `card_overgoal` / `card_critical` trio
+(Aguardando / Atenção / Prioridade). To fix a pending-surface label, remap the slug
+to a `card_*` string in that component (e.g. `PriorityCard::priorityLabel`) — never
+relabel `band_*` globally, which would change the score gauge too.
+
 ## React conventions (Phase 2A foundation)
 
 Moodle 5.1 doesn't ship React. The plugin vendors **Preact + htm**
@@ -706,6 +720,9 @@ return html`
 
 Component references use `<${ComponentName}>`. Children that are
 arrays must carry a `key` attribute (Preact's reconciliation rule).
+
+ESLint caps `amd/src/**` lines at **132** (`max-len`); when an htm element's
+attributes push a line over, break the child/label onto its own line or grunt fails.
 
 ### Component conventions
 

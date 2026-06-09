@@ -110,6 +110,115 @@ final class get_pending_submissions_test extends \advanced_testcase {
         $this->assertSame('submitted', $result['submissions'][0]['submissionstatus']);
     }
 
+    /**
+     * The free-text search matches student names server-side, so it spans the
+     * whole result set rather than just the loaded page.
+     *
+     * @return void
+     */
+    public function test_search_filters_by_student_name(): void {
+        $this->resetAfterTest();
+
+        [$course, $teacher] = $this->seed_course_with_teacher();
+        $this->seed_named_row($course, 'Alice', 'Anderson', 5.0);
+        $this->seed_named_row($course, 'Bob', 'Brown', 6.0);
+
+        $this->setUser($teacher);
+        $result = external_api::clean_returnvalue(
+            get_pending_submissions::execute_returns(),
+            get_pending_submissions::execute(
+                (int) $course->id,
+                0,
+                '',
+                'longestwait',
+                0,
+                25,
+                'submitted',
+                '',
+                'anderson'
+            )
+        );
+
+        $this->assertSame(1, (int) $result['total']);
+        $this->assertStringContainsString('Alice', $result['submissions'][0]['studentname']);
+    }
+
+    /**
+     * The distribution counts partition the whole pending set into the three
+     * effective-hours bands, independent of the active band filter.
+     *
+     * @return void
+     */
+    public function test_counts_partition_pending_bands(): void {
+        $this->resetAfterTest();
+        set_config('sla_goal_hours', 24, 'block_feedback_tracker');
+        set_config('bucket_thresholds_eff', '24,48,120', 'block_feedback_tracker');
+
+        [$course, $teacher] = $this->seed_course_with_teacher();
+        $this->seed_named_row($course, 'Within', 'Goal', 5.0);   // Within goal (<= 24).
+        $this->seed_named_row($course, 'Over', 'Goal', 50.0);    // Over goal (24 < x < 120).
+        $this->seed_named_row($course, 'Way', 'Over', 150.0);    // Critical (>= 120).
+
+        $this->setUser($teacher);
+        $result = external_api::clean_returnvalue(
+            get_pending_submissions::execute_returns(),
+            get_pending_submissions::execute((int) $course->id, 0, '', 'longestwait', 0, 25)
+        );
+
+        $this->assertSame(1, (int) $result['counts']['aguardando']);
+        $this->assertSame(1, (int) $result['counts']['atencao']);
+        $this->assertSame(1, (int) $result['counts']['prioridade']);
+    }
+
+    /**
+     * A column sort with an explicit direction orders the whole set, not just
+     * the page.
+     *
+     * @return void
+     */
+    public function test_column_sort_orders_by_effective(): void {
+        $this->resetAfterTest();
+
+        [$course, $teacher] = $this->seed_course_with_teacher();
+        $this->seed_named_row($course, 'Quick', 'One', 3.0);
+        $this->seed_named_row($course, 'Slow', 'Two', 90.0);
+
+        $this->setUser($teacher);
+        $asc = external_api::clean_returnvalue(
+            get_pending_submissions::execute_returns(),
+            get_pending_submissions::execute(
+                (int) $course->id,
+                0,
+                '',
+                'effective',
+                0,
+                25,
+                'submitted',
+                '',
+                '',
+                'asc'
+            )
+        );
+        $desc = external_api::clean_returnvalue(
+            get_pending_submissions::execute_returns(),
+            get_pending_submissions::execute(
+                (int) $course->id,
+                0,
+                '',
+                'effective',
+                0,
+                25,
+                'submitted',
+                '',
+                '',
+                'desc'
+            )
+        );
+
+        $this->assertEqualsWithDelta(3.0, $asc['submissions'][0]['effectivehours'], 0.01);
+        $this->assertEqualsWithDelta(90.0, $desc['submissions'][0]['effectivehours'], 0.01);
+    }
+
     // Helpers.
 
     /**
@@ -153,6 +262,52 @@ final class get_pending_submissions_test extends \advanced_testcase {
             'userid'           => (int) $student->id,
             'attemptnumber'    => 0,
             'submissionstatus' => $status,
+            'timesubmitted'    => $now - 7200,
+            'timegraded'       => null,
+            'hasrule'          => 0,
+            'waitinghours'     => $effective * 1.2,
+            'effectivehours'   => $effective,
+            'effectiveasof'    => $now,
+            'effectivecalver'  => 1,
+            'slabucket'        => 'good',
+            'timecreated'      => $now - 7200,
+            'timemodified'     => $now,
+        ]);
+    }
+
+    /**
+     * Insert one submitted ledger row for a named student against a named
+     * activity, so search + sort assertions are deterministic.
+     *
+     * @param \stdClass $course
+     * @param string $first Student first name.
+     * @param string $last Student last name.
+     * @param float $effective Effective wait in hours.
+     * @return void
+     */
+    private function seed_named_row(\stdClass $course, string $first, string $last, float $effective): void {
+        global $DB;
+
+        $student = $this->getDataGenerator()->create_and_enrol(
+            $course,
+            'student',
+            ['firstname' => $first, 'lastname' => $last]
+        );
+        $assign = $this->getDataGenerator()->create_module(
+            'assign',
+            ['course' => $course->id, 'name' => $first . ' task']
+        );
+        $cm = get_coursemodule_from_instance('assign', $assign->id);
+
+        $now = time();
+        $DB->insert_record('block_feedback_tracker_sub', (object) [
+            'courseid'         => (int) $course->id,
+            'groupid'          => 0,
+            'cmid'             => (int) $cm->id,
+            'iteminstance'     => (int) $assign->id,
+            'userid'           => (int) $student->id,
+            'attemptnumber'    => 0,
+            'submissionstatus' => 'submitted',
             'timesubmitted'    => $now - 7200,
             'timegraded'       => null,
             'hasrule'          => 0,

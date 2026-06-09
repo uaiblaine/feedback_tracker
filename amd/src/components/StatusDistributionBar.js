@@ -14,9 +14,18 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Status distribution bar. Four segmented buttons sized proportionally to
- * the count in each band (excellent / good / regular / critical). Click
- * a segment to filter the table to just that band.
+ * Status distribution bar. Segmented buttons sized proportionally to the count
+ * in each band; click a segment to filter the table. Mode-aware:
+ *
+ *  - pending: three segments (Waiting / Attention / Priority) over the pending
+ *    effective-hours bands, plus a trailing "Já avaliados" button that switches
+ *    the table to the graded view.
+ *  - graded: four segments (Excellent / Good / Up Next / Priority) over the
+ *    slabucket result bands, plus a "back to pending" button.
+ *
+ * The counts come from the web service so they reflect every matching row, not
+ * just the loaded page. The bar renders even when a mode has no rows so the
+ * mode toggle stays reachable.
  *
  * @module    block_feedback_tracker/components/StatusDistributionBar
  * @copyright 2026 Anderson Blaine <anderson@blaine.com.br>
@@ -25,30 +34,48 @@
 
 import {html} from 'block_feedback_tracker/lib/preact';
 
-/** @type {string[]} Bands shown in the distribution; order matters (worst → best is reversed by design). */
-const BANDS = ['excellent', 'good', 'regular', 'critical'];
+/**
+ * Segment descriptors per mode. `slug` is the filter value sent to the table
+ * (the WS `band` for pending, `bucket` for graded); `tone` drives the colour
+ * class.
+ *
+ * @param {string} mode
+ * @param {object} i18n
+ * @returns {Array<{slug: string, label: string, tone: string}>}
+ */
+const segmentsFor = (mode, i18n) => {
+    const bands = i18n.bands || {};
+    if (mode === 'graded') {
+        return [
+            {slug: 'excellent', label: bands.excellent || 'Excellent', tone: 'excellent'},
+            {slug: 'good', label: bands.good || 'Good', tone: 'good'},
+            {slug: 'regular', label: bands.regular || 'Up Next', tone: 'regular'},
+            {slug: 'critical', label: bands.critical || 'Priority', tone: 'critical'},
+        ];
+    }
+    return [
+        {slug: 'aguardando', label: i18n.card_pending || 'Waiting', tone: 'aguardando'},
+        {slug: 'atencao', label: i18n.card_overgoal || 'Attention', tone: 'atencao'},
+        {slug: 'prioridade', label: i18n.card_critical || 'Priority', tone: 'prioridade'},
+    ];
+};
 
 /**
  * @param {object} props
- * @param {Object<string, number>} props.counts  {excellent, good, regular, critical}
- * @param {string} props.activeband              Currently filtered band ('' = none).
- * @param {(band: string) => void} props.onSelect Click handler — passes '' to clear.
- * @param {object} props.i18n                    Label bundle (bands, distribution_title, distribution_hint).
- * @returns {object|null} vnode
+ * @param {string} props.mode                    'pending' | 'graded'.
+ * @param {Object<string, number>} props.counts  Per-band counts for the mode.
+ * @param {string} props.active                  Currently-filtered band slug ('' = none).
+ * @param {(slug: string) => void} props.onSelect  Filter click — passes '' to clear.
+ * @param {(mode: string) => void} props.onModeChange  Pending ↔ graded toggle.
+ * @param {object} props.i18n                    Label bundle.
+ * @returns {object} vnode
  */
-export default function StatusDistributionBar({counts, activeband, onSelect, i18n}) {
+export default function StatusDistributionBar({mode, counts, active, onSelect, onModeChange, i18n}) {
     const safecounts = counts || {};
-    const total = BANDS.reduce((sum, b) => sum + (Number(safecounts[b]) || 0), 0);
-    if (total === 0) {
-        return null;
-    }
-    const labels = i18n.bands || {};
-    const titles = {
-        excellent: labels.excellent || 'Excellent',
-        good:      labels.good      || 'Good',
-        regular:   labels.regular   || 'Up Next',
-        critical:  labels.critical  || 'Priority',
-    };
+    const segments = segmentsFor(mode, i18n);
+    const total = segments.reduce((sum, s) => sum + (Number(safecounts[s.slug]) || 0), 0);
+    const graded = mode === 'graded';
+
     return html`
         <div class="bft-dist">
             <div class="bft-dist-head">
@@ -60,28 +87,38 @@ export default function StatusDistributionBar({counts, activeband, onSelect, i18
                 </span>
             </div>
             <div class="bft-dist-bar" role="group">
-                ${BANDS.map((band) => {
-                    const n = Number(safecounts[band]) || 0;
-                    const pct = (n / total) * 100;
-                    const dim = activeband !== '' && activeband !== band;
+                ${segments.map((seg) => {
+                    const n = Number(safecounts[seg.slug]) || 0;
+                    const pct = total > 0 ? (n / total) * 100 : (100 / segments.length);
+                    const dim = active !== '' && active !== seg.slug;
                     return html`
                         <button type="button"
-                                key=${'d-' + band}
-                                class=${'bft-dist-seg bft-dist-seg-' + band + (dim ? ' bft-dist-seg-dim' : '')}
+                                key=${'d-' + seg.slug}
+                                class=${'bft-dist-seg bft-dist-seg-' + seg.tone + (dim ? ' bft-dist-seg-dim' : '')}
                                 style=${'flex: ' + Math.max(pct, 1).toFixed(2) + ' 1 0;'}
-                                aria-pressed=${activeband === band}
-                                aria-label=${titles[band] + ' — ' + n}
-                                onClick=${() => onSelect(activeband === band ? '' : band)}>
+                                aria-pressed=${active === seg.slug}
+                                aria-label=${seg.label + ' — ' + n}
+                                onClick=${() => onSelect(active === seg.slug ? '' : seg.slug)}>
                             <span class="bft-dist-seg-n bft-mono">${n}</span>
-                            <span class="bft-dist-seg-l">${titles[band]}</span>
+                            <span class="bft-dist-seg-l">${seg.label}</span>
                         </button>
                     `;
                 })}
+                <button type="button"
+                        class=${'bft-dist-modebtn' + (graded ? ' bft-dist-modebtn-active' : '')}
+                        aria-pressed=${graded}
+                        onClick=${() => onModeChange(graded ? 'pending' : 'graded')}>
+                    ${graded
+                        ? '← ' + (i18n.pendingreport_mode_pending || 'Pending')
+                        : (i18n.pendingreport_mode_graded || 'Graded') + ' →'}
+                </button>
             </div>
             <div class="bft-dist-scale bft-mono">
                 <span>0%</span>
                 <span class="bft-dist-scale-spacer"></span>
-                <span>${i18n.distribution_scale_max || '100% of pending'}</span>
+                <span>${graded
+                    ? (i18n.distribution_scale_max_graded || '100% of graded')
+                    : (i18n.distribution_scale_max || '100% of pending')}</span>
             </div>
         </div>
     `;

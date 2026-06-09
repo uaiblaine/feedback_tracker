@@ -205,5 +205,13 @@ function block_feedback_tracker_user_preferences(): array {
             'default' => '0',
             'permissioncallback' => [\core_user::class, 'is_current_user'],
         ],
+        // V1.0.27 — collapsed state for the report page's combined hero +
+        // academic-days strip. Same shape + rationale as the dashboard one.
+        'block_feedback_tracker_report_collapsed' => [
+            'type'    => PARAM_BOOL,
+            'null'    => NULL_NOT_ALLOWED,
+            'default' => '0',
+            'permissioncallback' => [\core_user::class, 'is_current_user'],
+        ],
     ];
 }

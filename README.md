@@ -1,113 +1,46 @@
 # Feedback Flow
 
-`block_feedback_tracker` measures teacher response time for manually graded
-classwork in Moodle, using **business / academic time** instead of raw
-elapsed time. It produces a configurable **Academic Responsiveness Score
-(0-100)** per (course, group) tuple and a per-group dashboard card with
-median / compliance / trend and pending-backlog indicators.
+**Feedback Flow** helps teaching teams visualize — and value — how efficiently students receive feedback on their work, measured fairly in *working time* rather than raw calendar days.
 
-The plugin is **assign-only**: only `\mod_assign` submissions are tracked.
-Data is tied to `groupid`, so reassigning a teacher to a class never
-invalidates the historical record.
+## Why Feedback Flow?
+
+Timely feedback is one of the biggest drivers of student learning, but it is often hard to evaluate at a glance how a course is doing. Counting raw elapsed time can be misleading: it inadvertently penalizes educators for nights, weekends, holidays, and term breaks when grading is naturally paused.
+
+Feedback Flow measures the turnaround time between a student submitting work and a teacher evaluating it using **academic business time**. It automatically pauses the clock outside of working hours, ensuring the resulting **Academic Responsiveness Score** is an encouraging indicator that rewards consistency, rather than a rigid stopwatch that adds unnecessary pressure.
+
+## What it does
+
+- **Academic Responsiveness Score (0–100)** for each class or group, featuring a clear status band (Excellent, Good, …) and a plain-language explanation of how the score was calculated.
+- **A fair "working-time" clock** — pauses automatically on weekends, holidays, recesses, and outside configured hours, following an academic calendar you control.
+- **A course block** showing each group's score, typical turnaround time, and the volume of submissions currently awaiting review.
+- **A teacher dashboard** with a clean overview across all courses, a priority list for upcoming grading, and supportive insights (e.g., most improved, items requiring attention).
+- **A pending-grading report** outlining what is in the queue, what has been completed, and a 30-day historical view of grading momentum.
+- **Optional peer context** allowing teachers to anonymously compare their responsiveness against department averages.
+- **Optional score simulator** — a safe sandbox to understand how different scenarios affect the score, without altering real data.
+
+Only work that students have explicitly **submitted** triggers the system, and Feedback Flow only runs in courses where you have added the block — giving you total control over when to opt in.
 
 ## Requirements
 
-- Moodle 5.1 (MOODLE_501_STABLE)
-- PHP 8.2 or 8.4
-- PostgreSQL 15 (recommended) or MariaDB 10
+- Moodle 4.5 – 5.2
+- PHP 8.1 or later
+- PostgreSQL or MariaDB
 
 ## Installation
 
-1. Clone or download into `<moodle>/blocks/feedback_tracker`.
-2. Run `php admin/cli/upgrade.php` (or follow the web upgrade screen).
-3. Site administration → Plugins → Blocks → Feedback Flow: review
-   settings, especially the **Calendar behaviour** section.
+1. Copy the plugin into `<moodle>/blocks/feedback_tracker`.
+2. Visit *Site administration → Notifications* (or run `php admin/cli/upgrade.php`) to complete the installation.
+3. Review the settings under *Site administration → Plugins → Blocks → Feedback Flow* — especially the **Calendar behaviour** section, where you set working hours, weekends, holidays, and term breaks.
 
-## What it tracks
+## Getting started
 
-- **Effective hours** — business / academic hours between a submission and
-  its grading, computed by the academic-time engine using the configured
-  weekly schedule, weekend mask, holidays, recesses, closures, and manual
-  pause windows.
-- **Wall-clock hours** — raw elapsed time, displayed alongside effective
-  hours so reviewers can see the underlying calendar duration.
-- **SLA buckets** — Excellent ≤ 24 h, Good 24–48 h, Regular 48–120 h,
-  Critical > 120 h (effective hours; thresholds configurable).
-- **Academic Responsiveness Score (0-100)** — five-term weighted formula
-  using compliance %, median effective hours, critical share, pending
-  backlog, and 30-day trend. Weights are admin-tunable.
+1. Turn editing on in a course and add the **Feedback Flow** block.
+2. Teachers in that course open their dashboard from the block to see scores, priorities, and the pending-grading report.
+3. (Optional) Fine-tune the academic calendar and the scoring weights in the admin settings.
 
-## Configuration
+## Privacy
 
-All settings live under *Site admin → Plugins → Blocks → Feedback Flow*:
-
-- **Scoring** — five weights (auto-normalised to sum 1.0), SLA goal hours,
-  bucket thresholds.
-- **Calendar behaviour** — exclude-weekends / -holidays / -recesses
-  switches, weekend bitmask, platform timezone, grading-during-pause mode
-  (`clipped` default, `live` for audit-only manual pauses).
-- **Performance** — drain batch size, time cap, backfill chunk, trend
-  window, retention.
-- **Views** — show perceived time, show paused-today indicator, school
-  comparison overlay.
-- **Tools** — links to the calendar editor, recompute audit log, full
-  reset.
-
-The **Calendar editor** (`/blocks/feedback_tracker/pages/calendar_editor.php`)
-manages calendar days (add/remove + CSV bulk import), weekly business
-hours (split shifts supported), and manual pause windows
-(site / course / group scope).
-
-## Architecture
-
-- **Per-submission ledger** (`block_feedback_tracker_sub`) is the source of
-  truth, with one row per `(cmid, userid, attemptnumber)`. Both
-  `waitinghours` (raw) and `effectivehours` (business) are stored, plus a
-  cached `slabucket` and the `effectivecalver` for staleness detection.
-- **Per-submission pause audit** (`block_feedback_tracker_pause`) records
-  every pause that contributed to a submission's effective time
-  (weekend / holiday / outofhours / coursepaused / etc.), enabling
-  per-submission timeline rendering and audit trails.
-- **Materialised rollup** (`block_feedback_tracker_group`) holds
-  pre-computed counts, medians, compliance, score, and pause indicators
-  per (course, group). The block reads from here, never from the ledger
-  directly.
-- **Dirty queue** (`block_feedback_tracker_queue`) defers rollup recompute
-  to a scheduled `drain_queue` task (every 5 min).
-- **Calendar config tables** (`_cday`, `_chours`, `_cpause`) hold the
-  platform academic calendar; the `calver` site setting versions them so
-  cache keys naturally invalidate on saves.
-- **Events** drive everything: submission_changed, submission_graded,
-  override_changed, course / cm / group lifecycle events upsert the
-  ledger. Custom plugin events (`cal_day_updated`, `cal_hours_updated`,
-  `cal_pause_updated`) drive rollup re-enqueue when admins edit the
-  calendar.
-
-## MVP scope
-
-This plugin ships with the following deliberately scoped behaviour:
-
-- **Single platform-level calendar.** No per-department or per-course
-  calendar overrides yet — every course shares the institution-wide
-  schedule. The schema supports adding scope inheritance later.
-- **Pause windows at site / course / group level only.** No per-cmid or
-  per-submission overrides.
-- **Server-rendered UI.** The block, drilldown page, and calendar editor
-  render with plain HTML; no AMD / React modules. The WS surface
-  (11 functions) is in place for a future client-side enhancement.
-- **Business hours = team active window.** The configured weekly hours
-  describe the team's collective active window (the union of all teacher
-  shifts), not any individual teacher's schedule.
-
-## CLI
-
-```
-# Drop every ledger / rollup / queue row (preserves calendar config).
-php blocks/feedback_tracker/cli/reset.php [--backfill]
-
-# Recompute one (course, group) rollup on demand.
-php blocks/feedback_tracker/cli/recompute_one.php --courseid=N --groupid=N
-```
+Feedback Flow ships with a full privacy (GDPR) provider: the data it stores is described for subject-access exports and removed on request through Moodle's standard privacy tools.
 
 ## License
 

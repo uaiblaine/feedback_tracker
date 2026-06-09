@@ -99,16 +99,6 @@ $dashboardcollapsed = (bool) get_user_preferences(
 
 $initial = [
     'userid' => (int) $USER->id,
-    /*
-     * The legacy greeting key stays for back-compat with any caller that
-     * imports it; the new view consumes greeting_firstname + the
-     * dashboard_greeting_morning/afternoon/evening templates from i18n.
-     */
-    'greeting' => get_string(
-        'dashboard_hero_greeting',
-        'block_feedback_tracker',
-        (object) ['firstname' => format_string($USER->firstname)]
-    ),
     'greeting_firstname' => format_string($USER->firstname),
     'dashboard' => $dashboard,
     'gradenow' => $gradenow,
