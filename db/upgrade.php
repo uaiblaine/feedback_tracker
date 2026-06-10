@@ -43,6 +43,8 @@
  */
 function xmldb_block_feedback_tracker_upgrade($oldversion) {
     global $DB;
+
+    $dbman = $DB->get_manager(); // Loads ddl manager and xmldb classes.
     /*
      * Fresh installs land here with $oldversion = 0 (the install hook
      * sets the version *after* this function returns). Returning true
@@ -149,7 +151,6 @@ function xmldb_block_feedback_tracker_upgrade($oldversion) {
     // unaffected). Calver bump invalidates cached payloads so the new
     // paused_events_30d sidecar shows up on next read.
     if ($oldversion < 2026060109) {
-        $dbman = $DB->get_manager();
         $table = new xmldb_table('block_feedback_tracker_cday');
 
         $field = new xmldb_field(
@@ -232,7 +233,6 @@ function xmldb_block_feedback_tracker_upgrade($oldversion) {
     // graded-only median_eff_h, so it is unaffected. Re-enqueue every tuple so
     // drain_queue backfills the new columns on the next cron run.
     if ($oldversion < 2026060119) {
-        $dbman = $DB->get_manager();
         $table = new xmldb_table('block_feedback_tracker_group');
 
         $field = new xmldb_field(
