@@ -104,6 +104,11 @@ class bootstrap {
             'trend_slower' => get_string('trend_slower', 'block_feedback_tracker'),
             'trend_stable' => get_string('trend_stable', 'block_feedback_tracker'),
             'trend_window_label' => get_string('trend_window_label', 'block_feedback_tracker'),
+            // Connectivity / retry affordance — shared by every async surface
+            // (dashboard, report page, block, modals) via the RetryNotice component.
+            'connection_lost' => get_string('connection_lost', 'block_feedback_tracker'),
+            'connection_reload' => get_string('connection_reload', 'block_feedback_tracker'),
+            'connection_retry' => get_string('connection_retry', 'block_feedback_tracker'),
         ];
     }
 
@@ -155,6 +160,11 @@ class bootstrap {
      * @return array
      */
     public static function dashboard_i18n(): array {
+        // When the display unit is business days, the teacher-facing copy that
+        // names the working-time unit reads "business days" instead of
+        // "business hours" — resolved here so the React layer needs no change.
+        $daysmode = ((string) (get_config('block_feedback_tracker', 'display_time_unit') ?: 'hours'))
+            === 'business_days';
         return [
             'dashboard_title' => get_string('dashboard_title', 'block_feedback_tracker'),
             'dashboard_hero_subtitle' => get_string('dashboard_hero_subtitle', 'block_feedback_tracker'),
@@ -189,7 +199,9 @@ class bootstrap {
             'gradenow_open' => get_string('gradenow_open', 'block_feedback_tracker'),
             // Phase 3E additions — hero, slim toggle, insights, priority, columns.
             'dashboard_brandtag' => get_string('dashboard_brandtag', 'block_feedback_tracker'),
-            'dashboard_business_chip' => get_string('dashboard_business_chip', 'block_feedback_tracker'),
+            'dashboard_business_chip' => $daysmode
+                ? get_string('dashboard_business_chip_days', 'block_feedback_tracker')
+                : get_string('dashboard_business_chip', 'block_feedback_tracker'),
             'dashboard_event_chip_label' => get_string('dashboard_event_chip_label', 'block_feedback_tracker'),
             'dashboard_event_chip_tooltip' => get_string('dashboard_event_chip_tooltip', 'block_feedback_tracker'),
             'dashboard_collapse' => get_string('dashboard_collapse', 'block_feedback_tracker'),
@@ -197,7 +209,9 @@ class bootstrap {
             'dashboard_greeting_afternoon' => get_string('dashboard_greeting_afternoon', 'block_feedback_tracker'),
             'dashboard_greeting_evening' => get_string('dashboard_greeting_evening', 'block_feedback_tracker'),
             'dashboard_greeting_morning' => get_string('dashboard_greeting_morning', 'block_feedback_tracker'),
-            'dashboard_hero_body' => get_string('dashboard_hero_body', 'block_feedback_tracker'),
+            'dashboard_hero_body' => $daysmode
+                ? get_string('dashboard_hero_body_days', 'block_feedback_tracker')
+                : get_string('dashboard_hero_body', 'block_feedback_tracker'),
             'dashboard_hero_eyebrow' => get_string('dashboard_hero_eyebrow', 'block_feedback_tracker'),
             'dashboard_hero_headline' => get_string('dashboard_hero_headline', 'block_feedback_tracker'),
             'dashboard_insights_title' => get_string('dashboard_insights_title', 'block_feedback_tracker'),
@@ -239,6 +253,10 @@ class bootstrap {
      * @return array
      */
     public static function pending_report_i18n(): array {
+        // See dashboard_i18n(): swap the working-time unit copy to "business
+        // days" when that display unit is active.
+        $daysmode = ((string) (get_config('block_feedback_tracker', 'display_time_unit') ?: 'hours'))
+            === 'business_days';
         return [
             'pendingreport_title' => get_string('pendingreport_title', 'block_feedback_tracker'),
             'pendingreport_empty' => get_string('pendingreport_empty', 'block_feedback_tracker'),
@@ -286,15 +304,21 @@ class bootstrap {
             'distribution_scale_max_graded' => get_string('distribution_scale_max_graded', 'block_feedback_tracker'),
             'distribution_title' => get_string('distribution_title', 'block_feedback_tracker'),
             'hero_effective_eyebrow' => get_string('hero_effective_eyebrow', 'block_feedback_tracker'),
-            'hero_effective_tip' => get_string('hero_effective_tip', 'block_feedback_tracker'),
+            'hero_effective_tip' => $daysmode
+                ? get_string('hero_effective_tip_days', 'block_feedback_tracker')
+                : get_string('hero_effective_tip', 'block_feedback_tracker'),
             'hero_effective_unit' => get_string('hero_effective_unit', 'block_feedback_tracker'),
             'hero_effective_unit_days' => get_string('hero_effective_unit_days', 'block_feedback_tracker'),
             'hero_perceived_label' => get_string('hero_perceived_label', 'block_feedback_tracker'),
             'hero_perceived_tip' => get_string('hero_perceived_tip', 'block_feedback_tracker'),
             'hero_perceived_unit' => get_string('hero_perceived_unit', 'block_feedback_tracker'),
             'hero_score_eyebrow' => get_string('hero_score_eyebrow', 'block_feedback_tracker'),
-            'hero_score_note' => get_string('hero_score_note', 'block_feedback_tracker'),
-            'hero_score_tip' => get_string('hero_score_tip', 'block_feedback_tracker'),
+            'hero_score_note' => $daysmode
+                ? get_string('hero_score_note_days', 'block_feedback_tracker')
+                : get_string('hero_score_note', 'block_feedback_tracker'),
+            'hero_score_tip' => $daysmode
+                ? get_string('hero_score_tip_days', 'block_feedback_tracker')
+                : get_string('hero_score_tip', 'block_feedback_tracker'),
             'hero_sla_atrisk' => get_string('hero_sla_atrisk', 'block_feedback_tracker'),
             'hero_sla_critical' => get_string('hero_sla_critical', 'block_feedback_tracker'),
             'hero_sla_eyebrow' => get_string('hero_sla_eyebrow', 'block_feedback_tracker'),
@@ -316,7 +340,9 @@ class bootstrap {
             'pendingreport_crumb_current' => get_string('pendingreport_crumb_current', 'block_feedback_tracker'),
             'pendingreport_filter_class_label' => get_string('pendingreport_filter_class_label', 'block_feedback_tracker'),
             'pendingreport_row_paused' => get_string('pendingreport_row_paused', 'block_feedback_tracker'),
-            'pendingreport_row_paused_tip' => get_string('pendingreport_row_paused_tip', 'block_feedback_tracker'),
+            'pendingreport_row_paused_tip' => $daysmode
+                ? get_string('pendingreport_row_paused_tip_days', 'block_feedback_tracker')
+                : get_string('pendingreport_row_paused_tip', 'block_feedback_tracker'),
             // MVP3 report redesign — hero (reused from the dashboard), academic-days
             // strip, graded view, action column, and the collapse toggle.
             'acaday_holiday_one' => get_string('acaday_holiday_one', 'block_feedback_tracker'),
@@ -343,7 +369,9 @@ class bootstrap {
             'pendingreport_subline_graded' => get_string('pendingreport_subline_graded', 'block_feedback_tracker'),
             'pendingreport_subline_pending' => get_string('pendingreport_subline_pending', 'block_feedback_tracker'),
             'report_chip_sla' => get_string('report_chip_sla', 'block_feedback_tracker'),
-            'report_hero_body' => get_string('report_hero_body', 'block_feedback_tracker'),
+            'report_hero_body' => $daysmode
+                ? get_string('report_hero_body_days', 'block_feedback_tracker')
+                : get_string('report_hero_body', 'block_feedback_tracker'),
             'report_hero_eyebrow' => get_string('report_hero_eyebrow', 'block_feedback_tracker'),
             'report_hero_headline' => get_string('report_hero_headline', 'block_feedback_tracker'),
         ];

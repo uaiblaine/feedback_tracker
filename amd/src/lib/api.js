@@ -33,9 +33,33 @@ import Ajax from 'core/ajax';
 import Notification from 'core/notification';
 
 /**
- * Generic single-WS caller. Routes errors through core/notification so
- * unhandled rejections surface as a toast, then re-throws so the caller's
- * own catch / try can react.
+ * Decide whether a rejected web-service call failed because of a connectivity
+ * problem (offline, dropped Wi-Fi, server unreachable, timeout) rather than a
+ * genuine application error returned by Moodle.
+ *
+ * The browser's offline flag is the strongest signal. Beyond that, a real
+ * web-service exception always carries a Moodle `errorcode`; core/ajax rejects
+ * transport failures with jQuery's bare `errorThrown` (an empty string or a
+ * plain Error), which has none. Treating "no errorcode" as a network failure
+ * keeps genuine application errors (capability, invalid param, coding) on the
+ * technical toast while connectivity drops get the friendly retry affordance.
+ *
+ * @param {*} error  The rejection value from core/ajax.
+ * @returns {boolean}  True when the failure looks like a connectivity drop.
+ */
+const isNetworkError = (error) => {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        return true;
+    }
+    return !(error && typeof error === 'object' && error.errorcode);
+};
+
+/**
+ * Generic single-WS caller. Connectivity failures are tagged with `bftNetwork`
+ * and re-thrown WITHOUT a toast so the calling view can render a friendly
+ * inline "connection lost / try again" notice; genuine application errors keep
+ * routing through core/notification as a toast. Either way the error is
+ * re-thrown so the caller's own catch / try can react.
  *
  * core/ajax resolves a jQuery promise (thenable, but with no native
  * .finally()). Promise.resolve() adopts it into a native Promise so callers
@@ -48,6 +72,11 @@ import Notification from 'core/notification';
  */
 const call = (methodname, args) => Promise.resolve(Ajax.call([{methodname, args}])[0])
     .catch((error) => {
+        if (isNetworkError(error)) {
+            const tagged = (error && typeof error === 'object') ? error : {message: String(error || '')};
+            tagged.bftNetwork = true;
+            throw tagged;
+        }
         Notification.exception(error);
         throw error;
     });

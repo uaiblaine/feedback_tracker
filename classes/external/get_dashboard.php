@@ -99,7 +99,8 @@ class get_dashboard extends external_api {
             . '_' . calendar::current_version()
             . '_' . $USER->id
             . '_' . ($scope === null ? 'all' : 'scoped')
-            . '_' . $band;
+            . '_' . $band
+            . (\block_feedback_tracker\local\sla\bucket::use_day_thresholds() ? '_d' : '');
         $cached = $cache->get($key);
         if (
             $cached !== false && is_array($cached)
@@ -140,6 +141,8 @@ class get_dashboard extends external_api {
                        SUM(g.pending) AS pending,
                        SUM(g.critical) AS critical,
                        SUM(g.overgoal) AS overgoal,
+                       SUM(g.critical_days) AS critical_days,
+                       SUM(g.overgoal_days) AS overgoal_days,
                        AVG(g.responsiveness_score) AS avgscore,
                        AVG(g.median_eff_h) AS median_eff_h,
                        AVG(g.median_raw_h) AS perceived_median_hours,
@@ -160,9 +163,19 @@ class get_dashboard extends external_api {
         $courses = [];
         $courseids = array_map(static fn ($r) => (int) $r->courseid, $rows);
         $trendseries = self::trend_series_for_courses($courseids);
+        // Counts follow the banding ruler: business-days mode serves the
+        // day-ruler twins, falling back to the hour counts until the rollup
+        // has been recomputed with the new columns.
+        $usedays = \block_feedback_tracker\local\sla\bucket::use_day_thresholds();
         foreach ($rows as $r) {
             $avg = $r->avgscore !== null ? (float) $r->avgscore : null;
             $cid = (int) $r->courseid;
+            $critical = (int) $r->critical;
+            $overgoal = (int) $r->overgoal;
+            if ($usedays && $r->critical_days !== null) {
+                $critical = (int) $r->critical_days;
+                $overgoal = (int) ($r->overgoal_days ?? 0);
+            }
             $band = $avg !== null
                 ? \block_feedback_tracker\local\score\responsiveness_calculator::band_for($avg)
                 : null;
@@ -171,8 +184,8 @@ class get_dashboard extends external_api {
                 'coursename' => (string) $r->coursename,
                 'numgroups' => (int) $r->numgroups,
                 'pending'   => (int) $r->pending,
-                'critical'  => (int) $r->critical,
-                'overgoal'  => (int) $r->overgoal,
+                'critical'  => $critical,
+                'overgoal'  => $overgoal,
                 'avgscore'  => $avg !== null ? round($avg, 2) : null,
                 'score_band' => $band,
                 'median_eff_h' => $r->median_eff_h !== null ? round((float) $r->median_eff_h, 2) : null,

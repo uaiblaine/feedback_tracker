@@ -121,6 +121,87 @@
     font-size: var(--bft-fs-body);
 }
 
+/* Connectivity-failure notice with a retry affordance. Global (like
+ * .bft-error) so it works in the in-course block and on every standalone
+ * page. Amber, not error-red — the failure is recoverable. The 'banner'
+ * variant sits inline above content that is already present; the 'block'
+ * variant is the centred standalone empty-state shown before any data loads. */
+
+.bft-retry {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    background: #fff7ed;
+    color: #9a3412;
+    border: 1px solid #fed7aa;
+    border-radius: 6px;
+    padding: 0.6rem 0.75rem;
+    font-size: var(--bft-fs-body);
+}
+
+.bft-retry-block {
+    align-items: center;
+    text-align: center;
+    gap: 0.75rem;
+    padding: 1.25rem 1rem;
+}
+
+.bft-retry-msg {
+    margin: 0;
+}
+
+.bft-retry-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.bft-retry-block .bft-retry-actions {
+    justify-content: center;
+}
+
+.bft-retry-btn {
+    background: #ea580c;
+    border: 1px solid #ea580c;
+    border-radius: 4px;
+    padding: 0.3rem 0.8rem;
+    font-size: var(--bft-fs-body);
+    line-height: 1.4;
+    color: #fff;
+    cursor: pointer;
+}
+
+.bft-retry-btn:hover,
+.bft-retry-btn:focus-visible {
+    background: #c2410c;
+    border-color: #c2410c;
+    outline: none;
+}
+
+.bft-retry-btn:disabled,
+.bft-retry-busy {
+    opacity: 0.6;
+    cursor: progress;
+}
+
+.bft-retry-reload {
+    background: none;
+    border: none;
+    padding: 0.3rem 0.4rem;
+    font-size: var(--bft-fs-body);
+    line-height: 1.4;
+    color: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.bft-retry-reload:hover,
+.bft-retry-reload:focus-visible {
+    color: #7c2d12;
+    outline: none;
+}
+
 .block_feedback_tracker .bft-card-list {
     display: flex;
     flex-direction: column;
@@ -2232,19 +2313,68 @@ a.bft-activity-action:focus {
     gap: 0.4rem;
 }
 
+.bft-row-paused-wrap {
+    position: relative;
+    display: inline-flex;
+}
+
 .bft-row-paused-tag {
     display: inline-flex;
     align-items: center;
     gap: 0.2rem;
+    font-family: inherit;
     font-size: 0.58rem;
     font-weight: 700;
-    padding: 0.1rem 0.4rem;
+    line-height: 1;
+    padding: 0.14rem 0.32rem;
     border-radius: 999px;
     background: var(--bft-surface-alt);
     color: var(--bft-text-muted);
     letter-spacing: 0.04em;
     text-transform: uppercase;
     border: 1px solid var(--bft-border-soft);
+    cursor: pointer;
+}
+
+.bft-row-paused-tag:hover,
+.bft-row-paused-tag[aria-expanded="true"] {
+    background: var(--bft-surface-dim);
+    color: var(--bft-text);
+}
+
+.bft-row-paused-i {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 0.95em;
+    height: 0.95em;
+    border-radius: 50%;
+    border: 1px solid currentcolor;
+    font-size: 0.58rem;
+    font-style: italic;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.bft-row-paused-pop {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    right: 0;
+    z-index: 30;
+    width: max-content;
+    max-width: 240px;
+    padding: 0.45rem 0.6rem;
+    border-radius: 8px;
+    background: var(--bft-surface);
+    border: 1px solid var(--bft-border-soft);
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.14);
+    color: var(--bft-text);
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    white-space: normal;
+    text-align: left;
 }
 
 .bft-row-paused-swatch {

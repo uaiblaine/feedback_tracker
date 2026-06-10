@@ -112,6 +112,11 @@ class rollup_service {
         $slagoal = (float) (get_config('block_feedback_tracker', 'sla_goal_hours') ?: 24);
         $thresholds = bucket::parse_thresholds_eff();
         $criticalmin = $thresholds[2];
+        // Day-ruler bounds for the critical_days/overgoal_days twins (the
+        // hour-based critical/overgoal above keep feeding the score).
+        $daythresholds = bucket::parse_thresholds_days();
+        $daygoal = $daythresholds[0];
+        $daycrit = $daythresholds[2];
 
         // 1. Pending counts. Only genuinely submitted work counts toward the
         // SLA — draft / new / reopened attempts are awaiting the student, not
@@ -131,6 +136,8 @@ class rollup_service {
         $pending = count($pendingrows);
         $critical = 0;
         $overgoal = 0;
+        $criticaldays = 0;
+        $overgoaldays = 0;
         $pendingeffvals = [];
         $pendingrawvals = [];
         $pendingeffdays = [];
@@ -143,6 +150,14 @@ class rollup_service {
             $days = day_counter::between((int) $r->timesubmitted, $now);
             $pendingeffdays[] = $days['business'];
             $pendingpercdays[] = $days['calendar'];
+            // Day-ruler partition (inclusive bounds, mirroring
+            // bucket::for_effective_days): critical > crit | overgoal
+            // goal..crit | within-goal the remainder.
+            if ($days['business'] > $daycrit) {
+                $criticaldays++;
+            } else if ($days['business'] > $daygoal) {
+                $overgoaldays++;
+            }
             // Mutually-exclusive pending bands that partition $pending, so the
             // three displayed counts sum to the total: critical (eff >=
             // criticalmin) | over-goal (goal < eff < criticalmin) | within-goal
@@ -268,6 +283,8 @@ class rollup_service {
             'cur_median_raw_h'     => $curmedianraw,
             'cur_median_eff_days'  => $curmedianeffdays,
             'cur_median_perc_days' => $curmedianpercdays,
+            'critical_days'        => $criticaldays,
+            'overgoal_days'        => $overgoaldays,
             'responsiveness_score' => $scoredata['score'],
             'score_band'           => $scoredata['band'],
             'comp_compliance'      => $components['compliance'] ?? null,

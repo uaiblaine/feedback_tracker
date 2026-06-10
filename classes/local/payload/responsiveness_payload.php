@@ -30,6 +30,7 @@ use block_feedback_tracker\local\calendar\calendar;
 use block_feedback_tracker\local\calendar\paused_aggregator;
 use block_feedback_tracker\local\score\peer_stats;
 use block_feedback_tracker\local\sla\activity_schedule;
+use block_feedback_tracker\local\sla\bucket;
 
 /**
  * Builds the responsiveness payload (groups array + lastsynced) without
@@ -76,7 +77,11 @@ class responsiveness_payload {
         global $DB;
 
         $cache = \cache::make('block_feedback_tracker', 'responsiveness_payload');
-        $key = calendar::current_version() . '_' . $userid . '_' . $courseid;
+        // The banding ruler (hours vs business days) swaps the pending-band
+        // counts, so it is part of the key — flipping the display unit takes
+        // effect on the next fetch instead of waiting out the TTL.
+        $key = calendar::current_version() . '_' . $userid . '_' . $courseid
+            . (bucket::use_day_thresholds() ? '_d' : '');
         if ($limit > 0) {
             $key .= '_' . $offset . '_' . $limit;
         }
@@ -448,14 +453,24 @@ class responsiveness_payload {
         $pausedaggregate = $pausedaggregate ?? ['total_days' => 0, 'weekend' => 0, 'holiday' => 0, 'recess' => 0, 'events' => []];
         $peer = $peer ?? ['department_score' => null, 'department_hours' => null,
                           'top10_score' => null, 'top10_hours' => null];
+        // Pending-band counts follow the banding ruler: business-days mode
+        // serves the day-ruler twins, falling back to the hour counts until
+        // the rollup has been recomputed with the new columns. The stored
+        // hour-based critical keeps feeding the score either way.
+        $criticalout = (int) $row->critical;
+        $overgoalout = (int) $row->overgoal;
+        if (bucket::use_day_thresholds() && isset($row->critical_days) && $row->critical_days !== null) {
+            $criticalout = (int) $row->critical_days;
+            $overgoalout = (int) ($row->overgoal_days ?? 0);
+        }
         return [
             'groupid'              => $groupid,
             'groupname'            => $groupname,
             'groupsubtitle'        => $groupsubtitle,
             'coursename'           => $course->fullname,
             'pending'              => (int) $row->pending,
-            'critical'             => (int) $row->critical,
-            'overgoal'             => (int) $row->overgoal,
+            'critical'             => $criticalout,
+            'overgoal'             => $overgoalout,
             'numgraded30d'         => (int) $row->numgraded30d,
             'compliance_pct'       => $row->compliance_pct !== null ? (float) $row->compliance_pct : null,
             'median_eff_h'         => $row->median_eff_h !== null ? (float) $row->median_eff_h : null,

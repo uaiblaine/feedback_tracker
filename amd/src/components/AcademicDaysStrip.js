@@ -28,6 +28,8 @@
  */
 
 import {html} from 'block_feedback_tracker/lib/preact';
+import {usesDays} from 'block_feedback_tracker/lib/format';
+import RetryNotice from 'block_feedback_tracker/components/RetryNotice';
 
 /**
  * YYYYMMDD int → "DD/MM".
@@ -101,16 +103,26 @@ const reasonLabel = (reason, i18n) => {
 };
 
 /**
- * Per-cell tooltip: date plus either the pause reason or the effective hours.
+ * Per-cell tooltip: date plus either the pause reason or that day's median
+ * wait in the configured display unit — business days (date-based count)
+ * when the business-days unit is active, effective hours otherwise.
  *
  * @param {object} day
  * @param {object} i18n
+ * @param {object} [config]  Config bundle (display_time_unit).
  * @returns {string}
  */
-const cellTitle = (day, i18n) => {
+const cellTitle = (day, i18n, config) => {
     const date = fmtYmd(day.ymd);
     if (day.paused) {
         return date + ' · ' + reasonLabel(day.reason, i18n);
+    }
+    if (usesDays(config)) {
+        if (day.eff_days === null || day.eff_days === undefined) {
+            return date;
+        }
+        const v = Number(day.eff_days);
+        return date + ' · ' + (Number.isInteger(v) ? v : v.toFixed(1)) + ' d';
     }
     if (day.eff_h === null || day.eff_h === undefined) {
         return date;
@@ -164,10 +176,13 @@ const buildSummary = (summary, days, events, i18n) => {
  * @param {object} props.summary         {total_days, weekend, holiday, recess}.
  * @param {Array<object>} [props.events] Sub-day optional events sidecar.
  * @param {boolean} [props.loading]      True while the WS call is in flight.
+ * @param {string} [props.error]         Friendly message when the load failed.
+ * @param {Function} [props.onRetry]     Re-run the load (retry affordance).
  * @param {object} props.i18n            Label bundle.
+ * @param {object} [props.config]        Config bundle (display unit).
  * @returns {object|null} vnode
  */
-export default function AcademicDaysStrip({days, summary, events, loading, i18n}) {
+export default function AcademicDaysStrip({days, summary, events, loading, error, onRetry, i18n, config}) {
     const list = Array.isArray(days) ? days : [];
     const sum = summary || {total_days: 0, weekend: 0, holiday: 0, recess: 0};
     const evlist = Array.isArray(events) ? events : [];
@@ -185,6 +200,20 @@ export default function AcademicDaysStrip({days, summary, events, loading, i18n}
     }
 
     if (list.length === 0) {
+        if (error) {
+            return html`
+                <div class="bft-acaday">
+                    <div class="bft-acaday-head">
+                        <span class="bft-acaday-title">${i18n.acaday_title || 'Last 30 academic days'}</span>
+                    </div>
+                    <${RetryNotice}
+                        message=${error}
+                        onRetry=${onRetry}
+                        i18n=${i18n}
+                        variant="banner" />
+                </div>
+            `;
+        }
         return null;
     }
 
@@ -214,7 +243,7 @@ export default function AcademicDaysStrip({days, summary, events, loading, i18n}
                 ${list.map((day) => html`
                     <span class=${'bft-acaday-cell ' + cellModifier(day)}
                           key=${'ad-' + day.ymd}
-                          title=${cellTitle(day, i18n)}></span>
+                          title=${cellTitle(day, i18n, config)}></span>
                 `)}
             </div>
             ${(sum.total_days > 0 || evlist.length > 0) && html`

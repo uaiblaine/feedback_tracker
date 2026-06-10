@@ -38,6 +38,7 @@ import {html, useState, useMemo, useEffect, useRef} from 'block_feedback_tracker
 import GroupCard from 'block_feedback_tracker/components/GroupCard';
 import OverallBanner from 'block_feedback_tracker/components/OverallBanner';
 import Skeleton from 'block_feedback_tracker/components/Skeleton';
+import RetryNotice from 'block_feedback_tracker/components/RetryNotice';
 import {bandForScore} from 'block_feedback_tracker/lib/bands';
 import {getResponsiveness} from 'block_feedback_tracker/lib/api';
 
@@ -313,6 +314,9 @@ export default function BlockView({initial}) {
     const sentinelRef = useRef(null);
     const observerRef = useRef(null);
     const loadMoreRef = useRef(null);
+    // Args of the most recent loadPage call, replayed by the retry affordance
+    // when a fetch fails (network drop). Captured at the top of loadPage.
+    const lastLoadRef = useRef({force: false, off: 0, srt: 'default', reset: true, manual: false});
 
     /**
      * Apply a full page set (from a fetch or the cache) to state + refs and
@@ -339,6 +343,18 @@ export default function BlockView({initial}) {
     };
 
     /**
+     * Pick the user-facing message for a failed fetch: a friendly connectivity
+     * notice for network drops (api.js tags these `bftNetwork` and suppresses
+     * the technical toast) or the generic refresh error otherwise.
+     *
+     * @param {*} e  The rejection value from a web-service call.
+     * @returns {string}
+     */
+    const netMsg = (e) => (e && e.bftNetwork)
+        ? (i18n.connection_lost || 'Connection lost. Check your internet and try again.')
+        : (i18n.block_refresh_error || 'Refresh failed.');
+
+    /**
      * Fetch one page. `reset` starts a fresh sequence (mount / sort / refresh)
      * and clears the list; otherwise the page is appended. Guarded against
      * unmount and supersession via callIdRef.
@@ -352,6 +368,7 @@ export default function BlockView({initial}) {
      * @returns {Promise<void>}
      */
     const loadPage = async ({force = false, off = 0, srt = 'default', reset = false, manual = false}) => {
+        lastLoadRef.current = {force, off, srt, reset, manual};
         const callid = ++callIdRef.current;
         loadingRef.current = true;
         if (reset) {
@@ -401,10 +418,10 @@ export default function BlockView({initial}) {
                 lastsynced: Number(result.lastsynced) || 0,
             });
         } catch (e) {
-            // getResponsiveness already routed the toast through core/notification;
-            // surface a banner so the user sees the state without scrolling.
+            // Network drops are suppressed from the toast in api.js; the inline
+            // RetryNotice carries recovery. Genuine WS errors still toast there.
             if (mountedRef.current && callIdRef.current === callid) {
-                setError(i18n.block_refresh_error || 'Refresh failed.');
+                setError(netMsg(e));
             }
         } finally {
             // Only the still-current call owns the flags — a superseded call
@@ -513,6 +530,19 @@ export default function BlockView({initial}) {
         loadPage({force: false, off: offsetRef.current, srt: sortRef.current, reset: false, manual: true});
     };
 
+    /**
+     * Replay the most recent (failed) fetch — the retry affordance after a
+     * connectivity drop. No-op while a request is already in flight.
+     *
+     * @returns {void}
+     */
+    const retryLoad = () => {
+        if (loadingRef.current) {
+            return;
+        }
+        loadPage(lastLoadRef.current);
+    };
+
     // Overall banner: prefer the whole-course server aggregate; fall back to a
     // client estimate over loaded cards only when the server figure is absent
     // (e.g. a stale cache entry written before overall_score shipped).
@@ -557,8 +587,13 @@ export default function BlockView({initial}) {
                     </label>
                 </div>
             `}
-            ${error && html`
-                <div class="bft-error" role="alert">${error}</div>
+            ${error && groups.length > 0 && html`
+                <${RetryNotice}
+                    message=${error}
+                    onRetry=${retryLoad}
+                    retrying=${loading || loadingmore}
+                    i18n=${i18n}
+                    variant="banner" />
             `}
             <div class="bft-block-body"
                  aria-busy=${loading ? 'true' : 'false'}
@@ -566,7 +601,14 @@ export default function BlockView({initial}) {
                 ${loading && groups.length === 0
                     ? html`<${Skeleton} count=${5} />`
                     : groups.length === 0
-                        ? html`<div class="bft-empty">${i18n.card_empty}</div>`
+                        ? (error
+                            ? html`<${RetryNotice}
+                                message=${error}
+                                onRetry=${retryLoad}
+                                retrying=${loading || loadingmore}
+                                i18n=${i18n}
+                                variant="block" />`
+                            : html`<div class="bft-empty">${i18n.card_empty}</div>`)
                         : html`
                             <${OverallBanner}
                                 score=${overallvalue}

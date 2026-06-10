@@ -44,6 +44,7 @@ import ResponsivenessModule from 'block_feedback_tracker/components/Responsivene
 import AcademicDaysStrip from 'block_feedback_tracker/components/AcademicDaysStrip';
 import StatusDistributionBar from 'block_feedback_tracker/components/StatusDistributionBar';
 import Skeleton from 'block_feedback_tracker/components/Skeleton';
+import RetryNotice from 'block_feedback_tracker/components/RetryNotice';
 import {bandForScore, colourFor} from 'block_feedback_tracker/lib/bands';
 import {getPendingSubmissions, getGradedSubmissions, getAcademicDays, getReportScopes}
     from 'block_feedback_tracker/lib/api';
@@ -288,14 +289,32 @@ export default function PendingReportView({initial}) {
     // Collapse state for the hero + heatmap container (Moodle user preference).
     const [collapsed, setCollapsed] = useState(Boolean(initial.report_collapsed));
 
+    // Which row's paused-info popover is open (submissionid, or null). The
+    // info icon keeps its hover title; click pins the explanation for
+    // touch devices and discoverability.
+    const [pausedinfo, setPausedinfo] = useState(null);
+
     // Academic-days heatmap (async).
     const [acaDays, setAcaDays] = useState([]);
     const [acaSummary, setAcaSummary] = useState(null);
     const [acaEvents, setAcaEvents] = useState([]);
     const [acaLoading, setAcaLoading] = useState(true);
+    const [acaError, setAcaError] = useState(null);
 
     const firstRun = useRef(true);
     const firstRunDrafts = useRef(true);
+
+    /**
+     * Pick the user-facing message for a failed fetch: a friendly connectivity
+     * notice for network drops (api.js tags these `bftNetwork` and suppresses
+     * the technical toast) or the generic report error otherwise.
+     *
+     * @param {*} e  The rejection value from a web-service call.
+     * @returns {string}
+     */
+    const netMsg = (e) => (e && e.bftNetwork)
+        ? (i18n.connection_lost || 'Connection lost. Check your internet and try again.')
+        : (i18n.pendingreport_error || 'Failed to load.');
 
     /**
      * Fetch a page using the current mode + filters.
@@ -312,7 +331,7 @@ export default function PendingReportView({initial}) {
             setTotal(Number(result.total) || 0);
             setCounts(result.counts || {});
         } catch (e) {
-            setError(i18n.pendingreport_error || 'Failed to load.');
+            setError(netMsg(e));
         } finally {
             setLoading(false);
         }
@@ -369,6 +388,7 @@ export default function PendingReportView({initial}) {
     // Academic-days heatmap loads on mount and on class change.
     const fetchAcademic = async () => {
         setAcaLoading(true);
+        setAcaError(null);
         try {
             const result = await getAcademicDays({courseid, groupid});
             setAcaDays(Array.isArray(result.days) ? result.days : []);
@@ -376,6 +396,7 @@ export default function PendingReportView({initial}) {
             setAcaEvents(Array.isArray(result.events) ? result.events : []);
         } catch (e) {
             setAcaDays([]);
+            setAcaError(netMsg(e));
         } finally {
             setAcaLoading(false);
         }
@@ -529,7 +550,10 @@ export default function PendingReportView({initial}) {
                     summary=${acaSummary}
                     events=${acaEvents}
                     loading=${acaLoading}
-                    i18n=${i18n} />
+                    error=${acaError}
+                    onRetry=${fetchAcademic}
+                    i18n=${i18n}
+                    config=${config} />
             `}
 
             <${StatusDistributionBar}
@@ -568,10 +592,24 @@ export default function PendingReportView({initial}) {
                         onClick=${fetchPage}>⟳</button>
             </div>
 
-            ${error && html`<div class="bft-error" role="alert">${error}</div>`}
+            ${error && submissions.length > 0 && html`
+                <${RetryNotice}
+                    message=${error}
+                    onRetry=${fetchPage}
+                    retrying=${loading}
+                    i18n=${i18n}
+                    variant="banner" />`}
 
             ${loading && submissions.length === 0
                 ? html`<${Skeleton} count=${5} />`
+                : error && submissions.length === 0
+                ? html`
+                    <${RetryNotice}
+                        message=${error}
+                        onRetry=${fetchPage}
+                        retrying=${loading}
+                        i18n=${i18n}
+                        variant="block" />`
                 : submissions.length === 0
                 ? html`
                     <div class="bft-empty">
@@ -642,10 +680,27 @@ export default function PendingReportView({initial}) {
                                                         ? formatDays(row.perceived_days)
                                                         : formatHours(row.waitinghours)}
                                                     ${paused && html`
-                                                        <span class="bft-row-paused-tag"
-                                                              title=${i18n.pendingreport_row_paused_tip || ''}>
-                                                            <span class="bft-row-paused-swatch" aria-hidden="true"></span>
-                                                            ${i18n.pendingreport_row_paused || 'paused'}
+                                                        <span class="bft-row-paused-wrap">
+                                                            <button type="button"
+                                                                    class="bft-row-paused-tag"
+                                                                    title=${i18n.pendingreport_row_paused_tip || ''}
+                                                                    aria-label=${i18n.pendingreport_row_paused || 'paused'}
+                                                                    aria-expanded=${pausedinfo === row.submissionid
+                                                                        ? 'true' : 'false'}
+                                                                    onClick=${() => setPausedinfo(
+                                                                        pausedinfo === row.submissionid
+                                                                            ? null : row.submissionid
+                                                                    )}>
+                                                                <span class="bft-row-paused-swatch"
+                                                                      aria-hidden="true"></span>
+                                                                <span class="bft-row-paused-i"
+                                                                      aria-hidden="true">i</span>
+                                                            </button>
+                                                            ${pausedinfo === row.submissionid && html`
+                                                                <span class="bft-row-paused-pop" role="note">
+                                                                    ${i18n.pendingreport_row_paused_tip || ''}
+                                                                </span>
+                                                            `}
                                                         </span>
                                                     `}
                                                 </span>

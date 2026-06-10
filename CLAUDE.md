@@ -560,6 +560,18 @@ moodleform's own internal markup (which Moodle controls).
   the WS omits silently becomes `null` (no error). Keep them in sync and bump
   the WS `CACHE_KEY_VERSION` on any shape change. A WS that emits localised
   strings (e.g. `get_insights`) must also include `current_language()` in its key.
+- Registering a new function in `db/services.php` requires a `version.php`
+  bump — services install only on upgrade.
+- Full-page surfaces (`teacher_dashboard.php`, `pending_report.php`) ship a
+  null-data bootstrap (i18n + config + prefs + URL params only) and fetch via
+  WS after mount, main content first. Never call
+  `responsiveness_payload::for_course()` synchronously from a page — it builds
+  per-group trend/peer/activity data; when only headline numbers are needed,
+  read the rollup columns directly (see `get_report_scopes`).
+- Per-course group visibility has one decision point:
+  `local\sla\group_access::visible_group_ids()` — `null` = unrestricted, `[]` =
+  nothing visible (short-circuit), `int[]` = whitelist that **never** includes
+  groupid 0 ("ungrouped" is unrestricted-only). Don't reimplement.
 
 ## Capability checks
 
@@ -629,6 +641,11 @@ The canonical guard is in [`lib.php`](lib.php):
   `responsiveness_calculator::load_weights()`, not at save time —
   save-time normalisation races with `admin_apply_default_settings()`
   and corrupts values mid-install.
+- Default-ON checkboxes: never read with `get_config(...) ?: 1` — the
+  stored off-state is the string `'0'`, which is falsy, so the toggle can
+  never turn off. Treat unset (`false`/`null`) as the default and only an
+  explicit `'0'` as off (pattern: `bootstrap::config_bundle()`'s
+  `show_peer_context` read).
 
 ## Score formula
 
@@ -648,11 +665,18 @@ copies that each keep their own: `classes/output/responsiveness_card.php` (the
 server no-JS card) and `amd/src/lib/format.js::formatTrend` — both were easy to
 leave **inverted**.
 
-**Two median families — never conflate:** `median_eff_h` is graded-only and
-feeds the **score** (don't repurpose it for display). `cur_median_eff_h` /
-`cur_median_raw_h` are medians over graded ∪ currently-pending work and drive
-the **display** headline (hero effective/perceived + courses table) so the
-backlog shows through; the score stays graded-only.
+**Median families — never conflate:** `median_eff_h` is graded-only and feeds
+the **score** (don't repurpose it for display). `cur_median_eff_h` /
+`cur_median_raw_h` (hours) and `cur_median_eff_days` / `cur_median_perc_days`
+(date-based day counts) are graded ∪ currently-pending medians that drive the
+**display** headline. The `display_time_unit` setting ('hours' |
+'business_days') only selects which family the UI shows (`usesDays(config)` in
+`lib/format.js`) — both are always computed by the rollup, so the toggle is
+display-only, no recompute. Day counts come from
+`local\calendar\day_counter` (day boundaries crossed, time-of-day ignored;
+business days skip weekend/holiday/recess) — **never** derive days by dividing
+hours. Per-submission rows get `effective_days`/`perceived_days` at read time
+(`submission_browser`, `get_grader_priority_list`).
 
 The block renders **twice** — a server card (`responsiveness_card.php` +
 `responsiveness_card.mustache`, the no-JS first paint) **and** a Preact app

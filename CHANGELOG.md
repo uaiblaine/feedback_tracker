@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.31] - Unreleased
+
+### Added
+- **Business-days band thresholds** — when the display unit is business days,
+  the excellent / good / up-next / priority bands classify by elapsed
+  business days against a new comma-separated setting (default `2,5,10`,
+  inclusive bounds: up to 2 days excellent, 3-5 good, 6-10 up-next, over 10
+  priority) instead of the hour thresholds. The ruler is applied everywhere
+  bands appear: report badges, distribution counts and band filters
+  (pending and graded), the grade-now list, the block's pending tiles, the
+  dashboard counts and the academic-days strip colours. The responsiveness
+  score keeps using effective hours and is unaffected. New per-submission
+  `effectivedays` column maintained alongside `effectivehours` (backfilled
+  on upgrade) and day-ruler `critical_days`/`overgoal_days` rollup twins.
+- The academic-days strip tooltip now shows each day's median in the
+  configured unit (elapsed business days in days mode, effective hours
+  otherwise) via a new per-day `eff_days` field on `get_academic_days`.
+
+### Changed
+- The report's "paused" row tag is now a compact info icon: hover keeps the
+  explanation tooltip and clicking pins it, so touch users can read it too.
+- Teacher-facing copy that names the working-time unit (the hero Effective
+  tooltip, score note/tooltip, dashboard/report intro, the "business-time
+  only" chip and the paused-row tip) now says "business days" / "dias úteis"
+  when the business-days display unit is active, resolved server-side in the
+  i18n bundle so the React layer is unchanged. Settings descriptions, the
+  simulator and the SLA-goal tooltip stay in hours (they configure or report
+  genuinely hour-based values).
+
 ## [1.0.30] - Unreleased
 
 ### Changed

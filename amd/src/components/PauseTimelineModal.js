@@ -36,6 +36,7 @@ import Modal from 'core/modal';
 import {render, html} from 'block_feedback_tracker/lib/preact';
 import {getPauseTimeline} from 'block_feedback_tracker/lib/api';
 import {formatHours, formatDate} from 'block_feedback_tracker/lib/format';
+import RetryNotice from 'block_feedback_tracker/components/RetryNotice';
 
 /**
  * Translate a pause-reason slug to its localised label. Literal switch so
@@ -154,22 +155,46 @@ export const open = async ({submission, i18n}) => {
         removeOnClose: true,
     });
 
-    let data;
-    try {
-        data = await getPauseTimeline({submissionid});
-    } catch (e) {
-        modal.setBody('<div class="bft-error">'
-            + (i18n.modal_pauses_error || 'Failed to load timeline.')
-            + '</div>');
-        return;
-    }
+    // Resolve the modal body element each time — the modal owns its DOM and
+    // re-rendering into the same node lets Preact reconcile across retries.
+    const bodyElement = () => {
+        const root = modal.getRoot();
+        return root && root.find ? root.find('.modal-body')[0] : null;
+    };
 
-    // Replace the loading placeholder with the Preact-rendered timeline.
-    const root = modal.getRoot();
-    const bodyEl = root && root.find ? root.find('.modal-body')[0] : null;
-    if (!bodyEl) {
-        return;
-    }
-    bodyEl.innerHTML = '';
-    render(html`<${PauseTimeline} submission=${submission} data=${data} i18n=${i18n} />`, bodyEl);
+    // Fetch the timeline and mount it into the modal body. A connectivity drop
+    // renders an inline RetryNotice that re-runs this same loader (api.js
+    // suppresses the toast for network errors); other failures show the
+    // generic message.
+    const load = async () => {
+        const loadingel = bodyElement();
+        if (loadingel) {
+            render(
+                html`<div class="bft-modal-loading">${i18n.modal_pauses_loading || 'Loading…'}</div>`,
+                loadingel
+            );
+        }
+        let data;
+        try {
+            data = await getPauseTimeline({submissionid});
+        } catch (e) {
+            const errel = bodyElement();
+            if (errel) {
+                const msg = (e && e.bftNetwork)
+                    ? (i18n.connection_lost || 'Connection lost. Check your internet and try again.')
+                    : (i18n.modal_pauses_error || 'Failed to load timeline.');
+                render(
+                    html`<${RetryNotice} message=${msg} onRetry=${load} i18n=${i18n} variant="block" />`,
+                    errel
+                );
+            }
+            return;
+        }
+        const okel = bodyElement();
+        if (okel) {
+            render(html`<${PauseTimeline} submission=${submission} data=${data} i18n=${i18n} />`, okel);
+        }
+    };
+
+    await load();
 };

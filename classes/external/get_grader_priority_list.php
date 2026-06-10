@@ -125,16 +125,38 @@ class get_grader_priority_list extends external_api {
         $where = 'sub.timegraded IS NULL AND sub.submissionstatus = :substatus'
             . ' AND ' . $viswhere;
         $sqlparams['substatus'] = \block_feedback_tracker\local\sla\submission_status::SUBMITTED;
+        $usedays = \block_feedback_tracker\local\sla\bucket::use_day_thresholds();
         if ($bucket !== '') {
-            $where .= ' AND sub.slabucket = :bucket';
-            $sqlparams['bucket'] = $bucket;
+            if ($usedays) {
+                // Day-ruler bucket ranges over the stored elapsed-day count
+                // (inclusive bounds, mirroring bucket::for_effective_days).
+                [$d1, $d2, $d3] = \block_feedback_tracker\local\sla\bucket::parse_thresholds_days();
+                if ($bucket === 'excellent') {
+                    $where .= ' AND sub.effectivedays <= :bktda';
+                    $sqlparams['bktda'] = $d1;
+                } else if ($bucket === 'good') {
+                    $where .= ' AND sub.effectivedays > :bktda AND sub.effectivedays <= :bktdb';
+                    $sqlparams['bktda'] = $d1;
+                    $sqlparams['bktdb'] = $d2;
+                } else if ($bucket === 'regular') {
+                    $where .= ' AND sub.effectivedays > :bktda AND sub.effectivedays <= :bktdb';
+                    $sqlparams['bktda'] = $d2;
+                    $sqlparams['bktdb'] = $d3;
+                } else if ($bucket === 'critical') {
+                    $where .= ' AND sub.effectivedays > :bktda';
+                    $sqlparams['bktda'] = $d3;
+                }
+            } else {
+                $where .= ' AND sub.slabucket = :bucket';
+                $sqlparams['bucket'] = $bucket;
+            }
         }
 
         // Top-N by effective wait descending; ties broken by oldest
         // submission first so the absolute worst-offender row floats up.
         $sql = "SELECT sub.id, sub.cmid, sub.userid, sub.courseid, sub.groupid,
                        sub.timesubmitted, sub.waitinghours, sub.effectivehours,
-                       sub.slabucket,
+                       sub.effectivedays, sub.slabucket,
                        u.firstname, u.lastname,
                        c.fullname AS coursename,
                        cm.instance AS assignid
@@ -181,7 +203,11 @@ class get_grader_priority_list extends external_api {
                 'effectivehours' => (float) $r->effectivehours,
                 'effective_days' => $days['business'],
                 'perceived_days' => $days['calendar'],
-                'slabucket'      => (string) $r->slabucket,
+                'slabucket'      => $usedays
+                    ? \block_feedback_tracker\local\sla\bucket::for_effective_days(
+                        $r->effectivedays !== null ? (float) $r->effectivedays : null
+                    )
+                    : (string) $r->slabucket,
             ];
         }
 

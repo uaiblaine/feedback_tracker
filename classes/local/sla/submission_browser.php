@@ -115,7 +115,7 @@ class submission_browser {
         $total = (int) $DB->count_records_sql("SELECT COUNT(1) $from WHERE $rowswhere", $rowsparams);
 
         $select = "SELECT sub.id, sub.cmid, sub.userid, sub.groupid, sub.timesubmitted,
-                          sub.timegraded, sub.waitinghours, sub.effectivehours,
+                          sub.timegraded, sub.waitinghours, sub.effectivehours, sub.effectivedays,
                           sub.slabucket, sub.submissionstatus,
                           u.firstname, u.lastname, a.name AS activityname, g.name AS groupname";
         $orderby = self::order_by($mode, $sort, $order);
@@ -127,6 +127,12 @@ class submission_browser {
         );
 
         [$goal, $crit] = self::band_bounds();
+        // Banding follows the global display unit: business-days mode
+        // classifies by the stored elapsed-day count against the day ruler
+        // (same comparisons as the filter + distribution counts), hours mode
+        // keeps the stored slabucket + hour bounds.
+        $usedays = bucket::use_day_thresholds();
+        [$daygoal, , $daycrit] = bucket::parse_thresholds_days();
         $out = [];
         foreach ($rows as $r) {
             $eff = $r->effectivehours !== null ? (float) $r->effectivehours : 0.0;
@@ -134,6 +140,7 @@ class submission_browser {
             // pending rows (timegraded null) elapse up to now.
             $t2 = $r->timegraded !== null ? (int) $r->timegraded : time();
             $days = \block_feedback_tracker\local\calendar\day_counter::between((int) $r->timesubmitted, $t2);
+            $storeddays = $r->effectivedays !== null ? (float) $r->effectivedays : null;
             $out[] = [
                 'submissionid'     => (int) $r->id,
                 'cmid'             => (int) $r->cmid,
@@ -148,11 +155,15 @@ class submission_browser {
                 'effectivehours'   => $eff,
                 'effective_days'   => $days['business'],
                 'perceived_days'   => $days['calendar'],
-                'slabucket'        => (string) $r->slabucket,
-                // Pending band from effective hours, using the same goal /
-                // critical bounds as the distribution counts + band filter so
-                // the per-row Status badge can never disagree with the bar.
-                'pendingband'      => self::pending_band($eff, $goal, $crit),
+                'slabucket'        => $usedays
+                    ? bucket::for_effective_days($storeddays)
+                    : (string) $r->slabucket,
+                // Pending band using the same bounds as the distribution
+                // counts + band filter so the per-row Status badge can never
+                // disagree with the bar.
+                'pendingband'      => $usedays
+                    ? self::pending_band_days($storeddays, $daygoal, $daycrit)
+                    : self::pending_band($eff, $goal, $crit),
                 'submissionstatus' => (string) $r->submissionstatus,
             ];
         }
@@ -237,30 +248,70 @@ class submission_browser {
         $where = $basewhere;
         $params = $baseparams;
 
+        $usedays = bucket::use_day_thresholds();
+
         if ($mode === self::MODE_GRADED) {
-            // Graded result band == slabucket recorded at grading time.
+            // Graded result band: the stored slabucket in hours mode, or the
+            // day-ruler ranges over the stored elapsed-day count in
+            // business-days mode (inclusive bounds, mirroring
+            // bucket::for_effective_days).
             if ($bucket !== '') {
-                $where .= ' AND sub.slabucket = :bucket';
-                $params['bucket'] = $bucket;
+                if ($usedays) {
+                    [$d1, $d2, $d3] = bucket::parse_thresholds_days();
+                    if ($bucket === bucket::EXCELLENT) {
+                        $where .= ' AND sub.effectivedays <= :bktda';
+                        $params['bktda'] = $d1;
+                    } else if ($bucket === bucket::GOOD) {
+                        $where .= ' AND sub.effectivedays > :bktda AND sub.effectivedays <= :bktdb';
+                        $params['bktda'] = $d1;
+                        $params['bktdb'] = $d2;
+                    } else if ($bucket === bucket::REGULAR) {
+                        $where .= ' AND sub.effectivedays > :bktda AND sub.effectivedays <= :bktdb';
+                        $params['bktda'] = $d2;
+                        $params['bktdb'] = $d3;
+                    } else if ($bucket === bucket::CRITICAL) {
+                        $where .= ' AND sub.effectivedays > :bktda';
+                        $params['bktda'] = $d3;
+                    }
+                } else {
+                    $where .= ' AND sub.slabucket = :bucket';
+                    $params['bucket'] = $bucket;
+                }
             }
             return [$where, $params];
         }
 
-        // Pending / draft: the effective-hours band takes precedence over the
-        // slabucket filter (matches the block's aguardando/atencao/prioridade
-        // tiles, which partition pending by the SLA goal + critical threshold).
+        // Pending / draft: the wait band takes precedence over the slabucket
+        // filter (matches the block's aguardando/atencao/prioridade tiles).
+        // Business-days mode ranges over the stored elapsed-day count with
+        // inclusive bounds; hours mode keeps the effective-hours ranges.
         if ($band !== '') {
-            [$goal, $crit] = self::band_bounds();
-            if ($band === 'prioridade') {
-                $where .= ' AND sub.effectivehours >= :bandcrit';
-                $params['bandcrit'] = $crit;
-            } else if ($band === 'atencao') {
-                $where .= ' AND sub.effectivehours > :bandgoal AND sub.effectivehours < :bandcrit';
-                $params['bandgoal'] = $goal;
-                $params['bandcrit'] = $crit;
-            } else if ($band === 'aguardando') {
-                $where .= ' AND sub.effectivehours <= :bandgoal';
-                $params['bandgoal'] = $goal;
+            if ($usedays) {
+                [$dgoal, , $dcrit] = bucket::parse_thresholds_days();
+                if ($band === 'prioridade') {
+                    $where .= ' AND sub.effectivedays > :bandcrit';
+                    $params['bandcrit'] = $dcrit;
+                } else if ($band === 'atencao') {
+                    $where .= ' AND sub.effectivedays > :bandgoal AND sub.effectivedays <= :bandcrit';
+                    $params['bandgoal'] = $dgoal;
+                    $params['bandcrit'] = $dcrit;
+                } else if ($band === 'aguardando') {
+                    $where .= ' AND sub.effectivedays <= :bandgoal';
+                    $params['bandgoal'] = $dgoal;
+                }
+            } else {
+                [$goal, $crit] = self::band_bounds();
+                if ($band === 'prioridade') {
+                    $where .= ' AND sub.effectivehours >= :bandcrit';
+                    $params['bandcrit'] = $crit;
+                } else if ($band === 'atencao') {
+                    $where .= ' AND sub.effectivehours > :bandgoal AND sub.effectivehours < :bandcrit';
+                    $params['bandgoal'] = $goal;
+                    $params['bandcrit'] = $crit;
+                } else if ($band === 'aguardando') {
+                    $where .= ' AND sub.effectivehours <= :bandgoal';
+                    $params['bandgoal'] = $goal;
+                }
             }
         } else if ($bucket !== '') {
             $where .= ' AND sub.slabucket = :bucket';
@@ -284,7 +335,31 @@ class submission_browser {
     private static function counts(string $from, string $basewhere, array $baseparams, string $mode): array {
         global $DB;
 
+        $usedays = bucket::use_day_thresholds();
+
         if ($mode === self::MODE_GRADED) {
+            if ($usedays) {
+                // Day-ruler result bands over the stored elapsed-day count
+                // (inclusive bounds, mirroring bucket::for_effective_days).
+                [$d1, $d2, $d3] = bucket::parse_thresholds_days();
+                $sql = "SELECT
+                            SUM(CASE WHEN sub.effectivedays <= :d1a THEN 1 ELSE 0 END) AS excellent,
+                            SUM(CASE WHEN sub.effectivedays > :d1b AND sub.effectivedays <= :d2a THEN 1 ELSE 0 END)
+                                AS good,
+                            SUM(CASE WHEN sub.effectivedays > :d2b AND sub.effectivedays <= :d3a THEN 1 ELSE 0 END)
+                                AS regular,
+                            SUM(CASE WHEN sub.effectivedays > :d3b THEN 1 ELSE 0 END) AS critical
+                          $from WHERE $basewhere";
+                $params = $baseparams
+                    + ['d1a' => $d1, 'd1b' => $d1, 'd2a' => $d2, 'd2b' => $d2, 'd3a' => $d3, 'd3b' => $d3];
+                $agg = $DB->get_record_sql($sql, $params);
+                return [
+                    'excellent' => $agg ? (int) $agg->excellent : 0,
+                    'good'      => $agg ? (int) $agg->good : 0,
+                    'regular'   => $agg ? (int) $agg->regular : 0,
+                    'critical'  => $agg ? (int) $agg->critical : 0,
+                ];
+            }
             $sql = "SELECT sub.slabucket AS bucket, COUNT(1) AS n $from WHERE $basewhere GROUP BY sub.slabucket";
             $rows = $DB->get_records_sql($sql, $baseparams);
             $counts = self::zero_counts($mode);
@@ -295,6 +370,23 @@ class submission_browser {
                 }
             }
             return $counts;
+        }
+
+        if ($usedays) {
+            [$dgoal, , $dcrit] = bucket::parse_thresholds_days();
+            $sql = "SELECT
+                        SUM(CASE WHEN sub.effectivedays <= :goala THEN 1 ELSE 0 END) AS aguardando,
+                        SUM(CASE WHEN sub.effectivedays > :goalb AND sub.effectivedays <= :critb THEN 1 ELSE 0 END)
+                            AS atencao,
+                        SUM(CASE WHEN sub.effectivedays > :crita THEN 1 ELSE 0 END) AS prioridade
+                      $from WHERE $basewhere";
+            $params = $baseparams + ['goala' => $dgoal, 'goalb' => $dgoal, 'crita' => $dcrit, 'critb' => $dcrit];
+            $agg = $DB->get_record_sql($sql, $params);
+            return [
+                'aguardando' => $agg ? (int) $agg->aguardando : 0,
+                'atencao'    => $agg ? (int) $agg->atencao : 0,
+                'prioridade' => $agg ? (int) $agg->prioridade : 0,
+            ];
         }
 
         [$goal, $crit] = self::band_bounds();
@@ -373,6 +465,27 @@ class submission_browser {
             return 'prioridade';
         }
         if ($eff > $goal) {
+            return 'atencao';
+        }
+        return 'aguardando';
+    }
+
+    /**
+     * Day-ruler pending band — inclusive bounds, mirroring
+     * bucket::for_effective_days: prioridade > crit | atencao goal..crit |
+     * aguardando <= goal. A null (not-yet-backfilled) count reads aguardando.
+     *
+     * @param float|null $days Stored elapsed business days.
+     * @param float $goal First day threshold ("within goal" upper bound).
+     * @param float $crit Third day threshold (critical cutoff).
+     * @return string
+     */
+    private static function pending_band_days(?float $days, float $goal, float $crit): string {
+        $v = $days ?? 0.0;
+        if ($v > $crit) {
+            return 'prioridade';
+        }
+        if ($v > $goal) {
             return 'atencao';
         }
         return 'aguardando';

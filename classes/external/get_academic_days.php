@@ -27,9 +27,12 @@ declare(strict_types=1);
 namespace block_feedback_tracker\external;
 
 use block_feedback_tracker\local\calendar\calendar;
+use block_feedback_tracker\local\calendar\day_counter;
 use block_feedback_tracker\local\calendar\paused_aggregator;
 use block_feedback_tracker\local\sla\bucket;
 use block_feedback_tracker\local\sla\group_access;
+use block_feedback_tracker\local\sla\stats;
+use block_feedback_tracker\local\sla\submission_status;
 use core_external\external_api;
 use core_external\external_function_parameters;
 use core_external\external_multiple_structure;
@@ -109,27 +112,41 @@ class get_academic_days extends external_api {
 
         $perday = paused_aggregator::per_day_for_window($courseid, $start, $end);
         $daymedians = self::day_medians($courseid, $groupid, $visibleids, (int) reset($window), (int) end($window));
+        $daydaymedians = self::day_median_days($courseid, $groupid, $visibleids, $start, $end);
+
+        // The cell colour follows the banding ruler: business-days mode
+        // classifies each day's median elapsed-day count against the day
+        // thresholds; hours mode keeps the effective-hours classification.
+        $usedays = bucket::use_day_thresholds();
 
         $days = [];
         foreach ($window as $ymd) {
             $info = $perday[$ymd] ?? ['paused' => false, 'reason' => ''];
             if (!empty($info['paused'])) {
                 $days[] = [
-                    'ymd'    => $ymd,
-                    'paused' => true,
-                    'reason' => (string) $info['reason'],
-                    'band'   => '',
-                    'eff_h'  => null,
+                    'ymd'      => $ymd,
+                    'paused'   => true,
+                    'reason'   => (string) $info['reason'],
+                    'band'     => '',
+                    'eff_h'    => null,
+                    'eff_days' => null,
                 ];
                 continue;
             }
             $median = $daymedians[$ymd] ?? null;
+            $mediandays = $daydaymedians[$ymd] ?? null;
+            if ($usedays) {
+                $band = $mediandays !== null ? bucket::for_effective_days($mediandays) : 'nodata';
+            } else {
+                $band = $median !== null ? bucket::for_effective($median) : 'nodata';
+            }
             $days[] = [
-                'ymd'    => $ymd,
-                'paused' => false,
-                'reason' => '',
-                'band'   => $median !== null ? bucket::for_effective($median) : 'nodata',
-                'eff_h'  => $median !== null ? $median : null,
+                'ymd'      => $ymd,
+                'paused'   => false,
+                'reason'   => '',
+                'band'     => $band,
+                'eff_h'    => $median !== null ? $median : null,
+                'eff_days' => $mediandays,
             ];
         }
 
@@ -209,6 +226,73 @@ class get_academic_days extends external_api {
     }
 
     /**
+     * Per-day median elapsed business days (date-based) of the submissions
+     * graded each day in the window — the heatmap tooltip figure when the
+     * display unit is business days. Read-time companion to day_medians():
+     * the window's graded rows are fetched once and day-counted via the
+     * memoised calendar resolver, so the cost is bounded by the 30-day set.
+     *
+     * @param int $courseid Course id.
+     * @param int $groupid 0 = aggregate over visible groups.
+     * @param int[]|null $visibleids Visible group ids, or null when unrestricted.
+     * @param int $start Unix seconds; inclusive window start.
+     * @param int $end Unix seconds; exclusive window end.
+     * @return array<int, float> Keyed by YYYYMMDD.
+     */
+    private static function day_median_days(
+        int $courseid,
+        int $groupid,
+        ?array $visibleids,
+        int $start,
+        int $end
+    ): array {
+        global $DB;
+
+        $where = 'courseid = :courseid AND timegraded IS NOT NULL'
+            . ' AND timegraded >= :start AND timegraded < :end'
+            . ' AND submissionstatus = :substatus';
+        $params = [
+            'courseid' => $courseid,
+            'start' => $start,
+            'end' => $end,
+            'substatus' => submission_status::SUBMITTED,
+        ];
+        if ($groupid > 0) {
+            $where .= ' AND groupid = :groupid';
+            $params['groupid'] = $groupid;
+        } else if ($visibleids !== null) {
+            [$gsql, $gparams] = $DB->get_in_or_equal($visibleids, SQL_PARAMS_NAMED, 'gd');
+            $where .= " AND groupid $gsql";
+            $params += $gparams;
+        }
+        $rows = $DB->get_records_select(
+            'block_feedback_tracker_sub',
+            $where,
+            $params,
+            '',
+            'id, timesubmitted, timegraded'
+        );
+
+        $tz = calendar::timezone();
+        $perday = [];
+        foreach ($rows as $r) {
+            $gradedymd = (int) (new \DateTimeImmutable('@' . (int) $r->timegraded))
+                ->setTimezone($tz)
+                ->format('Ymd');
+            $perday[$gradedymd][] = day_counter::business_days(
+                (int) $r->timesubmitted,
+                (int) $r->timegraded
+            );
+        }
+
+        $out = [];
+        foreach ($perday as $ymd => $vals) {
+            $out[$ymd] = (float) stats::median($vals);
+        }
+        return $out;
+    }
+
+    /**
      * Returns.
      *
      * @return external_single_structure
@@ -226,6 +310,13 @@ class get_academic_days extends external_api {
                 'eff_h'  => new external_value(
                     PARAM_FLOAT,
                     'Median effective hours for the day; null when paused or no data',
+                    VALUE_DEFAULT,
+                    null,
+                    NULL_ALLOWED
+                ),
+                'eff_days' => new external_value(
+                    PARAM_FLOAT,
+                    'Median elapsed business days of work graded that day; null when paused or no data',
                     VALUE_DEFAULT,
                     null,
                     NULL_ALLOWED

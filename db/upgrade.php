@@ -326,5 +326,90 @@ function xmldb_block_feedback_tracker_upgrade($oldversion) {
         upgrade_block_savepoint(true, 2026060129, 'feedback_tracker');
     }
 
+    if ($oldversion < 2026060131) {
+        // Per-submission elapsed business days — drives banding when the
+        // business-days display unit is active.
+        $table = new xmldb_table('block_feedback_tracker_sub');
+        $field = new xmldb_field(
+            'effectivedays',
+            XMLDB_TYPE_INTEGER,
+            '10',
+            null,
+            null,
+            null,
+            null,
+            'effectivehours'
+        );
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Day-ruler twins of the rollup's critical/overgoal pending counts.
+        $table = new xmldb_table('block_feedback_tracker_group');
+        $field = new xmldb_field(
+            'critical_days',
+            XMLDB_TYPE_INTEGER,
+            '10',
+            null,
+            null,
+            null,
+            null,
+            'cur_median_perc_days'
+        );
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+        $field = new xmldb_field(
+            'overgoal_days',
+            XMLDB_TYPE_INTEGER,
+            '10',
+            null,
+            null,
+            null,
+            null,
+            'critical_days'
+        );
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Backfill effectivedays for existing ledger rows. The per-day
+        // calendar classification is memoised, so the walk is array lookups
+        // after the first pass over each distinct date.
+        $now = time();
+        $rs = $DB->get_recordset_select(
+            'block_feedback_tracker_sub',
+            'timesubmitted > 0',
+            [],
+            '',
+            'id, timesubmitted, timegraded'
+        );
+        foreach ($rs as $r) {
+            $upper = $r->timegraded !== null ? (int) $r->timegraded : $now;
+            $days = \block_feedback_tracker\local\calendar\day_counter::business_days(
+                (int) $r->timesubmitted,
+                $upper
+            );
+            $DB->set_field('block_feedback_tracker_sub', 'effectivedays', $days, ['id' => $r->id]);
+        }
+        $rs->close();
+
+        // Re-enqueue every (course, group) so the new day-ruler counts
+        // populate on the next drain.
+        $tuples = $DB->get_recordset_sql(
+            'SELECT DISTINCT courseid, groupid FROM {block_feedback_tracker_sub}'
+        );
+        foreach ($tuples as $t) {
+            \block_feedback_tracker\local\sla\dirty_queue::enqueue(
+                (int) $t->courseid,
+                (int) $t->groupid,
+                \block_feedback_tracker\local\sla\dirty_queue::REASON_SUBMISSION
+            );
+        }
+        $tuples->close();
+
+        upgrade_block_savepoint(true, 2026060131, 'feedback_tracker');
+    }
+
     return true;
 }

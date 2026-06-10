@@ -79,4 +79,58 @@ class bucket {
         $t3 = isset($parts[2]) && is_numeric($parts[2]) ? (float) $parts[2] : 120.0;
         return [$t1, $t2, $t3];
     }
+
+    /**
+     * Classify an elapsed-business-days count into a bucket. Boundaries are
+     * inclusive ("up to 2 days" is still excellent), unlike the hour
+     * classifier — day counts are whole numbers, so the natural reading of
+     * "até 2 dias" includes day 2.
+     *
+     * @param float|null $days Elapsed business days (date-based count).
+     * @return string One of self::EXCELLENT|GOOD|REGULAR|CRITICAL|PENDING.
+     */
+    public static function for_effective_days(?float $days): string {
+        if ($days === null) {
+            return self::PENDING;
+        }
+        $thresholds = self::parse_thresholds_days();
+        if ($days <= $thresholds[0]) {
+            return self::EXCELLENT;
+        }
+        if ($days <= $thresholds[1]) {
+            return self::GOOD;
+        }
+        if ($days <= $thresholds[2]) {
+            return self::REGULAR;
+        }
+        return self::CRITICAL;
+    }
+
+    /**
+     * Parse the business-days thresholds setting (CSV) into a three-element
+     * float array (default 2, 5, 10). Returns the defaults if malformed.
+     *
+     * @return array{0:float, 1:float, 2:float}
+     */
+    public static function parse_thresholds_days(): array {
+        $raw = (string) (get_config('block_feedback_tracker', 'bucket_thresholds_days') ?: '2,5,10');
+        $parts = array_map('trim', explode(',', $raw));
+        $t1 = isset($parts[0]) && is_numeric($parts[0]) ? (float) $parts[0] : 2.0;
+        $t2 = isset($parts[1]) && is_numeric($parts[1]) ? (float) $parts[1] : 5.0;
+        $t3 = isset($parts[2]) && is_numeric($parts[2]) ? (float) $parts[2] : 10.0;
+        return [$t1, $t2, $t3];
+    }
+
+    /**
+     * True when banding should use the business-days ruler — i.e. the global
+     * display unit is business days. Server-side switch shared by the
+     * submission browser, the priority list, the academic-days strip and the
+     * payload count swap, so every surface classifies with the same ruler.
+     *
+     * @return bool
+     */
+    public static function use_day_thresholds(): bool {
+        return (string) (get_config('block_feedback_tracker', 'display_time_unit') ?: 'hours')
+            === 'business_days';
+    }
 }

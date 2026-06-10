@@ -28,6 +28,7 @@ namespace block_feedback_tracker\local\sla;
 
 use block_feedback_tracker\local\calendar\academic_time;
 use block_feedback_tracker\local\calendar\calendar;
+use block_feedback_tracker\local\calendar\day_counter;
 
 /**
  * Idempotent upserts into {block_feedback_tracker_sub} keyed by
@@ -155,6 +156,9 @@ class submission_ledger {
             'hasrule'          => $rule['hasrule'],
             'waitinghours'     => $waitinghours,
             'effectivehours'   => $effectivehours,
+            'effectivedays'    => $timesubmitted > 0
+                ? day_counter::business_days($timesubmitted, $upperbound)
+                : null,
             'effectiveasof'    => $now,
             'effectivecalver'  => calendar::current_version(),
             'slabucket'        => bucket::for_effective($effectivehours),

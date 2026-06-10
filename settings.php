@@ -99,6 +99,27 @@ if ($ADMIN->fulltree) {
     );
     $settings->add($s);
 
+    // Day-ruler band cutoffs, used instead of the hour thresholds when the
+    // display unit (Views section) is business days: excellent <= first,
+    // good <= second, regular <= third, critical above. Inclusive bounds —
+    // "up to 2 business days" is still excellent. Feeds the rollup's
+    // critical_days/overgoal_days twins, hence the invalidate callback.
+    $s = new admin_setting_configtext(
+        $plugin . '/bucket_thresholds_days',
+        get_string('settings_bucket_thresholds_days', $plugin),
+        get_string('settings_bucket_thresholds_days_desc', $plugin),
+        '2,5,10',
+        PARAM_TEXT
+    );
+    $s->set_updatedcallback('block_feedback_tracker_invalidate_rollups');
+    $settings->add($s);
+    $settings->hide_if(
+        $plugin . '/bucket_thresholds_days',
+        $plugin . '/display_time_unit',
+        'neq',
+        'business_days'
+    );
+
     // Score-band thresholds: three CSV cutoffs that map a 0-100 score to one
     // of the four bands. Defaults 90/70/40 match the design palette. Stored
     // values are clamped + ordered at read time in

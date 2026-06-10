@@ -40,6 +40,7 @@ import InsightCard from 'block_feedback_tracker/components/InsightCard';
 import PriorityCard from 'block_feedback_tracker/components/PriorityCard';
 import CoursesTable from 'block_feedback_tracker/components/CoursesTable';
 import WaveMark from 'block_feedback_tracker/components/WaveMark';
+import RetryNotice from 'block_feedback_tracker/components/RetryNotice';
 import {getDashboard, getGraderPriorityList, getInsights}
     from 'block_feedback_tracker/lib/api';
 import {bandForScore} from 'block_feedback_tracker/lib/bands';
@@ -302,6 +303,18 @@ export default function DashboardView({initial}) {
     };
 
     /**
+     * Pick the user-facing message for a failed fetch: a friendly connectivity
+     * notice for network drops (api.js tags these `bftNetwork` and suppresses
+     * the technical toast) or the generic dashboard error otherwise.
+     *
+     * @param {*} e  The rejection value from a web-service call.
+     * @returns {string}
+     */
+    const netMsg = (e) => (e && e.bftNetwork)
+        ? (i18n.connection_lost || 'Connection lost. Check your internet and try again.')
+        : (i18n.dashboard_error || 'Failed to load dashboard.');
+
+    /**
      * Refresh courses + grade-now + insights in parallel.
      */
     const handleRefresh = async () => {
@@ -327,7 +340,7 @@ export default function DashboardView({initial}) {
                 setInsights(resInsights);
             }
         } catch (e) {
-            setError(i18n.dashboard_error || 'Failed to refresh.');
+            setError(netMsg(e));
         } finally {
             setRefreshing(false);
         }
@@ -349,9 +362,9 @@ export default function DashboardView({initial}) {
                     setCourses(res.courses);
                 }
             })
-            .catch(() => {
+            .catch((e) => {
                 if (!cancelled) {
-                    setError(i18n.dashboard_error || 'Failed to load.');
+                    setError(netMsg(e));
                 }
             })
             .finally(() => {
@@ -463,7 +476,13 @@ export default function DashboardView({initial}) {
                         onClick=${handleRefresh}>⟳</button>
             </header>
 
-            ${error && html`<div class="bft-error" role="alert">${error}</div>`}
+            ${error && courses.length > 0 && html`
+                <${RetryNotice}
+                    message=${error}
+                    onRetry=${handleRefresh}
+                    retrying=${refreshing}
+                    i18n=${i18n}
+                    variant="banner" />`}
 
             <${ResponsivenessModule}
                 collapsed=${collapsed}
@@ -541,15 +560,22 @@ export default function DashboardView({initial}) {
                 </div>
                 ${loadingcourses && courses.length === 0
                     ? html`<div class="bft-empty">${i18n.gradenow_loading || 'Loading…'}</div>`
-                    : html`<${CoursesTable}
-                        rows=${sorted}
-                        i18n=${i18n}
-                        sortKey=${sortKey}
-                        sortOrder=${sortOrder}
-                        onSort=${handleSort}
-                        thresholds=${scoreThresholds}
-                        goal=${config.sla_goal_hours}
-                        config=${config} />`}
+                    : error && courses.length === 0
+                        ? html`<${RetryNotice}
+                            message=${error}
+                            onRetry=${handleRefresh}
+                            retrying=${refreshing}
+                            i18n=${i18n}
+                            variant="block" />`
+                        : html`<${CoursesTable}
+                            rows=${sorted}
+                            i18n=${i18n}
+                            sortKey=${sortKey}
+                            sortOrder=${sortOrder}
+                            onSort=${handleSort}
+                            thresholds=${scoreThresholds}
+                            goal=${config.sla_goal_hours}
+                            config=${config} />`}
             </section>
         </div>
     `;

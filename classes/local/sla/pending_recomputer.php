@@ -28,6 +28,7 @@ namespace block_feedback_tracker\local\sla;
 
 use block_feedback_tracker\local\calendar\academic_time;
 use block_feedback_tracker\local\calendar\calendar;
+use block_feedback_tracker\local\calendar\day_counter;
 
 /**
  * Pending submissions accumulate effective hours over time even without
@@ -100,6 +101,7 @@ class pending_recomputer {
                 'id'              => (int) $r->id,
                 'waitinghours'    => $waiting,
                 'effectivehours'  => $effective,
+                'effectivedays'   => day_counter::business_days($timesubmitted, $now),
                 'effectiveasof'   => $now,
                 'effectivecalver' => $calver,
                 'slabucket'       => bucket::for_effective($effective),

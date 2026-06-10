@@ -27,6 +27,7 @@ declare(strict_types=1);
 namespace block_feedback_tracker\external;
 
 use block_feedback_tracker\local\payload\responsiveness_payload;
+use block_feedback_tracker\local\sla\bucket;
 use block_feedback_tracker\local\sla\group_access;
 use core_external\external_api;
 use core_external\external_function_parameters;
@@ -102,7 +103,7 @@ class get_report_scopes extends external_api {
             'groupid ASC',
             'id, groupid, responsiveness_score, score_band, cur_median_eff_h, cur_median_raw_h,'
                 . ' cur_median_eff_days, cur_median_perc_days, compliance_pct, trend_pct_30d,'
-                . ' pending, critical, overgoal'
+                . ' pending, critical, overgoal, critical_days, overgoal_days'
         );
 
         // Display names: real names for this result's groups only, run
@@ -121,9 +122,20 @@ class get_report_scopes extends external_api {
         }
         $titles = responsiveness_payload::resolve_group_titles($groupnames);
 
+        // Counts follow the banding ruler: business-days mode serves the
+        // day-ruler twins, falling back to the hour counts until the rollup
+        // has been recomputed with the new columns.
+        $usedays = bucket::use_day_thresholds();
+
         $groups = [];
         foreach ($rollups as $r) {
             $gid = (int) $r->groupid;
+            $critical = (int) $r->critical;
+            $overgoal = (int) $r->overgoal;
+            if ($usedays && $r->critical_days !== null) {
+                $critical = (int) $r->critical_days;
+                $overgoal = (int) ($r->overgoal_days ?? 0);
+            }
             if ($gid === 0) {
                 $name = $groupmode === NOGROUPS
                     ? get_string('card_nogroup', 'block_feedback_tracker')
@@ -146,8 +158,8 @@ class get_report_scopes extends external_api {
                 'compliance_pct'       => $r->compliance_pct !== null ? (float) $r->compliance_pct : null,
                 'trend_pct_30d'        => $r->trend_pct_30d !== null ? (float) $r->trend_pct_30d : null,
                 'pending'              => (int) $r->pending,
-                'critical'             => (int) $r->critical,
-                'overgoal'             => (int) $r->overgoal,
+                'critical'             => $critical,
+                'overgoal'             => $overgoal,
             ];
         }
 
