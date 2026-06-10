@@ -43,10 +43,11 @@ import Badge from 'block_feedback_tracker/components/Badge';
 import ResponsivenessModule from 'block_feedback_tracker/components/ResponsivenessModule';
 import AcademicDaysStrip from 'block_feedback_tracker/components/AcademicDaysStrip';
 import StatusDistributionBar from 'block_feedback_tracker/components/StatusDistributionBar';
+import Skeleton from 'block_feedback_tracker/components/Skeleton';
 import {bandForScore, colourFor} from 'block_feedback_tracker/lib/bands';
-import {getPendingSubmissions, getGradedSubmissions, getAcademicDays}
+import {getPendingSubmissions, getGradedSubmissions, getAcademicDays, getReportScopes}
     from 'block_feedback_tracker/lib/api';
-import {formatHours, formatDate} from 'block_feedback_tracker/lib/format';
+import {formatHours, formatDays, formatDate, usesDays} from 'block_feedback_tracker/lib/format';
 import {setUserPreference} from 'core_user/repository';
 import Notification from 'core/notification';
 
@@ -114,6 +115,8 @@ const computeScope = (scopes, gid) => {
             band: g.score_band || null,
             effective: g.cur_median_eff_h,
             perceivedraw: g.cur_median_raw_h,
+            effectivedays: g.cur_median_eff_days,
+            perceiveddays: g.cur_median_perc_days,
             compliance: g.compliance_pct,
             trendpct: g.trend_pct_30d,
             total_pending: Number(g.pending) || 0,
@@ -130,6 +133,10 @@ const computeScope = (scopes, gid) => {
     let effCount = 0;
     let rawSum = 0;
     let rawCount = 0;
+    let effDaysSum = 0;
+    let effDaysCount = 0;
+    let percDaysSum = 0;
+    let percDaysCount = 0;
     let compSum = 0;
     let compCount = 0;
     let trendSum = 0;
@@ -151,6 +158,15 @@ const computeScope = (scopes, gid) => {
             rawSum += Number(g.cur_median_raw_h);
             rawCount += 1;
         }
+        // Date-based day medians — the headline pair for the business-days unit.
+        if (g.cur_median_eff_days !== null && g.cur_median_eff_days !== undefined) {
+            effDaysSum += Number(g.cur_median_eff_days);
+            effDaysCount += 1;
+        }
+        if (g.cur_median_perc_days !== null && g.cur_median_perc_days !== undefined) {
+            percDaysSum += Number(g.cur_median_perc_days);
+            percDaysCount += 1;
+        }
         if (g.compliance_pct !== null && g.compliance_pct !== undefined) {
             compSum += Number(g.compliance_pct);
             compCount += 1;
@@ -165,6 +181,8 @@ const computeScope = (scopes, gid) => {
         band: null,
         effective: effCount > 0 ? effSum / effCount : null,
         perceivedraw: rawCount > 0 ? rawSum / rawCount : null,
+        effectivedays: effDaysCount > 0 ? effDaysSum / effDaysCount : null,
+        perceiveddays: percDaysCount > 0 ? percDaysSum / percDaysCount : null,
         compliance: compCount > 0 ? compSum / compCount : null,
         trendpct: trendCount > 0 ? trendSum / trendCount : null,
         total_pending: pending,
@@ -212,8 +230,6 @@ export default function PendingReportView({initial}) {
     const config = initial.config || {};
     const scoreThresholds = config.score_thresholds || null;
     const courseid = Number(initial.courseid) || 0;
-    const availableGroups = Array.isArray(initial.groups) ? initial.groups : [];
-    const groupScopes = Array.isArray(initial.groupscopes) ? initial.groupscopes : [];
     const initialPending = initial.pending || {};
 
     // eslint-disable-next-line no-undef
@@ -233,20 +249,41 @@ export default function PendingReportView({initial}) {
     const [searchInput, setSearchInput] = useState('');
     const [search, setSearch] = useState('');
 
-    // --- Page data. ---
-    const [submissions, setSubmissions] = useState(
-        Array.isArray(initialPending.submissions) ? initialPending.submissions : []
-    );
-    const [total, setTotal] = useState(Number(initialPending.total) || 0);
-    const [counts, setCounts] = useState(initialPending.counts || {});
-    const [loading, setLoading] = useState(false);
+    // --- Page data — all fetched after mount (the bootstrap ships only the
+    // filter parameters), so the page's first byte never blocks on the
+    // submissions queries. loading starts true so the first paint shows the
+    // table skeleton instead of a flash of "no submissions".
+    const [submissions, setSubmissions] = useState([]);
+    const [total, setTotal] = useState(0);
+    const [counts, setCounts] = useState({});
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    // Drafts (pending mode only) — seeded server-side, refetched on class change.
-    const initialDrafts = initial.drafts || {};
-    const [drafts, setDrafts] = useState(
-        Array.isArray(initialDrafts.submissions) ? initialDrafts.submissions : []
-    );
+    // Drafts (pending mode only) — lazy-loaded after the main table lands,
+    // refetched on class change.
+    const [drafts, setDrafts] = useState([]);
+
+    // Hero scopes + class-filter list, from the lightweight rollup-only
+    // get_report_scopes WS (the full responsiveness payload is never built
+    // for this page). Hero renders "—" and the class filter stays hidden
+    // until this lands.
+    const [groupScopes, setGroupScopes] = useState([]);
+    const availableGroups = groupScopes.map((g) => ({
+        id: Number(g.groupid) || 0,
+        name: g.name || '',
+    }));
+
+    /**
+     * Load the per-group scopes (hero + class filter).
+     */
+    const fetchScopes = async () => {
+        try {
+            const result = await getReportScopes({courseid});
+            setGroupScopes(Array.isArray(result.groups) ? result.groups : []);
+        } catch (e) {
+            setGroupScopes([]);
+        }
+    };
 
     // Collapse state for the hero + heatmap container (Moodle user preference).
     const [collapsed, setCollapsed] = useState(Boolean(initial.report_collapsed));
@@ -290,7 +327,8 @@ export default function PendingReportView({initial}) {
         return () => clearTimeout(t);
     }, [searchInput]);
 
-    // Re-fetch on any server-driven change. The first render is seeded server-side.
+    // Re-fetch on any server-driven change. The guard skips the mount run —
+    // the mount effect below owns the initial load.
     useEffect(() => {
         if (firstRun.current) {
             firstRun.current = false;
@@ -310,6 +348,8 @@ export default function PendingReportView({initial}) {
             setDrafts([]);
         }
     };
+    // Guard skips the mount run — the mount effect below chains the initial
+    // drafts fetch after the first table page resolves.
     useEffect(() => {
         if (firstRunDrafts.current) {
             firstRunDrafts.current = false;
@@ -317,6 +357,14 @@ export default function PendingReportView({initial}) {
         }
         fetchDrafts();
     }, [groupid]);
+
+    // Mount: the main table is what the teacher came for, so it fetches
+    // first, in parallel with the lightweight hero scopes; drafts follow once
+    // the table has landed. The academic-days strip has its own mount effect.
+    useEffect(() => {
+        fetchScopes();
+        fetchPage().then(fetchDrafts);
+    }, []);
 
     // Academic-days heatmap loads on mount and on class change.
     const fetchAcademic = async () => {
@@ -425,7 +473,11 @@ export default function PendingReportView({initial}) {
         bandlabel: scopeBandLabel,
         effectivehours: scope && scope.effective !== null && scope.effective !== undefined
             ? Number(scope.effective) : null,
-        perceivedlabel: scope ? perceivedLabel(scope.perceivedraw) : '—',
+        effectivedays: scope && scope.effectivedays !== null && scope.effectivedays !== undefined
+            ? Number(scope.effectivedays) : null,
+        perceivedlabel: usesDays(config)
+            ? formatDays(scope ? scope.perceiveddays : null)
+            : (scope ? perceivedLabel(scope.perceivedraw) : '—'),
         compliancepct: scope && scope.compliance !== null && scope.compliance !== undefined
             ? Number(scope.compliance) : null,
         trendpct: scope && scope.trendpct !== null && scope.trendpct !== undefined
@@ -518,7 +570,9 @@ export default function PendingReportView({initial}) {
 
             ${error && html`<div class="bft-error" role="alert">${error}</div>`}
 
-            ${submissions.length === 0 && !loading
+            ${loading && submissions.length === 0
+                ? html`<${Skeleton} count=${5} />`
+                : submissions.length === 0
                 ? html`
                     <div class="bft-empty">
                         ${i18n.pendingreport_empty || 'No submissions match the current filter.'}
@@ -577,12 +631,16 @@ export default function PendingReportView({initial}) {
                                         `}
                                         <td class="bft-report-effective bft-mono"
                                             style=${'color: ' + rowColor + ';'}>
-                                            ${formatHours(row.effectivehours)}
+                                            ${usesDays(config)
+                                                ? formatDays(row.effective_days)
+                                                : formatHours(row.effectivehours)}
                                         </td>
                                         ${!graded && html`
                                             <td class="bft-mono">
                                                 <span class="bft-report-perceived">
-                                                    ${formatHours(row.waitinghours)}
+                                                    ${usesDays(config)
+                                                        ? formatDays(row.perceived_days)
+                                                        : formatHours(row.waitinghours)}
                                                     ${paused && html`
                                                         <span class="bft-row-paused-tag"
                                                               title=${i18n.pendingreport_row_paused_tip || ''}>

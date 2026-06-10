@@ -46,6 +46,13 @@ $functions = [
         'ajax'        => true,
         'capabilities' => 'block/feedback_tracker:viewresponsiveness',
     ],
+    'block_feedback_tracker_get_report_scopes' => [
+        'classname'   => 'block_feedback_tracker\external\get_report_scopes',
+        'description' => 'Per-group hero scopes + class-filter list for the report page (rollup-only read).',
+        'type'        => 'read',
+        'ajax'        => true,
+        'capabilities' => 'block/feedback_tracker:viewresponsiveness',
+    ],
     'block_feedback_tracker_get_academic_days' => [
         'classname'   => 'block_feedback_tracker\external\get_academic_days',
         'description' => 'Last 30 academic days heatmap series for the report page.',

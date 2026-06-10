@@ -212,6 +212,8 @@ class get_pending_submissions extends external_api {
             'timegraded'     => new external_value(PARAM_INT, '0 while pending'),
             'waitinghours'   => new external_value(PARAM_FLOAT, ''),
             'effectivehours' => new external_value(PARAM_FLOAT, ''),
+            'effective_days' => new external_value(PARAM_INT, 'Elapsed business days (date-based)'),
+            'perceived_days' => new external_value(PARAM_INT, 'Elapsed calendar days (date-based)'),
             'slabucket'      => new external_value(PARAM_ALPHA, ''),
             'pendingband'    => new external_value(PARAM_ALPHA, 'aguardando | atencao | prioridade'),
             'submissionstatus' => new external_value(PARAM_ALPHA, ''),

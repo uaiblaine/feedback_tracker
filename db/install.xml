@@ -58,6 +58,8 @@
         <FIELD NAME="max_eff_h" TYPE="number" LENGTH="10" DECIMALS="2" NOTNULL="false" SEQUENCE="false"/>
         <FIELD NAME="cur_median_eff_h" TYPE="number" LENGTH="10" DECIMALS="2" NOTNULL="false" COMMENT="Median effective hours over graded-in-window plus currently-pending submissions; the display headline (includes the backlog). Not used by the score." SEQUENCE="false"/>
         <FIELD NAME="cur_median_raw_h" TYPE="number" LENGTH="10" DECIMALS="2" NOTNULL="false" COMMENT="Median raw (wall-clock) hours over graded-in-window plus currently-pending submissions; the perceived-wait headline." SEQUENCE="false"/>
+        <FIELD NAME="cur_median_eff_days" TYPE="number" LENGTH="10" DECIMALS="2" NOTNULL="false" COMMENT="Median elapsed business (active) days over graded-in-window plus currently-pending submissions; date-based headline for the business-days display unit. Not used by the score." SEQUENCE="false"/>
+        <FIELD NAME="cur_median_perc_days" TYPE="number" LENGTH="10" DECIMALS="2" NOTNULL="false" COMMENT="Median elapsed calendar days over graded-in-window plus currently-pending submissions; date-based perceived headline." SEQUENCE="false"/>
         <FIELD NAME="responsiveness_score" TYPE="number" LENGTH="5" DECIMALS="2" NOTNULL="false" SEQUENCE="false"/>
         <FIELD NAME="score_band" TYPE="char" LENGTH="10" NOTNULL="false" COMMENT="excellent|good|regular|critical" SEQUENCE="false"/>
         <FIELD NAME="comp_compliance" TYPE="number" LENGTH="5" DECIMALS="4" NOTNULL="false" COMMENT="Compliance term value [0,1]; multiplied by W_compliance for score contribution." SEQUENCE="false"/>

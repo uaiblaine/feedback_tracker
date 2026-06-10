@@ -57,6 +57,12 @@ $result = \block_feedback_tracker\external\get_pending_submissions::execute(
     $perpage
 );
 
+// Both wait columns honour the global display-unit setting: business days
+// show the date-based elapsed-day counts returned per row by the web service;
+// hours keep the effective/wall-clock hour figures.
+$unit = (string) (get_config('block_feedback_tracker', 'display_time_unit') ?: 'hours');
+$usedays = $unit === 'business_days';
+
 $rows = [];
 foreach ($result['submissions'] as $s) {
     $rows[] = [
@@ -65,9 +71,13 @@ foreach ($result['submissions'] as $s) {
         'group'        => (string) ($s['groupname'] ?: '-'),
         'submitted'    => userdate((int) $s['timesubmitted']),
         'submittedts'  => (int) $s['timesubmitted'],
-        'waiting'      => format_float((float) $s['waitinghours'], 1) . ' h',
+        'waiting'      => $usedays
+            ? (int) $s['perceived_days'] . ' d'
+            : format_float((float) $s['waitinghours'], 1) . ' h',
         'waitingnum'   => (float) $s['waitinghours'],
-        'effective'    => format_float((float) $s['effectivehours'], 1) . ' h',
+        'effective'    => $usedays
+            ? (int) $s['effective_days'] . ' d'
+            : format_float((float) $s['effectivehours'], 1) . ' h',
         'effectivenum' => (float) $s['effectivehours'],
         'status'       => (string) $s['slabucket'],
         'bucket'       => (string) $s['slabucket'],

@@ -36,6 +36,7 @@ import StatTile from 'block_feedback_tracker/components/StatTile';
 import PeerContext from 'block_feedback_tracker/components/PeerContext';
 import TimelineBar from 'block_feedback_tracker/components/TimelineBar';
 import {colourFor} from 'block_feedback_tracker/lib/bands';
+import {usesDays} from 'block_feedback_tracker/lib/format';
 
 /**
  * Drilldown URL builder. Optional `band` pre-applies the pending-band filter
@@ -99,12 +100,36 @@ const actionLabel = (action, i18n) => {
 };
 
 /**
- * Format hours as "Xh" or "—".
+ * Format a day-median for a KPI tile: whole numbers plain, halves one decimal.
  *
- * @param {number|null|undefined} h
- * @returns {string}
+ * @param {number|null|undefined} n
+ * @returns {string|number}
  */
-const fmtHours = (h) => (h === null || h === undefined ? '—' : Math.round(Number(h)));
+const fmtDayMedian = (n) => {
+    if (n === null || n === undefined) {
+        return '—';
+    }
+    const v = Number(n);
+    return Number.isInteger(v) ? v : v.toFixed(1);
+};
+
+/**
+ * Effective-time value + unit for the KPI tile, honouring the configured
+ * display unit. Hours: rounded effective-hours median + "h". Business days:
+ * the date-based day median + "d" (counted server-side from the submit/grade
+ * dates — no client conversion).
+ *
+ * @param {object} group
+ * @param {object} config
+ * @returns {{value: (string|number), unit: string}}
+ */
+const effectiveKpi = (group, config) => {
+    if (usesDays(config)) {
+        return {value: fmtDayMedian(group.cur_median_eff_days), unit: 'd'};
+    }
+    const h = group.cur_median_eff_h;
+    return {value: h === null || h === undefined ? '—' : Math.round(Number(h)), unit: 'h'};
+};
 
 /**
  * Format days as "Xd" or "—".
@@ -165,6 +190,15 @@ export default function GroupCard({group, courseid, i18n, config}) {
     const criticalhref = buildDrilldownUrl(courseid, groupid, 'prioridade');
 
     const hasActivities = Array.isArray(group.activities) && group.activities.length > 0;
+    const eff = effectiveKpi(group, config);
+    // Perceived in days mode is the date-based calendar-day median; hours mode
+    // keeps the wall-clock-hours /24 approximation.
+    const perceivedvalue = usesDays(config)
+        ? fmtDayMedian(group.cur_median_perc_days)
+        : fmtDaysFromHours(perceived);
+    // Peer panel is opt-out via the global show_peer_context setting; it also
+    // self-hides inside PeerContext when there is no dept/top10 data.
+    const showpeer = !config || config.show_peer_context !== false;
 
     return html`
         <div class=${'bft-card' + (open ? ' bft-card-open' : '')}>
@@ -199,13 +233,13 @@ export default function GroupCard({group, courseid, i18n, config}) {
                     <div class="bft-kpi-row">
                         <${KpiTile}
                             label=${i18n.card_effective}
-                            value=${fmtHours(group.cur_median_eff_h)}
-                            unit="h"
+                            value=${eff.value}
+                            unit=${eff.unit}
                             sub=${i18n.card_effective_sub}
                             tone=${band} />
                         <${KpiTile}
                             label=${i18n.card_perceived}
-                            value=${fmtDaysFromHours(perceived)}
+                            value=${perceivedvalue}
                             unit="d"
                             sub=${i18n.card_perceived_sub}
                             tone="muted" />
@@ -268,12 +302,14 @@ export default function GroupCard({group, courseid, i18n, config}) {
                         </div>
                     `}
 
-                    <${PeerContext}
-                        you=${score}
-                        youband=${band}
-                        department=${group.peer_department_score}
-                        top10=${group.peer_top10_score}
-                        i18n=${i18n} />
+                    ${showpeer && html`
+                        <${PeerContext}
+                            you=${score}
+                            youband=${band}
+                            department=${group.peer_department_score}
+                            top10=${group.peer_top10_score}
+                            i18n=${i18n} />
+                    `}
 
                     <div class="bft-card-foot">
                         <a class="bft-drilldown" href=${allhref} style=${'color: ' + colourFor(band) + ';'}>

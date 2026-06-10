@@ -117,6 +117,11 @@ class bootstrap {
     public static function config_bundle(): array {
         [$threxcellent, $thrgood, $thrregular] =
             \block_feedback_tracker\local\score\responsiveness_calculator::parse_thresholds_band();
+        // Peer-context toggle defaults ON: an unset value (false) is treated as
+        // enabled; only an explicit '0' turns it off. A plain `?: 1` read would
+        // mis-handle the off case because '0' is falsy in PHP.
+        $peercfg = get_config('block_feedback_tracker', 'show_peer_context');
+        $showpeer = ($peercfg === false || $peercfg === null) ? true : ((string) $peercfg !== '0');
         return [
             'weights' => [
                 'compliance' => (float) (get_config('block_feedback_tracker', 'weight_compliance') ?: 0.40),
@@ -133,6 +138,12 @@ class bootstrap {
             ],
             'enable_teacher_simulator' =>
                 (bool) ((int) (get_config('block_feedback_tracker', 'enable_teacher_simulator') ?: 0) === 1),
+            // Display-only: which wait-time representation the UI shows. Both
+            // (hour medians and date-based day counts) are computed server-side;
+            // the components pick the matching field at render time.
+            'display_time_unit' =>
+                (string) (get_config('block_feedback_tracker', 'display_time_unit') ?: 'hours'),
+            'show_peer_context' => $showpeer,
         ];
     }
 
@@ -198,6 +209,7 @@ class bootstrap {
             'dashboard_subline_waiting' => get_string('dashboard_subline_waiting', 'block_feedback_tracker'),
             'hero_effective_eyebrow' => get_string('hero_effective_eyebrow', 'block_feedback_tracker'),
             'hero_effective_unit' => get_string('hero_effective_unit', 'block_feedback_tracker'),
+            'hero_effective_unit_days' => get_string('hero_effective_unit_days', 'block_feedback_tracker'),
             'hero_perceived_label' => get_string('hero_perceived_label', 'block_feedback_tracker'),
             'hero_perceived_unit' => get_string('hero_perceived_unit', 'block_feedback_tracker'),
             'hero_sla_eyebrow' => get_string('hero_sla_eyebrow', 'block_feedback_tracker'),
@@ -276,6 +288,7 @@ class bootstrap {
             'hero_effective_eyebrow' => get_string('hero_effective_eyebrow', 'block_feedback_tracker'),
             'hero_effective_tip' => get_string('hero_effective_tip', 'block_feedback_tracker'),
             'hero_effective_unit' => get_string('hero_effective_unit', 'block_feedback_tracker'),
+            'hero_effective_unit_days' => get_string('hero_effective_unit_days', 'block_feedback_tracker'),
             'hero_perceived_label' => get_string('hero_perceived_label', 'block_feedback_tracker'),
             'hero_perceived_tip' => get_string('hero_perceived_tip', 'block_feedback_tracker'),
             'hero_perceived_unit' => get_string('hero_perceived_unit', 'block_feedback_tracker'),

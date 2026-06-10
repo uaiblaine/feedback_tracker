@@ -5,6 +5,53 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.30] - Unreleased
+
+### Changed
+- **Pending report loads like the dashboard** — the page ships its first byte
+  immediately and every section loads asynchronously after first paint: the
+  submissions table (skeleton while in flight) in parallel with the hero
+  scopes and class filter, then drafts, then the academic-days strip. The
+  page previously blocked on two submissions queries plus the full per-group
+  responsiveness payload (trend series, peer stats, activity schedules)
+  before sending any HTML.
+
+### Added
+- New `get_report_scopes` web service: per-group hero scopes + class-filter
+  list read straight from the materialised rollup — the report no longer
+  builds the full responsiveness payload at all.
+
+## [1.0.29] - Unreleased
+
+### Added
+- **Wait-time display unit** — a site setting to show wait times in business
+  **hours** (default) or **business days**. Business days are counted from
+  the submission and grading *dates* (time of day is ignored): business days
+  skip weekends, holidays and recesses per the platform calendar, while the
+  perceived wait counts every calendar day — submitted Friday evening and
+  graded Monday reads 1 business day / 3 calendar days. Applies everywhere:
+  the in-course block, the dashboard hero and courses table, the grade-now
+  priority cards, and the pending/graded report. The responsiveness score
+  still uses effective hours and is unaffected. Toggling the unit is
+  display-only (both representations are always computed); run
+  `cli/recompute_all.php` once after upgrading to backfill the new day
+  medians (or let the drain queue catch up).
+- New per-submission `effective_days` / `perceived_days` fields on
+  `get_pending_submissions`, `get_graded_submissions` and
+  `get_grader_priority_list`; new `cur_median_eff_days` /
+  `cur_median_perc_days` rollup columns surfaced via `get_responsiveness`
+  and `get_dashboard`.
+- **Show peer comparison** site setting to hide or show the peer-context panel
+  (You / Department / Top 10%) on the in-course group cards.
+
+### Fixed
+- The grade-now priority card estimated the perceived wait from effective
+  hours with a fudge factor, drifting far from the report's figure on long
+  waits. It now shows the real elapsed calendar days.
+- The no-JS responsiveness card's "show perceived time" and "show paused-today
+  indicator" toggles could not be switched off — the stored `'0'` was read as
+  on (PHP treats the string `'0'` as falsy). They now honour an explicit off.
+
 ## [1.0.27] - Unreleased
 
 ### Added

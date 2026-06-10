@@ -265,6 +265,7 @@ if ($ADMIN->fulltree) {
         'enable_teacher_simulator'    => 0,
         'show_perceived_time'         => 1,
         'show_paused_today_indicator' => 1,
+        'show_peer_context'           => 1,
         'exclude_grader_submissions'  => 1,
     ];
     foreach ($viewbools as $key => $default) {
@@ -275,6 +276,23 @@ if ($ADMIN->fulltree) {
             $default
         ));
     }
+
+    // Display unit for the wait-time metrics. 'hours' (default) keeps the
+    // existing effective/wall-clock hour figures; 'business_days' switches to
+    // date-based elapsed-day counts (business days skip weekends, holidays and
+    // recesses; the time of day is ignored). Both representations are computed
+    // and stored by the rollup, so this toggle is display-only — no rollup
+    // callback, no recompute on change.
+    $settings->add(new admin_setting_configselect(
+        $plugin . '/display_time_unit',
+        get_string('settings_display_time_unit', $plugin),
+        get_string('settings_display_time_unit_desc', $plugin),
+        'hours',
+        [
+            'hours'         => get_string('settings_display_unit_hours', $plugin),
+            'business_days' => get_string('settings_display_unit_days', $plugin),
+        ]
+    ));
 
     // Group-card title composition from custom group fields. Empty = real group
     // name. Display-only — no rollup callback; the 15-min payload cache (or the

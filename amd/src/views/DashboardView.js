@@ -43,6 +43,7 @@ import WaveMark from 'block_feedback_tracker/components/WaveMark';
 import {getDashboard, getGraderPriorityList, getInsights}
     from 'block_feedback_tracker/lib/api';
 import {bandForScore} from 'block_feedback_tracker/lib/bands';
+import {usesDays, formatDays} from 'block_feedback_tracker/lib/format';
 import {setUserPreference} from 'core_user/repository';
 import Notification from 'core/notification';
 
@@ -68,6 +69,10 @@ const aggregate = (courses) => {
     let effCount = 0;
     let percSum = 0;
     let percCount = 0;
+    let effDaysSum = 0;
+    let effDaysCount = 0;
+    let percDaysSum = 0;
+    let percDaysCount = 0;
     let compSum = 0;
     let compCount = 0;
     let trendSum = 0;
@@ -91,6 +96,15 @@ const aggregate = (courses) => {
             percSum += Number(c.cur_median_raw_h);
             percCount += 1;
         }
+        // Date-based day medians — the headline pair for the business-days unit.
+        if (c.cur_median_eff_days !== null && c.cur_median_eff_days !== undefined) {
+            effDaysSum += Number(c.cur_median_eff_days);
+            effDaysCount += 1;
+        }
+        if (c.cur_median_perc_days !== null && c.cur_median_perc_days !== undefined) {
+            percDaysSum += Number(c.cur_median_perc_days);
+            percDaysCount += 1;
+        }
         if (c.compliance_pct !== null && c.compliance_pct !== undefined) {
             compSum += Number(c.compliance_pct);
             compCount += 1;
@@ -107,6 +121,8 @@ const aggregate = (courses) => {
         avgscore:   scoreWeight > 0 ? scoreSum / scoreWeight : null,
         effective:  effCount > 0 ? effSum / effCount : null,
         perceived:  percCount > 0 ? percSum / percCount : null,
+        effectivedays: effDaysCount > 0 ? effDaysSum / effDaysCount : null,
+        perceiveddays: percDaysCount > 0 ? percDaysSum / percDaysCount : null,
         compliance: compCount > 0 ? compSum / compCount : null,
         trendpct:   trendCount > 0 ? trendSum / trendCount : null,
     };
@@ -383,7 +399,10 @@ export default function DashboardView({initial}) {
         band: heroBand,
         bandlabel: heroBandLabel,
         effectivehours: totals.effective,
-        perceivedlabel: perceivedLabel(totals.perceived),
+        effectivedays: totals.effectivedays,
+        perceivedlabel: usesDays(config)
+            ? formatDays(totals.perceiveddays)
+            : perceivedLabel(totals.perceived),
         compliancepct: totals.compliance,
         trendpct: totals.trendpct,
         i18n,
@@ -509,7 +528,8 @@ export default function DashboardView({initial}) {
                                 key=${'p-' + (sub.submissionid || i)}
                                 idx=${i + 1}
                                 submission=${sub}
-                                i18n=${i18n} />
+                                i18n=${i18n}
+                                config=${config} />
                         `)}
                     </div>
                 </section>
@@ -528,7 +548,8 @@ export default function DashboardView({initial}) {
                         sortOrder=${sortOrder}
                         onSort=${handleSort}
                         thresholds=${scoreThresholds}
-                        goal=${config.sla_goal_hours} />`}
+                        goal=${config.sla_goal_hours}
+                        config=${config} />`}
             </section>
         </div>
     `;

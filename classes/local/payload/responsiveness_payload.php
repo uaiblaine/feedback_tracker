@@ -293,10 +293,13 @@ class responsiveness_payload {
      * the group_title_fields / group_subtitle_fields settings. Falls back to
      * the real group name when nothing is configured or a group has no data.
      *
+     * Public so the lightweight report-scopes endpoint shows the same
+     * composed names as the full payload without rebuilding it.
+     *
      * @param array<int, string> $groupnames Real group names keyed by group id.
      * @return array<int, array{title: string, subtitle: string|null}>
      */
-    private static function resolve_group_titles(array $groupnames): array {
+    public static function resolve_group_titles(array $groupnames): array {
         $titlefields = self::parse_shortnames(
             (string) (get_config('block_feedback_tracker', 'group_title_fields') ?: '')
         );
@@ -474,6 +477,10 @@ class responsiveness_payload {
                 ? (float) $row->cur_median_eff_h : null,
             'cur_median_raw_h'     => isset($row->cur_median_raw_h) && $row->cur_median_raw_h !== null
                 ? (float) $row->cur_median_raw_h : null,
+            'cur_median_eff_days'  => isset($row->cur_median_eff_days) && $row->cur_median_eff_days !== null
+                ? (float) $row->cur_median_eff_days : null,
+            'cur_median_perc_days' => isset($row->cur_median_perc_days) && $row->cur_median_perc_days !== null
+                ? (float) $row->cur_median_perc_days : null,
             'responsiveness_score' => $row->responsiveness_score !== null ? (float) $row->responsiveness_score : null,
             'score_band'           => $row->score_band !== null ? (string) $row->score_band : null,
             'comp_compliance'      => isset($row->comp_compliance) && $row->comp_compliance !== null

@@ -27,6 +27,7 @@ declare(strict_types=1);
 namespace block_feedback_tracker\local\sla;
 
 use block_feedback_tracker\local\calendar\calendar;
+use block_feedback_tracker\local\calendar\day_counter;
 use block_feedback_tracker\local\calendar\pause_lookup;
 use block_feedback_tracker\local\score\responsiveness_calculator;
 
@@ -125,17 +126,23 @@ class rollup_service {
                 'substatus' => submission_status::SUBMITTED,
             ],
             '',
-            'id, effectivehours, waitinghours'
+            'id, effectivehours, waitinghours, timesubmitted'
         );
         $pending = count($pendingrows);
         $critical = 0;
         $overgoal = 0;
         $pendingeffvals = [];
         $pendingrawvals = [];
+        $pendingeffdays = [];
+        $pendingpercdays = [];
         foreach ($pendingrows as $r) {
             $eff = (float) ($r->effectivehours ?? 0.0);
             $pendingeffvals[] = $eff;
             $pendingrawvals[] = (float) ($r->waitinghours ?? 0.0);
+            // Date-based elapsed days (pending elapses up to now).
+            $days = day_counter::between((int) $r->timesubmitted, $now);
+            $pendingeffdays[] = $days['business'];
+            $pendingpercdays[] = $days['calendar'];
             // Mutually-exclusive pending bands that partition $pending, so the
             // three displayed counts sum to the total: critical (eff >=
             // criticalmin) | over-goal (goal < eff < criticalmin) | within-goal
@@ -161,16 +168,22 @@ class rollup_service {
                 'substatus' => submission_status::SUBMITTED,
             ],
             '',
-            'id, effectivehours, waitinghours'
+            'id, effectivehours, waitinghours, timesubmitted, timegraded'
         );
         $effvals = [];
         $rawvals = [];
+        $effdays = [];
+        $percdays = [];
         $compliantcount = 0;
         foreach ($gradedrows as $r) {
             $eff = (float) ($r->effectivehours ?? 0.0);
             $raw = (float) ($r->waitinghours ?? 0.0);
             $effvals[] = $eff;
             $rawvals[] = $raw;
+            // Date-based elapsed days (submit -> grade).
+            $days = day_counter::between((int) $r->timesubmitted, (int) $r->timegraded);
+            $effdays[] = $days['business'];
+            $percdays[] = $days['calendar'];
             if ($eff <= $slagoal) {
                 $compliantcount++;
             }
@@ -194,6 +207,11 @@ class rollup_service {
         $currawvals = array_merge($rawvals, $pendingrawvals);
         $curmedianeff = !empty($cureffvals) ? stats::median($cureffvals) : null;
         $curmedianraw = !empty($currawvals) ? stats::median($currawvals) : null;
+        // Date-based day medians (graded ∪ pending) — the headline in days mode.
+        $cureffdays = array_merge($effdays, $pendingeffdays);
+        $curpercdays = array_merge($percdays, $pendingpercdays);
+        $curmedianeffdays = !empty($cureffdays) ? stats::median($cureffdays) : null;
+        $curmedianpercdays = !empty($curpercdays) ? stats::median($curpercdays) : null;
 
         // 3. Trend — rolling 7-day cycle: this week's median effective hours vs
         // the prior week's (submitted, graded work only). A deliberately
@@ -248,6 +266,8 @@ class rollup_service {
             'max_eff_h'            => $maxeff,
             'cur_median_eff_h'     => $curmedianeff,
             'cur_median_raw_h'     => $curmedianraw,
+            'cur_median_eff_days'  => $curmedianeffdays,
+            'cur_median_perc_days' => $curmedianpercdays,
             'responsiveness_score' => $scoredata['score'],
             'score_band'           => $scoredata['band'],
             'comp_compliance'      => $components['compliance'] ?? null,

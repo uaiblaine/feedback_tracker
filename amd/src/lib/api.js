@@ -128,6 +128,18 @@ export const getAcademicDays = ({courseid, groupid = 0}) =>
     call('block_feedback_tracker_get_academic_days', {courseid, groupid});
 
 /**
+ * Per-group hero scopes + class-filter list for the pending report. A
+ * lightweight rollup-only read (no per-group trend/peer/activity assembly),
+ * fetched after first paint so the page never blocks on it.
+ *
+ * @param {object} options
+ * @param {number} options.courseid
+ * @returns {Promise<object>}
+ */
+export const getReportScopes = ({courseid}) =>
+    call('block_feedback_tracker_get_report_scopes', {courseid});
+
+/**
  * Pause timeline for one submission (weekend / holiday / manual pause
  * records that contributed to its effective wait). The WS infers the
  * course context from the submission row, so the caller only needs the id.

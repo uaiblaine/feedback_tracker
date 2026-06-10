@@ -32,7 +32,7 @@ import {html} from 'block_feedback_tracker/lib/preact';
 import ScoreRing from 'block_feedback_tracker/components/ScoreRing';
 import Sparkline from 'block_feedback_tracker/components/Sparkline';
 import {bandForScore, colourFor} from 'block_feedback_tracker/lib/bands';
-import {formatHours} from 'block_feedback_tracker/lib/format';
+import {formatHours, formatDays, usesDays} from 'block_feedback_tracker/lib/format';
 
 /**
  * Header cell that toggles sort when clicked.
@@ -72,9 +72,10 @@ const SortHeader = ({label, sortKey, currentKey, currentOrder, onClick, i18n}) =
  * @param {Function} props.onSort     Receives sortKey on header click.
  * @param {object|null} props.thresholds
  * @param {number|null} [props.goal]  SLA goal hours; drives the trend improvement zone.
+ * @param {object} [props.config]     Config bundle (effective-time display unit).
  * @returns {object} vnode
  */
-export default function CoursesTable({rows, i18n, sortKey, sortOrder, onSort, thresholds, goal = null}) {
+export default function CoursesTable({rows, i18n, sortKey, sortOrder, onSort, thresholds, goal = null, config}) {
     if (!Array.isArray(rows) || rows.length === 0) {
         return html`
             <div class="bft-empty">
@@ -169,8 +170,8 @@ export default function CoursesTable({rows, i18n, sortKey, sortOrder, onSort, th
                             </td>
                             <td class=${'bft-mono bft-courses-num bft-overall-score-tone-' + band}
                                 data-label=${cols.effective}>
-                                ${row.cur_median_eff_h === null || row.cur_median_eff_h === undefined
-                                    ? '—'
+                                ${usesDays(config)
+                                    ? formatDays(row.cur_median_eff_days)
                                     : formatHours(row.cur_median_eff_h)}
                             </td>
                             <td class="bft-courses-spark" data-label=${cols.trend}>

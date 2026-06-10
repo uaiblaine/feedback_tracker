@@ -59,6 +59,31 @@ export const formatHours = (value, digits = 1) => {
 };
 
 /**
+ * True when the configured display unit is business days (not hours).
+ *
+ * @param {object|null|undefined} config  Config bundle (display_time_unit).
+ * @returns {boolean}
+ */
+export const usesDays = (config) =>
+    !!(config && config.display_time_unit === 'business_days');
+
+/**
+ * Format a date-based elapsed-day count as "N d" (integer) or "1.5 d"
+ * (fractional medians). The day counts are computed server-side from the
+ * submit/grade timestamps; this only formats the value.
+ *
+ * @param {number|null|undefined} value Elapsed days (business or calendar).
+ * @returns {string}
+ */
+export const formatDays = (value) => {
+    if (value === null || value === undefined || Number.isNaN(Number(value))) {
+        return EMPTY;
+    }
+    const n = Number(value);
+    return (Number.isInteger(n) ? String(n) : n.toFixed(1)) + ' d';
+};
+
+/**
  * Percentage with no decimal places by default.
  *
  * @param {number|null|undefined} value

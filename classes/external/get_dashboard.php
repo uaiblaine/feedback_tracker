@@ -49,7 +49,7 @@ class get_dashboard extends external_api {
      * before deploying any change to execute()'s WHERE clause or
      * aggregate columns.
      */
-    public const CACHE_KEY_VERSION = 5;
+    public const CACHE_KEY_VERSION = 6;
 
     /**
      * Parameters.
@@ -145,6 +145,8 @@ class get_dashboard extends external_api {
                        AVG(g.median_raw_h) AS perceived_median_hours,
                        AVG(g.cur_median_eff_h) AS cur_median_eff_h,
                        AVG(g.cur_median_raw_h) AS cur_median_raw_h,
+                       AVG(g.cur_median_eff_days) AS cur_median_eff_days,
+                       AVG(g.cur_median_perc_days) AS cur_median_perc_days,
                        AVG(g.trend_pct_30d) AS trend_pct_30d,
                        AVG(g.compliance_pct) AS compliance_pct
                   FROM {block_feedback_tracker_group} g
@@ -180,6 +182,10 @@ class get_dashboard extends external_api {
                     ? round((float) $r->cur_median_eff_h, 2) : null,
                 'cur_median_raw_h' => $r->cur_median_raw_h !== null
                     ? round((float) $r->cur_median_raw_h, 2) : null,
+                'cur_median_eff_days' => $r->cur_median_eff_days !== null
+                    ? round((float) $r->cur_median_eff_days, 2) : null,
+                'cur_median_perc_days' => $r->cur_median_perc_days !== null
+                    ? round((float) $r->cur_median_perc_days, 2) : null,
                 'trend_pct_30d' => $r->trend_pct_30d !== null ? round((float) $r->trend_pct_30d, 2) : null,
                 'compliance_pct' => $r->compliance_pct !== null ? round((float) $r->compliance_pct, 2) : null,
                 'trend_series' => $trendseries[$cid] ?? [],
@@ -289,6 +295,8 @@ class get_dashboard extends external_api {
                 'perceived_median_hours' => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
                 'cur_median_eff_h' => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
                 'cur_median_raw_h' => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
+                'cur_median_eff_days' => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
+                'cur_median_perc_days' => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
                 'trend_pct_30d' => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
                 'compliance_pct' => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
                 'trend_series' => new external_multiple_structure(

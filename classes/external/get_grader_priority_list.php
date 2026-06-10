@@ -31,6 +31,7 @@ use core_external\external_function_parameters;
 use core_external\external_multiple_structure;
 use core_external\external_single_structure;
 use core_external\external_value;
+use block_feedback_tracker\local\calendar\day_counter;
 
 /**
  * Returns the top-N most-urgent pending submissions across every course
@@ -163,6 +164,8 @@ class get_grader_priority_list extends external_api {
 
         $submissions = [];
         foreach ($rows as $r) {
+            // Pending-only list (timegraded IS NULL): elapsed days run up to now.
+            $days = day_counter::between((int) $r->timesubmitted, time());
             $submissions[] = [
                 'submissionid'   => (int) $r->id,
                 'cmid'           => (int) $r->cmid,
@@ -176,6 +179,8 @@ class get_grader_priority_list extends external_api {
                 'timesubmitted'  => (int) $r->timesubmitted,
                 'waitinghours'   => (float) $r->waitinghours,
                 'effectivehours' => (float) $r->effectivehours,
+                'effective_days' => $days['business'],
+                'perceived_days' => $days['calendar'],
                 'slabucket'      => (string) $r->slabucket,
             ];
         }
@@ -213,6 +218,8 @@ class get_grader_priority_list extends external_api {
                 'timesubmitted'  => new external_value(PARAM_INT, ''),
                 'waitinghours'   => new external_value(PARAM_FLOAT, ''),
                 'effectivehours' => new external_value(PARAM_FLOAT, ''),
+                'effective_days' => new external_value(PARAM_INT, 'Elapsed business days (date-based)'),
+                'perceived_days' => new external_value(PARAM_INT, 'Elapsed calendar days (date-based)'),
                 'slabucket'      => new external_value(PARAM_ALPHA, ''),
             ])),
         ]);

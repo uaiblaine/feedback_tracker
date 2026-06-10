@@ -130,6 +130,10 @@ class submission_browser {
         $out = [];
         foreach ($rows as $r) {
             $eff = $r->effectivehours !== null ? (float) $r->effectivehours : 0.0;
+            // Date-based elapsed days for the "business days" display unit;
+            // pending rows (timegraded null) elapse up to now.
+            $t2 = $r->timegraded !== null ? (int) $r->timegraded : time();
+            $days = \block_feedback_tracker\local\calendar\day_counter::between((int) $r->timesubmitted, $t2);
             $out[] = [
                 'submissionid'     => (int) $r->id,
                 'cmid'             => (int) $r->cmid,
@@ -142,6 +146,8 @@ class submission_browser {
                 'timegraded'       => $r->timegraded !== null ? (int) $r->timegraded : 0,
                 'waitinghours'     => $r->waitinghours !== null ? (float) $r->waitinghours : 0.0,
                 'effectivehours'   => $eff,
+                'effective_days'   => $days['business'],
+                'perceived_days'   => $days['calendar'],
                 'slabucket'        => (string) $r->slabucket,
                 // Pending band from effective hours, using the same goal /
                 // critical bounds as the distribution counts + band filter so

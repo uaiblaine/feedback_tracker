@@ -26,7 +26,7 @@
 
 import {html} from 'block_feedback_tracker/lib/preact';
 import Badge from 'block_feedback_tracker/components/Badge';
-import {formatHours} from 'block_feedback_tracker/lib/format';
+import {formatHours, formatDays, usesDays} from 'block_feedback_tracker/lib/format';
 
 /**
  * Initials from a full name; falls back to "??" on empty input.
@@ -46,18 +46,16 @@ const initialsOf = (name) => {
 };
 
 /**
- * Rough perceived calendar days, derived from business hours. Mirrors
- * the formula in PendingReportView.
+ * Perceived calendar wait as "Nd". Uses the server's date-based elapsed
+ * calendar days (perceived_days) — the previous heuristic derived it from
+ * effective hours and drifted badly on long waits.
  *
- * @param {number|null|undefined} effectivehours
+ * @param {number|null|undefined} days
  * @returns {string}
  */
-const perceivedDays = (effectivehours) => {
-    const n = Number(effectivehours);
-    if (!Number.isFinite(n) || n <= 0) {
-        return '0d';
-    }
-    return Math.max(1, Math.round(n / 24 * 1.35)) + 'd';
+const perceivedDays = (days) => {
+    const n = Number(days);
+    return (Number.isFinite(n) && n >= 0 ? Math.round(n) : 0) + 'd';
 };
 
 /**
@@ -87,9 +85,10 @@ const priorityLabel = (band, i18n) => {
  * @param {number} props.idx          1-based rank shown in the header.
  * @param {object} props.submission   Row from get_grader_priority_list.
  * @param {object} props.i18n         Label bundle.
+ * @param {object} [props.config]     Config bundle (effective-time display unit).
  * @returns {object} vnode
  */
-export default function PriorityCard({idx, submission, i18n}) {
+export default function PriorityCard({idx, submission, i18n, config}) {
     const band = submission.slabucket || 'pending';
     const bandLabel = priorityLabel(band, i18n);
     const studentname = submission.studentname || '';
@@ -125,7 +124,9 @@ export default function PriorityCard({idx, submission, i18n}) {
                         ${i18n.pendingreport_col_effective || 'Effective'}
                     </div>
                     <div class=${'bft-priority-wait-value bft-mono bft-overall-score-tone-' + band}>
-                        ${formatHours(eff)}
+                        ${usesDays(config)
+                            ? formatDays(submission.effective_days)
+                            : formatHours(eff)}
                     </div>
                 </div>
                 <div class="bft-priority-wait">
@@ -133,7 +134,7 @@ export default function PriorityCard({idx, submission, i18n}) {
                         ${i18n.pendingreport_col_perceived || 'Perceived'}
                     </div>
                     <div class="bft-priority-wait-value bft-priority-wait-muted bft-mono">
-                        ${perceivedDays(eff)}
+                        ${perceivedDays(submission.perceived_days)}
                     </div>
                 </div>
             </div>

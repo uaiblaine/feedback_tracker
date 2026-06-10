@@ -59,73 +59,19 @@ $PAGE->set_heading(
 );
 $PAGE->set_pagelayout('incourse');
 
-// Initial WS fetch server-side — the React tree boots with the first page
-// already populated so there's no client-side loading flash on first paint.
-$pending = \block_feedback_tracker\external\get_pending_submissions::execute(
-    $courseid,
-    $groupid,
-    $bucket,
-    $sortmode,
-    $page,
-    $perpage,
-    \block_feedback_tracker\local\sla\submission_status::SUBMITTED,
-    $band
-);
-
-// Drafts (saved but not submitted) are surfaced separately and de-emphasised
-// so the teacher can decide whether to grade them. They never count toward the
-// SLA, so they ignore the bucket filter and are always shown most-recent-first.
-$draftpending = \block_feedback_tracker\external\get_pending_submissions::execute(
-    $courseid,
-    $groupid,
-    '',
-    'recent',
-    0,
-    $perpage,
-    \block_feedback_tracker\local\sla\submission_status::DRAFT
-);
-
-// Available groups for the filter dropdown + scope-level metrics for the
-// design's hero row — reuse the responsiveness payload's group-access
-// logic so the filter never offers groups the user can't see, and the
-// hero card never shows data from a group the user doesn't have access to.
+// Data loads asynchronously from the Preact app after mount (see
+// amd/src/views/PendingReportView.js), mirroring teacher_dashboard.php: the
+// first byte ships immediately and the page never blocks on the submissions
+// queries or — previously the dominant cost — the full responsiveness payload
+// (per-group trend series, peer stats and activity schedules, plus the course
+// paused aggregate and assign catalog) that was assembled here only to feed
+// the hero scopes and the class-filter dropdown. The app fetches the
+// submissions page first (the content the teacher came for) in parallel with
+// the lightweight get_report_scopes web service (one indexed rollup read),
+// then lazy-loads drafts and the academic-days strip. Each web service
+// re-applies the same capability + group-visibility gates, so moving the
+// fetch to the client does not widen visibility.
 global $USER;
-$availablegroups = [];
-$payloadgroups = [];
-$groupscopes = [];
-try {
-    $result = \block_feedback_tracker\local\payload\responsiveness_payload::for_course(
-        $courseid,
-        (int) $USER->id
-    );
-    $payloadgroups = $result['groups'] ?? [];
-    // Trimmed per-group metrics so PendingReportView can recompute the hero
-    // scope (selected group vs whole-course aggregate) on the client when the
-    // class filter changes, with no round-trip. Display medians use the
-    // include-pending cur_median_* family, matching the block + dashboard.
-    foreach ($payloadgroups as $g) {
-        $availablegroups[] = [
-            'id' => (int) ($g['groupid'] ?? 0),
-            'name' => (string) (($g['groupname'] ?? '') !== ''
-                ? $g['groupname']
-                : get_string('card_nogroup', 'block_feedback_tracker')),
-        ];
-        $groupscopes[] = [
-            'groupid' => (int) ($g['groupid'] ?? 0),
-            'responsiveness_score' => $g['responsiveness_score'] ?? null,
-            'score_band' => $g['score_band'] ?? null,
-            'cur_median_eff_h' => $g['cur_median_eff_h'] ?? null,
-            'cur_median_raw_h' => $g['cur_median_raw_h'] ?? null,
-            'compliance_pct' => $g['compliance_pct'] ?? null,
-            'trend_pct_30d' => $g['trend_pct_30d'] ?? null,
-            'pending' => (int) ($g['pending'] ?? 0),
-            'critical' => (int) ($g['critical'] ?? 0),
-            'overgoal' => (int) ($g['overgoal'] ?? 0),
-        ];
-    }
-} catch (\Throwable $e) {
-    debugging('block_feedback_tracker: group list assembly failed: ' . $e->getMessage());
-}
 
 // Shared block-level labels (band names, card_*, breakdown_*) + page-
 // specific overlay (pendingreport_*, modal_*, pause_reason_*). Both live
@@ -152,16 +98,19 @@ $reportcollapsed = (bool) get_user_preferences(
 $initial = [
     'courseid' => (int) $courseid,
     'coursename' => format_string($course->fullname),
-    'pending' => array_merge($pending, [
+    // Filter parameters only — no rows. The view issues the first fetch with
+    // these after mount.
+    'pending' => [
         'bucket' => $bucket,
         'band' => $band,
         'groupid' => $groupid,
         'sort' => $sortmode,
+        'page' => $page,
         'perpage' => $perpage,
-    ]),
-    'drafts' => $draftpending,
-    'groups' => $availablegroups,
-    'groupscopes' => $groupscopes,
+    ],
+    'drafts' => null,
+    'groups' => null,
+    'groupscopes' => null,
     'report_collapsed' => $reportcollapsed,
     'i18n' => $i18n,
     'config' => \block_feedback_tracker\local\output\bootstrap::config_bundle(),

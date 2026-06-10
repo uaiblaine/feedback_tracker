@@ -72,8 +72,13 @@ class responsiveness_card implements \renderable, \templatable {
             100
         );
 
-        $showperceived = (int) (get_config('block_feedback_tracker', 'show_perceived_time') ?: 1) === 1;
-        $showpause = (int) (get_config('block_feedback_tracker', 'show_paused_today_indicator') ?: 1) === 1;
+        // Default-ON toggles: an unset value (get_config returns false) keeps the
+        // default; only an explicit '0' turns them off. A plain `?: 1` read would
+        // mis-handle the off case because the stored '0' is falsy in PHP.
+        $perceivedcfg = get_config('block_feedback_tracker', 'show_perceived_time');
+        $showperceived = ($perceivedcfg === false || $perceivedcfg === null) ? true : ((string) $perceivedcfg !== '0');
+        $pausecfg = get_config('block_feedback_tracker', 'show_paused_today_indicator');
+        $showpause = ($pausecfg === false || $pausecfg === null) ? true : ((string) $pausecfg !== '0');
 
         // Mutually-exclusive pending bands (sum = total pending): within-goal
         // (derived) | over-goal | critical.
@@ -129,11 +134,23 @@ class responsiveness_card implements \renderable, \templatable {
         // matching the dashboard. The score keeps using graded-only median_eff_h.
         $cureff = $p['cur_median_eff_h'] ?? null;
         $curraw = $p['cur_median_raw_h'] ?? null;
-        $median = $cureff !== null
-            ? format_float((float) $cureff, 1) . ' h'
-            : '—';
-        if ($showperceived && $curraw !== null) {
-            $median .= ' / ' . format_float((float) $curraw, 1) . ' h';
+        // The headline honours the global display-unit setting. Business days
+        // show the date-based day medians (counted from the submit/grade dates
+        // server-side); hours keep the effective/wall-clock hour medians. This
+        // mirrors the React surfaces (lib/format.js).
+        $unit = (string) (get_config('block_feedback_tracker', 'display_time_unit') ?: 'hours');
+        if ($unit === 'business_days') {
+            $effdays = $p['cur_median_eff_days'] ?? null;
+            $percdays = $p['cur_median_perc_days'] ?? null;
+            $median = $effdays !== null ? format_float((float) $effdays, 1) . ' d' : '—';
+            if ($showperceived && $percdays !== null) {
+                $median .= ' / ' . format_float((float) $percdays, 1) . ' d';
+            }
+        } else {
+            $median = $cureff !== null ? format_float((float) $cureff, 1) . ' h' : '—';
+            if ($showperceived && $curraw !== null) {
+                $median .= ' / ' . format_float((float) $curraw, 1) . ' h';
+            }
         }
         $compliance = $p['compliance_pct'] !== null
             ? format_float((float) $p['compliance_pct'], 0) . '%'

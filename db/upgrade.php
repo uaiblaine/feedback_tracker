@@ -278,5 +278,53 @@ function xmldb_block_feedback_tracker_upgrade($oldversion) {
         upgrade_block_savepoint(true, 2026060119, 'feedback_tracker');
     }
 
+    if ($oldversion < 2026060129) {
+        $table = new xmldb_table('block_feedback_tracker_group');
+
+        $field = new xmldb_field(
+            'cur_median_eff_days',
+            XMLDB_TYPE_NUMBER,
+            '10, 2',
+            null,
+            null,
+            null,
+            null,
+            'cur_median_raw_h'
+        );
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        $field = new xmldb_field(
+            'cur_median_perc_days',
+            XMLDB_TYPE_NUMBER,
+            '10, 2',
+            null,
+            null,
+            null,
+            null,
+            'cur_median_eff_days'
+        );
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Re-enqueue every (course, group) so the new date-based day medians
+        // populate on the next drain.
+        $tuples = $DB->get_recordset_sql(
+            'SELECT DISTINCT courseid, groupid FROM {block_feedback_tracker_sub}'
+        );
+        foreach ($tuples as $t) {
+            \block_feedback_tracker\local\sla\dirty_queue::enqueue(
+                (int) $t->courseid,
+                (int) $t->groupid,
+                \block_feedback_tracker\local\sla\dirty_queue::REASON_SUBMISSION
+            );
+        }
+        $tuples->close();
+
+        upgrade_block_savepoint(true, 2026060129, 'feedback_tracker');
+    }
+
     return true;
 }

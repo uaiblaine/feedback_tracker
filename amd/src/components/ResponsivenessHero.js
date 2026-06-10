@@ -29,7 +29,7 @@ import {html} from 'block_feedback_tracker/lib/preact';
 import ScoreRing from 'block_feedback_tracker/components/ScoreRing';
 import Badge from 'block_feedback_tracker/components/Badge';
 import Sparkle from 'block_feedback_tracker/components/Sparkle';
-import {formatHours} from 'block_feedback_tracker/lib/format';
+import {formatHours, formatDays, usesDays} from 'block_feedback_tracker/lib/format';
 import {classifySpeed} from 'block_feedback_tracker/lib/trend';
 
 /**
@@ -38,6 +38,7 @@ import {classifySpeed} from 'block_feedback_tracker/lib/trend';
  * @param {string|null} props.band     Band slug for colour selection.
  * @param {string} props.bandlabel
  * @param {number|null} props.effectivehours  Median effective hours.
+ * @param {number|null} [props.effectivedays] Median elapsed business days (date-based).
  * @param {string} props.perceivedlabel       Display of perceived calendar wait (e.g. "4d").
  * @param {number|null} props.trendpct        Trend %; negative = faster.
  * @param {object} props.i18n
@@ -49,8 +50,8 @@ import {classifySpeed} from 'block_feedback_tracker/lib/trend';
  * @param {string} [props.body]               Overrides the default body copy.
  * @returns {object} vnode
  */
-export default function ResponsivenessHero({score, band, bandlabel, effectivehours, perceivedlabel,
-    trendpct, i18n, onCollapse, config, chips, eyebrow, headline, body}) {
+export default function ResponsivenessHero({score, band, bandlabel, effectivehours, effectivedays,
+    perceivedlabel, trendpct, i18n, onCollapse, config, chips, eyebrow, headline, body}) {
     const display = score === null || score === undefined ? '—' : Math.round(Number(score));
     const trend = classifySpeed(trendpct);
     const trendTone = trend.colour;
@@ -66,6 +67,15 @@ export default function ResponsivenessHero({score, band, bandlabel, effectivehou
     const heroBody = body || i18n.dashboard_hero_body
         || 'Score uses business-time only — weekends, holidays and recess are paused and excluded.';
     const herochips = Array.isArray(chips) ? chips : [];
+    // Effective headline honours the global display unit: business days show
+    // the date-based day median, hours keep the effective-hours median. The
+    // value and its sub-label switch together.
+    const effdisplay = usesDays(config)
+        ? formatDays(effectivedays)
+        : formatHours(effectivehours);
+    const effunit = usesDays(config)
+        ? (i18n.hero_effective_unit_days || 'business days')
+        : (i18n.hero_effective_unit || 'business hrs');
 
     return html`
         <section class=${'bft-rh bft-rh-tone-' + (band || 'pending')}>
@@ -121,9 +131,9 @@ export default function ResponsivenessHero({score, band, bandlabel, effectivehou
                     <div class="bft-rh-mini">
                         <div class="bft-rh-mini-label">${i18n.hero_effective_eyebrow || 'Effective'}</div>
                         <div class=${'bft-rh-mini-val bft-mono bft-overall-score-tone-' + (band || 'pending')}>
-                            ${effectivehours === null ? '—' : formatHours(effectivehours)}
+                            ${effdisplay}
                         </div>
-                        <div class="bft-rh-mini-sub">${i18n.hero_effective_unit || 'business hrs'}</div>
+                        <div class="bft-rh-mini-sub">${effunit}</div>
                     </div>
                     <div class="bft-rh-mini-divider"></div>
                     <div class="bft-rh-mini">

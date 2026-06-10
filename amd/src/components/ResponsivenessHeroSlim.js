@@ -29,7 +29,7 @@
 import {html} from 'block_feedback_tracker/lib/preact';
 import ScoreRing from 'block_feedback_tracker/components/ScoreRing';
 import Badge from 'block_feedback_tracker/components/Badge';
-import {formatHours} from 'block_feedback_tracker/lib/format';
+import {formatHours, formatDays, usesDays} from 'block_feedback_tracker/lib/format';
 import {classifySpeed} from 'block_feedback_tracker/lib/trend';
 
 /**
@@ -38,16 +38,18 @@ import {classifySpeed} from 'block_feedback_tracker/lib/trend';
  * @param {string|null} props.band
  * @param {string} props.bandlabel
  * @param {number|null} props.effectivehours
+ * @param {number|null} [props.effectivedays] Median elapsed business days (date-based).
  * @param {string} props.perceivedlabel
  * @param {number|null} props.compliancepct
  * @param {number|null} props.trendpct
  * @param {object} props.i18n
  * @param {() => void} props.onExpand   Click handler for the trailing expand button.
  * @param {string} [props.eyebrow]      Overrides the default caption copy.
+ * @param {object} [props.config]       Config bundle (effective-time display unit).
  * @returns {object} vnode
  */
-export default function ResponsivenessHeroSlim({score, band, bandlabel, effectivehours, perceivedlabel,
-    compliancepct, trendpct, i18n, onExpand, eyebrow}) {
+export default function ResponsivenessHeroSlim({score, band, bandlabel, effectivehours, effectivedays,
+    perceivedlabel, compliancepct, trendpct, i18n, onExpand, eyebrow, config}) {
     const display = score === null || score === undefined ? '—' : Math.round(Number(score));
     const trend = classifySpeed(trendpct);
     const trendTone = trend.colour;
@@ -79,7 +81,7 @@ export default function ResponsivenessHeroSlim({score, band, bandlabel, effectiv
             <div class="bft-rh-slim-stat">
                 <div class="bft-rh-slim-stat-label">${i18n.hero_effective_eyebrow || 'Effective'}</div>
                 <div class=${'bft-rh-slim-stat-val bft-mono bft-overall-score-tone-' + (band || 'pending')}>
-                    ${effectivehours === null ? '—' : formatHours(effectivehours)}
+                    ${usesDays(config) ? formatDays(effectivedays) : formatHours(effectivehours)}
                 </div>
             </div>
 
