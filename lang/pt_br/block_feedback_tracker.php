@@ -500,6 +500,7 @@ $string['sim_weights_reset'] = 'Restaurar valores atuais';
 $string['sparkline_zone_label'] = 'Velocidade desejada: 0 a {$a}';
 $string['spike_react_title'] = 'Feedback Flow — experimento React';
 $string['status_draft'] = 'Rascunho';
+$string['task_backfill_effectivedays'] = 'Feedback Flow: preencher contagem histórica de dias úteis';
 $string['task_backfill_history'] = 'Feedback Flow: preenchimento de envios de tarefas históricos';
 $string['task_backfill_one_submission'] = 'Feedback Flow: preencher um lote de envios históricos';
 $string['task_drain_queue'] = 'Feedback Flow: esvaziar fila de pendentes';

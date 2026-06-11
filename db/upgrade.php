@@ -373,26 +373,13 @@ function xmldb_block_feedback_tracker_upgrade($oldversion) {
             $dbman->add_field($table, $field);
         }
 
-        // Backfill effectivedays for existing ledger rows. The per-day
-        // calendar classification is memoised, so the walk is array lookups
-        // after the first pass over each distinct date.
-        $now = time();
-        $rs = $DB->get_recordset_select(
-            'block_feedback_tracker_sub',
-            'timesubmitted > 0',
-            [],
-            '',
-            'id, timesubmitted, timegraded'
-        );
-        foreach ($rs as $r) {
-            $upper = $r->timegraded !== null ? (int) $r->timegraded : $now;
-            $days = \block_feedback_tracker\local\calendar\day_counter::business_days(
-                (int) $r->timesubmitted,
-                $upper
-            );
-            $DB->set_field('block_feedback_tracker_sub', 'effectivedays', $days, ['id' => $r->id]);
-        }
-        $rs->close();
+        // The per-row effectivedays column is filled lazily by the
+        // backfill_effectivedays scheduled task (armed by the 2026060132
+        // step below), not in-line here: a synchronous walk over the entire
+        // ledger made this upgrade pathologically slow on large sites. The
+        // dashboard day-ruler columns don't wait on it — rollup_service
+        // recomputes day counts from timestamps on demand, and the
+        // re-enqueue below refreshes every tuple on the next drain.
 
         // Re-enqueue every (course, group) so the new day-ruler counts
         // populate on the next drain.
@@ -409,6 +396,20 @@ function xmldb_block_feedback_tracker_upgrade($oldversion) {
         $tuples->close();
 
         upgrade_block_savepoint(true, 2026060131, 'feedback_tracker');
+    }
+
+    // V1.0.32 — the per-row effectivedays backfill that previously ran
+    // in-line in the 2026060131 step is replaced by the
+    // backfill_effectivedays scheduled task. This step only "arms" that
+    // task by setting its done flag to 0 and resetting its keyset cursor;
+    // the task then fills the column in time-capped, set-based batches off
+    // the upgrade critical path. Sites that already completed the old
+    // in-line backfill arm here too, but the task finds no NULL rows past
+    // its cursor and marks itself done on the first tick.
+    if ($oldversion < 2026060132) {
+        set_config('effectivedays_backfill_done', '0', 'block_feedback_tracker');
+        set_config('effectivedays_backfill_lastid', '0', 'block_feedback_tracker');
+        upgrade_block_savepoint(true, 2026060132, 'feedback_tracker');
     }
 
     return true;

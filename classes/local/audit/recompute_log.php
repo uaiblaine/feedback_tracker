@@ -47,6 +47,8 @@ class recompute_log {
     public const REASON_DAILY_PENDING = 'daily_pending';
     /** Reason: drain task ran. */
     public const REASON_DRAIN = 'drain';
+    /** Reason: deferred per-row effectivedays backfill batch. */
+    public const REASON_BACKFILL_DAYS = 'backfill_days';
 
     /**
      * Insert one audit row.

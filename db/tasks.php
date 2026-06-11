@@ -80,6 +80,15 @@ $tasks = [
         'month'     => '*',
     ],
     [
+        'classname' => 'block_feedback_tracker\task\backfill_effectivedays',
+        'blocking'  => 0,
+        'minute'    => '*/5',
+        'hour'      => '*',
+        'day'       => '*',
+        'dayofweek' => '*',
+        'month'     => '*',
+    ],
+    [
         'classname' => 'block_feedback_tracker\task\prune_audit_log',
         'blocking'  => 0,
         'minute'    => '30',

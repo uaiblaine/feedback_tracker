@@ -500,6 +500,7 @@ $string['sim_weights_reset'] = 'Reset to current settings';
 $string['sparkline_zone_label'] = 'Desired speed: 0 to {$a}';
 $string['spike_react_title'] = 'Feedback Flow — React spike';
 $string['status_draft'] = 'Draft';
+$string['task_backfill_effectivedays'] = 'Feedback Flow: backfill historical business-day counts';
 $string['task_backfill_history'] = 'Feedback Flow: backfill historical assign submissions';
 $string['task_backfill_one_submission'] = 'Feedback Flow: backfill one batch of historical submissions';
 $string['task_drain_queue'] = 'Feedback Flow: drain dirty queue';
