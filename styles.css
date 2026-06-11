@@ -2313,6 +2313,13 @@ a.bft-activity-action:focus {
     gap: 0.4rem;
 }
 
+/* Graded result cell — band badge + optional paused-info chip, inline. */
+.bft-row-result {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
 .bft-row-paused-wrap {
     position: relative;
     display: inline-flex;

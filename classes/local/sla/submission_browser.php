@@ -136,11 +136,26 @@ class submission_browser {
         $out = [];
         foreach ($rows as $r) {
             $eff = $r->effectivehours !== null ? (float) $r->effectivehours : 0.0;
+            $gradedrow = $r->timegraded !== null;
             // Date-based elapsed days for the "business days" display unit;
             // pending rows (timegraded null) elapse up to now.
-            $t2 = $r->timegraded !== null ? (int) $r->timegraded : time();
+            $t2 = $gradedrow ? (int) $r->timegraded : time();
             $days = \block_feedback_tracker\local\calendar\day_counter::between((int) $r->timesubmitted, $t2);
             $storeddays = $r->effectivedays !== null ? (float) $r->effectivedays : null;
+            // Displayed result band. A graded row freezes its effective
+            // measure at grading time, so its band is always knowable: when
+            // the stored value still resolves to the "pending" sentinel (a
+            // legacy row whose effectivedays column was never backfilled, or a
+            // row graded entirely within a paused window), reclassify from the
+            // frozen effective measure so a graded row never shows "pending".
+            $slabucket = $usedays
+                ? bucket::for_effective_days($storeddays)
+                : (string) $r->slabucket;
+            if ($gradedrow && $slabucket === bucket::PENDING) {
+                $slabucket = $usedays
+                    ? bucket::for_effective_days((float) $days['business'])
+                    : bucket::for_effective($eff);
+            }
             $out[] = [
                 'submissionid'     => (int) $r->id,
                 'cmid'             => (int) $r->cmid,
@@ -155,9 +170,7 @@ class submission_browser {
                 'effectivehours'   => $eff,
                 'effective_days'   => $days['business'],
                 'perceived_days'   => $days['calendar'],
-                'slabucket'        => $usedays
-                    ? bucket::for_effective_days($storeddays)
-                    : (string) $r->slabucket,
+                'slabucket'        => $slabucket,
                 // Pending band using the same bounds as the distribution
                 // counts + band filter so the per-row Status badge can never
                 // disagree with the bar.

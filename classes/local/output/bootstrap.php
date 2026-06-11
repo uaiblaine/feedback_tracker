@@ -340,6 +340,9 @@ class bootstrap {
             'pendingreport_crumb_current' => get_string('pendingreport_crumb_current', 'block_feedback_tracker'),
             'pendingreport_filter_class_label' => get_string('pendingreport_filter_class_label', 'block_feedback_tracker'),
             'pendingreport_row_paused' => get_string('pendingreport_row_paused', 'block_feedback_tracker'),
+            'pendingreport_row_paused_graded_tip' => $daysmode
+                ? get_string('pendingreport_row_paused_graded_tip_days', 'block_feedback_tracker')
+                : get_string('pendingreport_row_paused_graded_tip', 'block_feedback_tracker'),
             'pendingreport_row_paused_tip' => $daysmode
                 ? get_string('pendingreport_row_paused_tip_days', 'block_feedback_tracker')
                 : get_string('pendingreport_row_paused_tip', 'block_feedback_tracker'),

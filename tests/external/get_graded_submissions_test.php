@@ -112,6 +112,60 @@ final class get_graded_submissions_test extends \advanced_testcase {
         $this->assertSame(1, (int) $result['counts']['good']);
     }
 
+    /**
+     * A graded row whose stored bucket is still the "pending" sentinel (e.g.
+     * graded before its effective hours were resolved, or graded entirely
+     * within a paused window) is reclassified from its frozen effective hours
+     * so the result band is never "pending". Hours mode.
+     *
+     * @return void
+     */
+    public function test_graded_bucket_never_pending_hours(): void {
+        $this->resetAfterTest();
+
+        [$course, $teacher] = $this->seed_course_with_teacher();
+        $this->seed_row($course, 'pending', true);
+
+        $this->setUser($teacher);
+        $result = external_api::clean_returnvalue(
+            get_graded_submissions::execute_returns(),
+            get_graded_submissions::execute((int) $course->id)
+        );
+
+        $this->assertSame(1, (int) $result['total']);
+        // seed_row stores effectivehours = 5.0 ⇒ reclassified to excellent.
+        $this->assertSame('excellent', $result['submissions'][0]['slabucket']);
+    }
+
+    /**
+     * In business-days mode the displayed band is recomputed from the stored
+     * elapsed-day count, which is NULL on legacy / unbackfilled rows and would
+     * otherwise resolve to "pending". A graded row falls back to its frozen
+     * submit→grade business-day count instead, so it shows a real band.
+     *
+     * @return void
+     */
+    public function test_graded_bucket_never_pending_business_days(): void {
+        $this->resetAfterTest();
+
+        set_config('display_time_unit', 'business_days', 'block_feedback_tracker');
+
+        [$course, $teacher] = $this->seed_course_with_teacher();
+        // seed_row leaves effectivedays NULL and the stored bucket pending.
+        $this->seed_row($course, 'pending', true);
+
+        $this->setUser($teacher);
+        $result = external_api::clean_returnvalue(
+            get_graded_submissions::execute_returns(),
+            get_graded_submissions::execute((int) $course->id)
+        );
+
+        $this->assertSame(1, (int) $result['total']);
+        $this->assertNotSame('pending', $result['submissions'][0]['slabucket']);
+        // Same-day submit→grade ⇒ zero business days ⇒ excellent.
+        $this->assertSame('excellent', $result['submissions'][0]['slabucket']);
+    }
+
     // Helpers.
 
     /**

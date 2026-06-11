@@ -220,6 +220,38 @@ const SortableHeader = ({label, sortKey, currentKey, currentOrder, onClick}) => 
 };
 
 /**
+ * Paused-period info chip — a hatched swatch + "i" toggle that pins a small
+ * popover explaining that the row crossed a paused window. Shared by the
+ * pending (perceived) cell and the graded (result) cell so both annotate a
+ * pause identically; the caller passes the already unit-resolved tip copy
+ * (business-hours vs business-days wording).
+ *
+ * @param {object} props
+ * @param {number} props.submissionid  Row id; drives the open-popover state.
+ * @param {string} props.tip           Localised, unit-resolved explanation.
+ * @param {string} props.label         Localised "paused" aria label.
+ * @param {number|null} props.openid   Currently open submissionid, or null.
+ * @param {Function} props.onToggle    Sets the open submissionid (or null).
+ * @returns {object} vnode
+ */
+const PausedTag = ({submissionid, tip, label, openid, onToggle}) => html`
+    <span class="bft-row-paused-wrap">
+        <button type="button"
+                class="bft-row-paused-tag"
+                title=${tip}
+                aria-label=${label}
+                aria-expanded=${openid === submissionid ? 'true' : 'false'}
+                onClick=${() => onToggle(openid === submissionid ? null : submissionid)}>
+            <span class="bft-row-paused-swatch" aria-hidden="true"></span>
+            <span class="bft-row-paused-i" aria-hidden="true">i</span>
+        </button>
+        ${openid === submissionid && html`
+            <span class="bft-row-paused-pop" role="note">${tip}</span>
+        `}
+    </span>
+`;
+
+/**
  * Top-level view.
  *
  * @param {object} props
@@ -655,8 +687,16 @@ export default function PendingReportView({initial}) {
                         </thead>
                         <tbody>
                             ${submissions.map((row) => {
-                                const paused = Number(row.waitinghours || 0)
-                                    - Number(row.effectivehours || 0) > PAUSED_TAG_EPSILON;
+                                // Paused = part of the window fell in a non-business
+                                // period. Detected per the active display unit:
+                                // business-days mode compares elapsed calendar vs
+                                // business days; hours mode compares wall-clock vs
+                                // effective hours.
+                                const paused = usesDays(config)
+                                    ? Number(row.perceived_days || 0)
+                                        - Number(row.effective_days || 0) >= 1
+                                    : Number(row.waitinghours || 0)
+                                        - Number(row.effectivehours || 0) > PAUSED_TAG_EPSILON;
                                 const rowColor = colourFor(row.slabucket);
                                 return html`
                                     <tr class="bft-report-row" key=${'r-' + row.submissionid}>
@@ -679,37 +719,30 @@ export default function PendingReportView({initial}) {
                                                     ${usesDays(config)
                                                         ? formatDays(row.perceived_days)
                                                         : formatHours(row.waitinghours)}
-                                                    ${paused && html`
-                                                        <span class="bft-row-paused-wrap">
-                                                            <button type="button"
-                                                                    class="bft-row-paused-tag"
-                                                                    title=${i18n.pendingreport_row_paused_tip || ''}
-                                                                    aria-label=${i18n.pendingreport_row_paused || 'paused'}
-                                                                    aria-expanded=${pausedinfo === row.submissionid
-                                                                        ? 'true' : 'false'}
-                                                                    onClick=${() => setPausedinfo(
-                                                                        pausedinfo === row.submissionid
-                                                                            ? null : row.submissionid
-                                                                    )}>
-                                                                <span class="bft-row-paused-swatch"
-                                                                      aria-hidden="true"></span>
-                                                                <span class="bft-row-paused-i"
-                                                                      aria-hidden="true">i</span>
-                                                            </button>
-                                                            ${pausedinfo === row.submissionid && html`
-                                                                <span class="bft-row-paused-pop" role="note">
-                                                                    ${i18n.pendingreport_row_paused_tip || ''}
-                                                                </span>
-                                                            `}
-                                                        </span>
-                                                    `}
+                                                    ${paused && html`<${PausedTag}
+                                                        submissionid=${row.submissionid}
+                                                        tip=${i18n.pendingreport_row_paused_tip || ''}
+                                                        label=${i18n.pendingreport_row_paused || 'paused'}
+                                                        openid=${pausedinfo}
+                                                        onToggle=${setPausedinfo} />`}
                                                 </span>
                                             </td>
                                         `}
                                         <td>
                                             ${graded
-                                                ? html`<${Badge} band=${row.slabucket}
-                                                          label=${(i18n.bands || {})[row.slabucket] || row.slabucket} />`
+                                                ? html`
+                                                    <span class="bft-row-result">
+                                                        <${Badge} band=${row.slabucket}
+                                                            label=${(i18n.bands || {})[row.slabucket]
+                                                                || row.slabucket} />
+                                                        ${paused && html`<${PausedTag}
+                                                            submissionid=${row.submissionid}
+                                                            tip=${i18n.pendingreport_row_paused_graded_tip || ''}
+                                                            label=${i18n.pendingreport_row_paused || 'paused'}
+                                                            openid=${pausedinfo}
+                                                            onToggle=${setPausedinfo} />`}
+                                                    </span>
+                                                `
                                                 : (() => {
                                                     const pb = pendingBadge(row.pendingband, i18n);
                                                     return html`<${Badge} band=${pb.band} label=${pb.label} />`;
