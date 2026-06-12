@@ -473,6 +473,8 @@ class responsiveness_payload {
             'overgoal'             => $overgoalout,
             'numgraded30d'         => (int) $row->numgraded30d,
             'compliance_pct'       => $row->compliance_pct !== null ? (float) $row->compliance_pct : null,
+            'compliance_pct_days'  => isset($row->compliance_pct_days) && $row->compliance_pct_days !== null
+                ? (float) $row->compliance_pct_days : null,
             'median_eff_h'         => $row->median_eff_h !== null ? (float) $row->median_eff_h : null,
             'p90_eff_h'            => $row->p90_eff_h !== null ? (float) $row->p90_eff_h : null,
             'max_eff_h'            => $row->max_eff_h !== null ? (float) $row->max_eff_h : null,

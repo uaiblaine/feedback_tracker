@@ -488,6 +488,7 @@ final class get_responsiveness_test extends \advanced_testcase {
             'p90_raw_h'            => 48.0,
             'max_raw_h'            => 72.0,
             'compliance_pct'       => 75.0,
+            'compliance_pct_days'  => 66.0,
             'trend_pct_30d'        => -40.0,
             'responsiveness_score' => $score,
             'score_band'           => 'good',

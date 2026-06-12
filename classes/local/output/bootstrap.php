@@ -322,7 +322,17 @@ class bootstrap {
             'hero_sla_atrisk' => get_string('hero_sla_atrisk', 'block_feedback_tracker'),
             'hero_sla_critical' => get_string('hero_sla_critical', 'block_feedback_tracker'),
             'hero_sla_eyebrow' => get_string('hero_sla_eyebrow', 'block_feedback_tracker'),
-            'hero_sla_tip' => get_string('hero_sla_tip', 'block_feedback_tracker'),
+            'hero_sla_tip' => $daysmode
+                ? get_string(
+                    'hero_sla_tip_days',
+                    'block_feedback_tracker',
+                    (int) (get_config('block_feedback_tracker', 'sla_goal_days') ?: 2)
+                )
+                : get_string(
+                    'hero_sla_tip',
+                    'block_feedback_tracker',
+                    (int) (get_config('block_feedback_tracker', 'sla_goal_hours') ?: 24)
+                ),
             'hero_sla_unit' => get_string('hero_sla_unit', 'block_feedback_tracker'),
             'hero_trend_eyebrow' => get_string('hero_trend_eyebrow', 'block_feedback_tracker'),
             'hero_trend_tip' => get_string('hero_trend_tip', 'block_feedback_tracker'),

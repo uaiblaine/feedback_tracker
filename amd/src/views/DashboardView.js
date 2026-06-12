@@ -76,6 +76,8 @@ const aggregate = (courses) => {
     let percDaysCount = 0;
     let compSum = 0;
     let compCount = 0;
+    let compDaysSum = 0;
+    let compDaysCount = 0;
     let trendSum = 0;
     let trendCount = 0;
     (courses || []).forEach((c) => {
@@ -110,6 +112,11 @@ const aggregate = (courses) => {
             compSum += Number(c.compliance_pct);
             compCount += 1;
         }
+        // Day-ruler compliance twin — chosen at display when the unit is days.
+        if (c.compliance_pct_days !== null && c.compliance_pct_days !== undefined) {
+            compDaysSum += Number(c.compliance_pct_days);
+            compDaysCount += 1;
+        }
         if (c.trend_pct_30d !== null && c.trend_pct_30d !== undefined) {
             trendSum += Number(c.trend_pct_30d);
             trendCount += 1;
@@ -125,6 +132,7 @@ const aggregate = (courses) => {
         effectivedays: effDaysCount > 0 ? effDaysSum / effDaysCount : null,
         perceiveddays: percDaysCount > 0 ? percDaysSum / percDaysCount : null,
         compliance: compCount > 0 ? compSum / compCount : null,
+        compliancedays: compDaysCount > 0 ? compDaysSum / compDaysCount : null,
         trendpct:   trendCount > 0 ? trendSum / trendCount : null,
     };
 };
@@ -416,7 +424,7 @@ export default function DashboardView({initial}) {
         perceivedlabel: usesDays(config)
             ? formatDays(totals.perceiveddays)
             : perceivedLabel(totals.perceived),
-        compliancepct: totals.compliance,
+        compliancepct: usesDays(config) ? totals.compliancedays : totals.compliance,
         trendpct: totals.trendpct,
         i18n,
         config,

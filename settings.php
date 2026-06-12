@@ -120,6 +120,27 @@ if ($ADMIN->fulltree) {
         'business_days'
     );
 
+    // SLA goal in business days — the day-mode twin of sla_goal_hours. It
+    // feeds only the display-only compliance_pct_days figure; the score keeps
+    // using sla_goal_hours, so switching the display unit never moves the
+    // score. Shown only when the display unit is business days, mirroring
+    // bucket_thresholds_days.
+    $s = new admin_setting_configtext(
+        $plugin . '/sla_goal_days',
+        get_string('settings_sla_goal_days', $plugin),
+        get_string('settings_sla_goal_days_desc', $plugin),
+        '2',
+        PARAM_INT
+    );
+    $s->set_updatedcallback('block_feedback_tracker_invalidate_rollups');
+    $settings->add($s);
+    $settings->hide_if(
+        $plugin . '/sla_goal_days',
+        $plugin . '/display_time_unit',
+        'neq',
+        'business_days'
+    );
+
     // Score-band thresholds: three CSV cutoffs that map a 0-100 score to one
     // of the four bands. Defaults 90/70/40 match the design palette. Stored
     // values are clamped + ordered at read time in

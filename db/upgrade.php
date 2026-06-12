@@ -412,5 +412,51 @@ function xmldb_block_feedback_tracker_upgrade($oldversion) {
         upgrade_block_savepoint(true, 2026060132, 'feedback_tracker');
     }
 
+    // V1.0.33 — display-only business-days SLA compliance. The new rollup
+    // column compliance_pct_days holds the share of last-window graded
+    // submissions returned within the business-days SLA goal (the new
+    // sla_goal_days setting). It is the day-ruler twin of compliance_pct and,
+    // like the other day twins, is display-only: the score keeps using the
+    // effective-hours compliance, so switching the display unit never moves
+    // the score. Seed the setting default, add the column, bump calver, and
+    // re-enqueue every tuple so drain_queue backfills the column next cron run.
+    if ($oldversion < 2026060133) {
+        if (get_config('block_feedback_tracker', 'sla_goal_days') === false) {
+            set_config('sla_goal_days', '2', 'block_feedback_tracker');
+        }
+
+        $table = new xmldb_table('block_feedback_tracker_group');
+        $field = new xmldb_field(
+            'compliance_pct_days',
+            XMLDB_TYPE_NUMBER,
+            '5, 2',
+            null,
+            null,
+            null,
+            null,
+            'overgoal_days'
+        );
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Re-enqueue every (course, group) so the new compliance_pct_days
+        // column populates on the next drain.
+        $tuples = $DB->get_recordset_sql(
+            'SELECT DISTINCT courseid, groupid FROM {block_feedback_tracker_sub}'
+        );
+        foreach ($tuples as $t) {
+            \block_feedback_tracker\local\sla\dirty_queue::enqueue(
+                (int) $t->courseid,
+                (int) $t->groupid,
+                \block_feedback_tracker\local\sla\dirty_queue::REASON_SUBMISSION
+            );
+        }
+        $tuples->close();
+
+        \block_feedback_tracker\local\calendar\calendar::bump_version();
+        upgrade_block_savepoint(true, 2026060133, 'feedback_tracker');
+    }
+
     return true;
 }

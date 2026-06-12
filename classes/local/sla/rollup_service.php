@@ -117,6 +117,9 @@ class rollup_service {
         $daythresholds = bucket::parse_thresholds_days();
         $daygoal = $daythresholds[0];
         $daycrit = $daythresholds[2];
+        // Business-days SLA goal for the display-only compliance_pct_days
+        // twin (the hour-based compliance_pct above keeps feeding the score).
+        $slagoaldays = (float) (get_config('block_feedback_tracker', 'sla_goal_days') ?: 2);
 
         // 1. Pending counts. Only genuinely submitted work counts toward the
         // SLA — draft / new / reopened attempts are awaiting the student, not
@@ -190,6 +193,7 @@ class rollup_service {
         $effdays = [];
         $percdays = [];
         $compliantcount = 0;
+        $compliantdayscount = 0;
         foreach ($gradedrows as $r) {
             $eff = (float) ($r->effectivehours ?? 0.0);
             $raw = (float) ($r->waitinghours ?? 0.0);
@@ -202,6 +206,11 @@ class rollup_service {
             if ($eff <= $slagoal) {
                 $compliantcount++;
             }
+            // Day-ruler compliance twin: graded within the business-days SLA
+            // goal. Inclusive bound, mirroring bucket::for_effective_days.
+            if ($days['business'] <= $slagoaldays) {
+                $compliantdayscount++;
+            }
         }
         $numgraded30d = count($gradedrows);
 
@@ -212,6 +221,8 @@ class rollup_service {
         $p90raw    = $numgraded30d ? stats::percentile($rawvals, 90.0) : null;
         $maxraw    = $numgraded30d ? stats::max_value($rawvals) : null;
         $compliancepct = $numgraded30d ? round(100.0 * $compliantcount / $numgraded30d, 2) : null;
+        // Display-only business-days compliance (not fed to the score).
+        $compliancepctdays = $numgraded30d ? round(100.0 * $compliantdayscount / $numgraded30d, 2) : null;
 
         // 2b. Headline "current" medians — graded-in-window plus currently
         // pending work — so the dashboard's effective / perceived times
@@ -285,6 +296,7 @@ class rollup_service {
             'cur_median_perc_days' => $curmedianpercdays,
             'critical_days'        => $criticaldays,
             'overgoal_days'        => $overgoaldays,
+            'compliance_pct_days'  => $compliancepctdays,
             'responsiveness_score' => $scoredata['score'],
             'score_band'           => $scoredata['band'],
             'comp_compliance'      => $components['compliance'] ?? null,

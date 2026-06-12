@@ -93,6 +93,61 @@ final class rollup_service_test extends \advanced_testcase {
     }
 
     /**
+     * compliance_pct_days is the display-only business-days twin of
+     * compliance_pct: it counts graded work returned within sla_goal_days
+     * elapsed business days. It is computed from the submit/grade dates (so
+     * the result is deterministic regardless of when the suite runs) and never
+     * feeds the score, which stays hour-based — so the two compliance rulers
+     * are independent.
+     *
+     * @return void
+     */
+    public function test_recompute_group_compliance_days(): void {
+        $this->resetAfterTest();
+        $this->seed_config();
+        set_config('sla_goal_days', '2', 'block_feedback_tracker');
+
+        $courseid = 140;
+        $groupid = 240;
+        $now = time();
+        $day = 86400;
+
+        // 3 graded rows returned the same day (0 business days elapsed -> within
+        // the 2-day goal) and 2 graded rows returned 10 calendar days later
+        // (>= 6 business days whatever the weekend alignment -> over goal).
+        // Effective hours are all within 24h, so the hour-based compliance is a
+        // clean 100% — proving the two rulers are independent.
+        for ($i = 0; $i < 3; $i++) {
+            $ts = $now - (5 * $day);
+            $this->insert_ledger($courseid, $groupid, [
+                'effectivehours' => 5.0,
+                'timesubmitted'  => $ts,
+                'timegraded'     => $ts,
+            ]);
+        }
+        for ($i = 0; $i < 2; $i++) {
+            $ts = $now - (12 * $day);
+            $this->insert_ledger($courseid, $groupid, [
+                'effectivehours' => 5.0,
+                'timesubmitted'  => $ts,
+                'timegraded'     => $ts + (10 * $day),
+            ]);
+        }
+
+        rollup_service::recompute_group($courseid, $groupid, $now);
+
+        global $DB;
+        $row = $DB->get_record('block_feedback_tracker_group', [
+            'courseid' => $courseid, 'groupid' => $groupid,
+        ]);
+        $this->assertNotFalse($row);
+        // 3 of 5 within the 2-business-day goal.
+        $this->assertEqualsWithDelta(60.0, (float) $row->compliance_pct_days, 0.01);
+        // Hour-based compliance is unaffected: all 5 are within 24 effective hours.
+        $this->assertEqualsWithDelta(100.0, (float) $row->compliance_pct, 0.01);
+    }
+
+    /**
      * Empty ledger produces a rollup with zero counts and null medians. A
      * group with no submitted work at all has no responsiveness to measure,
      * so the score is null and the band is the neutral 'nodata' — never a

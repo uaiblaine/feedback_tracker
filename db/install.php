@@ -62,6 +62,7 @@ function xmldb_block_feedback_tracker_install() {
 
         // SLA goal and bucket thresholds.
         'sla_goal_hours'             => '24',
+        'sla_goal_days'              => '2',
         'bucket_thresholds_eff'      => '24,48,120',
         'bucket_thresholds_raw'      => '24,48,120',
 

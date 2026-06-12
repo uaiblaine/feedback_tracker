@@ -140,6 +140,7 @@ class get_responsiveness extends external_api {
             'overgoal'             => new external_value(PARAM_INT, ''),
             'numgraded30d'         => new external_value(PARAM_INT, ''),
             'compliance_pct'       => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
+            'compliance_pct_days'  => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
             'median_eff_h'         => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
             'p90_eff_h'            => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
             'max_eff_h'            => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),

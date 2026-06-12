@@ -35,16 +35,20 @@ use core_external\external_api;
  */
 final class get_dashboard_test extends \advanced_testcase {
     /**
-     * Reset the per-request dashboard_scope memo before each test. Its static
-     * cache is keyed by userid and survives resetAfterTest (PHP statics aren't
-     * rolled back with the DB); on MariaDB userids recycle across tests, so a
-     * stale entry could otherwise serve the wrong scope.
+     * Reset the per-request dashboard_scope AND group_access memos before
+     * each test. Both static caches survive resetAfterTest (PHP statics
+     * aren't rolled back with the DB); on MariaDB course / user IDs recycle
+     * across tests, so a stale entry could otherwise serve the wrong course
+     * scope (dashboard_scope, keyed by userid) or a stale group filter
+     * (group_access, keyed "courseid:userid") that excludes the seeded
+     * groupid=0 rollups and makes an enrolled course vanish from the result.
      *
      * @return void
      */
     protected function setUp(): void {
         parent::setUp();
         \block_feedback_tracker\local\sla\dashboard_scope::reset_memo();
+        \block_feedback_tracker\local\sla\group_access::reset_memo();
     }
 
     /**
@@ -184,7 +188,6 @@ final class get_dashboard_test extends \advanced_testcase {
         global $DB;
         $this->resetAfterTest();
         $this->seed_config();
-        \block_feedback_tracker\local\sla\group_access::reset_memo();
 
         $course = $this->getDataGenerator()->create_course([
             'groupmode' => SEPARATEGROUPS,
@@ -246,13 +249,6 @@ final class get_dashboard_test extends \advanced_testcase {
     public function test_band_filter_narrows_courses(): void {
         $this->resetAfterTest();
         $this->seed_config();
-        // Group_access has a static $memo keyed "courseid:userid" that
-        // survives resetAfterTest. On MariaDB course / user IDs recycle
-        // after table truncation, so a prior test's memo entry could
-        // collide and serve a stale visible_group_ids() result that
-        // filters g.groupid IN (...) and excludes the seeded groupid=0
-        // rollups. Reset explicitly to compute fresh.
-        \block_feedback_tracker\local\sla\group_access::reset_memo();
 
         [$course1, $course2] = $this->build_three_courses();
         $this->seed_rollup($course1, 5, 1, 2, 78, 'good');
@@ -304,6 +300,7 @@ final class get_dashboard_test extends \advanced_testcase {
         $this->assertEqualsWithDelta(22.0, (float) $row['cur_median_raw_h'], 0.01);
         $this->assertEqualsWithDelta(-40.0, (float) $row['trend_pct_30d'], 0.01);
         $this->assertEqualsWithDelta(75.0, (float) $row['compliance_pct'], 0.01);
+        $this->assertEqualsWithDelta(88.0, (float) $row['compliance_pct_days'], 0.01);
     }
 
     // Helpers.
@@ -360,6 +357,7 @@ final class get_dashboard_test extends \advanced_testcase {
             'p90_raw_h'            => 48.0,
             'max_raw_h'            => 72.0,
             'compliance_pct'       => 75.0,
+            'compliance_pct_days'  => 88.0,
             'trend_pct_30d'        => -40.0,
             'responsiveness_score' => $score,
             'score_band'           => $band,

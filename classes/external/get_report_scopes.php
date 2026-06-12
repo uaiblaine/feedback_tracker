@@ -102,7 +102,7 @@ class get_report_scopes extends external_api {
             $sqlparams,
             'groupid ASC',
             'id, groupid, responsiveness_score, score_band, cur_median_eff_h, cur_median_raw_h,'
-                . ' cur_median_eff_days, cur_median_perc_days, compliance_pct, trend_pct_30d,'
+                . ' cur_median_eff_days, cur_median_perc_days, compliance_pct, compliance_pct_days, trend_pct_30d,'
                 . ' pending, critical, overgoal, critical_days, overgoal_days'
         );
 
@@ -156,6 +156,7 @@ class get_report_scopes extends external_api {
                 'cur_median_perc_days' => $r->cur_median_perc_days !== null
                     ? (float) $r->cur_median_perc_days : null,
                 'compliance_pct'       => $r->compliance_pct !== null ? (float) $r->compliance_pct : null,
+                'compliance_pct_days'  => $r->compliance_pct_days !== null ? (float) $r->compliance_pct_days : null,
                 'trend_pct_30d'        => $r->trend_pct_30d !== null ? (float) $r->trend_pct_30d : null,
                 'pending'              => (int) $r->pending,
                 'critical'             => $critical,
@@ -191,6 +192,7 @@ class get_report_scopes extends external_api {
                 'cur_median_eff_days'  => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
                 'cur_median_perc_days' => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
                 'compliance_pct'       => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
+                'compliance_pct_days'  => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
                 'trend_pct_30d'        => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
                 'pending'              => new external_value(PARAM_INT, ''),
                 'critical'             => new external_value(PARAM_INT, ''),

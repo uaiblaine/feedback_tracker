@@ -49,7 +49,7 @@ class get_dashboard extends external_api {
      * before deploying any change to execute()'s WHERE clause or
      * aggregate columns.
      */
-    public const CACHE_KEY_VERSION = 6;
+    public const CACHE_KEY_VERSION = 7;
 
     /**
      * Parameters.
@@ -151,7 +151,8 @@ class get_dashboard extends external_api {
                        AVG(g.cur_median_eff_days) AS cur_median_eff_days,
                        AVG(g.cur_median_perc_days) AS cur_median_perc_days,
                        AVG(g.trend_pct_30d) AS trend_pct_30d,
-                       AVG(g.compliance_pct) AS compliance_pct
+                       AVG(g.compliance_pct) AS compliance_pct,
+                       AVG(g.compliance_pct_days) AS compliance_pct_days
                   FROM {block_feedback_tracker_group} g
                   JOIN {course} c ON c.id = g.courseid
                  WHERE $where
@@ -201,6 +202,8 @@ class get_dashboard extends external_api {
                     ? round((float) $r->cur_median_perc_days, 2) : null,
                 'trend_pct_30d' => $r->trend_pct_30d !== null ? round((float) $r->trend_pct_30d, 2) : null,
                 'compliance_pct' => $r->compliance_pct !== null ? round((float) $r->compliance_pct, 2) : null,
+                'compliance_pct_days' => $r->compliance_pct_days !== null
+                    ? round((float) $r->compliance_pct_days, 2) : null,
                 'trend_series' => $trendseries[$cid] ?? [],
             ];
         }
@@ -312,6 +315,7 @@ class get_dashboard extends external_api {
                 'cur_median_perc_days' => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
                 'trend_pct_30d' => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
                 'compliance_pct' => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
+                'compliance_pct_days' => new external_value(PARAM_FLOAT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
                 'trend_series' => new external_multiple_structure(
                     new external_single_structure([
                         'day'   => new external_value(PARAM_INT, ''),

@@ -196,6 +196,10 @@ export default function GroupCard({group, courseid, i18n, config}) {
     const perceivedvalue = usesDays(config)
         ? fmtDayMedian(group.cur_median_perc_days)
         : fmtDaysFromHours(perceived);
+    // SLA compliance honours the display unit: business-days mode shows the
+    // day-ruler twin (compliance_pct_days), hours mode the effective-hours
+    // compliance. Both are display-only; the score is unaffected.
+    const compliance = usesDays(config) ? group.compliance_pct_days : group.compliance_pct;
     // Peer panel is opt-out via the global show_peer_context setting; it also
     // self-hides inside PeerContext when there is no dept/top10 data.
     const showpeer = !config || config.show_peer_context !== false;
@@ -245,7 +249,7 @@ export default function GroupCard({group, courseid, i18n, config}) {
                             tone="muted" />
                         <${KpiTile}
                             label=${i18n.card_sla}
-                            value=${fmtPct(group.compliance_pct)}
+                            value=${fmtPct(compliance)}
                             unit="%"
                             sub=${i18n.card_sla_sub}
                             tone=${band} />

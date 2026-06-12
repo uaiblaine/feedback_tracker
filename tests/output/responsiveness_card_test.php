@@ -53,6 +53,7 @@ final class responsiveness_card_test extends \advanced_testcase {
             'overgoal'               => 2,
             'numgraded30d'           => 10,
             'compliance_pct'         => 80.0,
+            'compliance_pct_days'    => 70.0,
             'median_eff_h'           => 12.0,
             'p90_eff_h'              => 20.0,
             'max_eff_h'              => 30.0,
@@ -165,5 +166,41 @@ final class responsiveness_card_test extends \advanced_testcase {
         ]));
 
         $this->assertTrue($ctx['haspause']);
+    }
+
+    /**
+     * In the default (hours) display unit the compliance metric reads the
+     * hour-based compliance_pct. metrics[1] is the compliance row.
+     *
+     * @return void
+     */
+    public function test_compliance_uses_hours_twin_by_default(): void {
+        $this->resetAfterTest();
+
+        $ctx = $this->export($this->sample_payload([
+            'compliance_pct'      => 80.0,
+            'compliance_pct_days' => 55.0,
+        ]));
+
+        $this->assertSame('80%', $ctx['metrics'][1]['value']);
+    }
+
+    /**
+     * In business-days display mode the compliance metric reads the day-ruler
+     * twin (compliance_pct_days), not the hour-based compliance_pct \u2014 the two
+     * are independent rulers. Display-only; the score is unaffected.
+     *
+     * @return void
+     */
+    public function test_compliance_uses_day_twin_in_business_days_mode(): void {
+        $this->resetAfterTest();
+        set_config('display_time_unit', 'business_days', 'block_feedback_tracker');
+
+        $ctx = $this->export($this->sample_payload([
+            'compliance_pct'      => 80.0,
+            'compliance_pct_days' => 55.0,
+        ]));
+
+        $this->assertSame('55%', $ctx['metrics'][1]['value']);
     }
 }

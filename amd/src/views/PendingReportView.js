@@ -119,6 +119,7 @@ const computeScope = (scopes, gid) => {
             effectivedays: g.cur_median_eff_days,
             perceiveddays: g.cur_median_perc_days,
             compliance: g.compliance_pct,
+            compliancedays: g.compliance_pct_days,
             trendpct: g.trend_pct_30d,
             total_pending: Number(g.pending) || 0,
             total_critical: Number(g.critical) || 0,
@@ -140,6 +141,8 @@ const computeScope = (scopes, gid) => {
     let percDaysCount = 0;
     let compSum = 0;
     let compCount = 0;
+    let compDaysSum = 0;
+    let compDaysCount = 0;
     let trendSum = 0;
     let trendCount = 0;
     scopes.forEach((g) => {
@@ -172,6 +175,11 @@ const computeScope = (scopes, gid) => {
             compSum += Number(g.compliance_pct);
             compCount += 1;
         }
+        // Day-ruler compliance twin — chosen at display when the unit is days.
+        if (g.compliance_pct_days !== null && g.compliance_pct_days !== undefined) {
+            compDaysSum += Number(g.compliance_pct_days);
+            compDaysCount += 1;
+        }
         if (g.trend_pct_30d !== null && g.trend_pct_30d !== undefined) {
             trendSum += Number(g.trend_pct_30d);
             trendCount += 1;
@@ -185,6 +193,7 @@ const computeScope = (scopes, gid) => {
         effectivedays: effDaysCount > 0 ? effDaysSum / effDaysCount : null,
         perceiveddays: percDaysCount > 0 ? percDaysSum / percDaysCount : null,
         compliance: compCount > 0 ? compSum / compCount : null,
+        compliancedays: compDaysCount > 0 ? compDaysSum / compDaysCount : null,
         trendpct: trendCount > 0 ? trendSum / trendCount : null,
         total_pending: pending,
         total_critical: critical,
@@ -503,12 +512,17 @@ export default function PendingReportView({initial}) {
         ? Number(scope.score) : null;
     const scopeBand = (scope && scope.band) || bandForScore(scopeScore, scoreThresholds);
     const scopeBandLabel = (i18n.bands || {})[scopeBand] || '';
+    // Compliance chip + hero honour the display unit: business-days mode uses
+    // the day-ruler twin (compliancedays), hours mode the effective-hours value.
+    const scopeCompliance = scope
+        ? (usesDays(config) ? scope.compliancedays : scope.compliance)
+        : null;
 
     const chips = [];
     if (scope) {
-        if (scope.compliance !== null && scope.compliance !== undefined) {
+        if (scopeCompliance !== null && scopeCompliance !== undefined) {
             chips.push({
-                label: Math.round(Number(scope.compliance)) + '% ' + (i18n.report_chip_sla || 'within SLA'),
+                label: Math.round(Number(scopeCompliance)) + '% ' + (i18n.report_chip_sla || 'within SLA'),
                 tone: scopeBand,
             });
         }
@@ -531,8 +545,8 @@ export default function PendingReportView({initial}) {
         perceivedlabel: usesDays(config)
             ? formatDays(scope ? scope.perceiveddays : null)
             : (scope ? perceivedLabel(scope.perceivedraw) : '—'),
-        compliancepct: scope && scope.compliance !== null && scope.compliance !== undefined
-            ? Number(scope.compliance) : null,
+        compliancepct: scopeCompliance !== null && scopeCompliance !== undefined
+            ? Number(scopeCompliance) : null,
         trendpct: scope && scope.trendpct !== null && scope.trendpct !== undefined
             ? Number(scope.trendpct) : null,
         i18n,

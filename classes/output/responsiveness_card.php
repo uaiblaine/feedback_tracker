@@ -152,8 +152,14 @@ class responsiveness_card implements \renderable, \templatable {
                 $median .= ' / ' . format_float((float) $curraw, 1) . ' h';
             }
         }
-        $compliance = $p['compliance_pct'] !== null
-            ? format_float((float) $p['compliance_pct'], 0) . '%'
+        // Compliance honours the display unit too: business-days mode shows
+        // the day-ruler twin (compliance_pct_days), hours mode the
+        // effective-hours compliance. Display-only; the score is unaffected.
+        $compliancesource = $unit === 'business_days'
+            ? ($p['compliance_pct_days'] ?? null)
+            : ($p['compliance_pct'] ?? null);
+        $compliance = $compliancesource !== null
+            ? format_float((float) $compliancesource, 0) . '%'
             : '—';
         $trendtxt = '—';
         if ($p['trend_pct_30d'] !== null) {
