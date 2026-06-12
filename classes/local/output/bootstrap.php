@@ -300,8 +300,6 @@ class bootstrap {
             'pause_reason_sitepaused' => get_string('pause_reason_sitepaused', 'block_feedback_tracker'),
             // Phase 3D additions — hero metrics, paused callout, status distribution, segmented filter.
             'distribution_hint' => get_string('distribution_hint', 'block_feedback_tracker'),
-            'distribution_scale_max' => get_string('distribution_scale_max', 'block_feedback_tracker'),
-            'distribution_scale_max_graded' => get_string('distribution_scale_max_graded', 'block_feedback_tracker'),
             'distribution_title' => get_string('distribution_title', 'block_feedback_tracker'),
             'hero_effective_eyebrow' => get_string('hero_effective_eyebrow', 'block_feedback_tracker'),
             'hero_effective_tip' => $daysmode

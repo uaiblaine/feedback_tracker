@@ -113,13 +113,6 @@ export default function StatusDistributionBar({mode, counts, active, onSelect, o
                         : (i18n.pendingreport_mode_graded || 'Graded') + ' →'}
                 </button>
             </div>
-            <div class="bft-dist-scale bft-mono">
-                <span>0%</span>
-                <span class="bft-dist-scale-spacer"></span>
-                <span>${graded
-                    ? (i18n.distribution_scale_max_graded || '100% of graded')
-                    : (i18n.distribution_scale_max || '100% of pending')}</span>
-            </div>
         </div>
     `;
 }

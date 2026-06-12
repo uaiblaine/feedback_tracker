@@ -2244,18 +2244,6 @@ a.bft-activity-action:focus {
     text-overflow: ellipsis;
 }
 
-.bft-dist-scale {
-    display: flex;
-    margin-top: 0.4rem;
-    font-size: 0.6rem;
-    color: var(--bft-text-faint);
-    letter-spacing: 0.02em;
-}
-
-.bft-dist-scale-spacer {
-    flex: 1;
-}
-
 /* Segmented filter — used by the status toolbar. */
 .bft-segmented {
     display: inline-flex;
