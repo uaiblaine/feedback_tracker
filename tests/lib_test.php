@@ -26,10 +26,9 @@ namespace block_feedback_tracker;
  */
 final class lib_test extends \advanced_testcase {
     /**
-     * Example of a unittest
+     * Plugin installs and exposes its version in config.
      *
-     * TODO change the 'covers' tag to the class or function in the plugin.
-     * @covers ::get_config
+     * @coversNothing
      */
     public function test_plugin_installed(): void {
         $this->assertNotEmpty(get_config('block_feedback_tracker', 'version'));
