@@ -3,35 +3,9 @@ name: ci
 on: [push, pull_request]
 
 jobs:
-  # One reusable-workflow call per supported Moodle branch (version.php
-  # $plugin->supported) — update these when the supported range changes.
-  # The highest branch runs the full PHP x DB matrix; older branches run
-  # PostgreSQL only. PHPUnit and Behat run on every runtime leg.
-  # On MOODLE_XX_STABLE plugin branches this file is a single call with no
-  # moodle-core-branch input (auto-detected from the branch name).
-  ci-502:
-    name: Moodle 5.02
+  # Single reusable-workflow call: the Moodle core branch is auto-detected
+  # from this plugin branch's name (MOODLE_501_STABLE). On `main` this file
+  # instead makes one call per supported core branch — keep each branch's
+  # own form when resolving cherry-picks.
+  ci:
     uses: moodle-an-hochschulen/moodle-workflows/.github/workflows/moodle-plugin-ci.yml@main
-    with:
-      moodle-core-branch: MOODLE_502_STABLE
-
-  ci-501:
-    name: Moodle 5.01
-    uses: moodle-an-hochschulen/moodle-workflows/.github/workflows/moodle-plugin-ci.yml@main
-    with:
-      moodle-core-branch: MOODLE_501_STABLE
-      one-db-only: true
-
-  ci-500:
-    name: Moodle 5.00
-    uses: moodle-an-hochschulen/moodle-workflows/.github/workflows/moodle-plugin-ci.yml@main
-    with:
-      moodle-core-branch: MOODLE_500_STABLE
-      one-db-only: true
-
-  ci-405:
-    name: Moodle 4.05
-    uses: moodle-an-hochschulen/moodle-workflows/.github/workflows/moodle-plugin-ci.yml@main
-    with:
-      moodle-core-branch: MOODLE_405_STABLE
-      one-db-only: true

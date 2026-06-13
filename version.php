@@ -28,5 +28,5 @@ $plugin->component    = 'block_feedback_tracker';
 $plugin->release      = '1.0.33';
 $plugin->version      = 2026060133;
 $plugin->requires     = 2024100700;
-$plugin->supported    = [405, 502];
+$plugin->supported    = [501, 501];
 $plugin->maturity     = MATURITY_STABLE;
