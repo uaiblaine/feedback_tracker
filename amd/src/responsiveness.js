@@ -36,7 +36,7 @@ const SELECTOR = '.bft-refresh';
  *
  * @param {MouseEvent} event
  */
-const onClick = async (event) => {
+const onClick = async(event) => {
     const btn = event.target.closest(SELECTOR);
     if (!btn) {
         return;

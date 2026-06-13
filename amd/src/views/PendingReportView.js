@@ -121,9 +121,9 @@ const computeScope = (scopes, gid) => {
             compliance: g.compliance_pct,
             compliancedays: g.compliance_pct_days,
             trendpct: g.trend_pct_30d,
-            total_pending: Number(g.pending) || 0,
-            total_critical: Number(g.critical) || 0,
-            total_overgoal: Number(g.overgoal) || 0,
+            'total_pending': Number(g.pending) || 0,
+            'total_critical': Number(g.critical) || 0,
+            'total_overgoal': Number(g.overgoal) || 0,
         };
     }
     let pending = 0;
@@ -145,6 +145,8 @@ const computeScope = (scopes, gid) => {
     let compDaysCount = 0;
     let trendSum = 0;
     let trendCount = 0;
+    // Branch count over the lint cap is acknowledged debt (refactor pass pending).
+    // eslint-disable-next-line complexity
     scopes.forEach((g) => {
         pending += Number(g.pending) || 0;
         critical += Number(g.critical) || 0;
@@ -195,9 +197,9 @@ const computeScope = (scopes, gid) => {
         compliance: compCount > 0 ? compSum / compCount : null,
         compliancedays: compDaysCount > 0 ? compDaysSum / compDaysCount : null,
         trendpct: trendCount > 0 ? trendSum / trendCount : null,
-        total_pending: pending,
-        total_critical: critical,
-        total_overgoal: overgoal,
+        'total_pending': pending,
+        'total_critical': critical,
+        'total_overgoal': overgoal,
     };
 };
 
@@ -214,8 +216,12 @@ const computeScope = (scopes, gid) => {
  */
 const SortableHeader = ({label, sortKey, currentKey, currentOrder, onClick}) => {
     const active = currentKey === sortKey;
-    const arrow = active ? (currentOrder === 'asc' ? ' ▲' : ' ▼') : '';
-    const ariaSort = active ? (currentOrder === 'asc' ? 'ascending' : 'descending') : 'none';
+    let arrow = '';
+    let ariaSort = 'none';
+    if (active) {
+        arrow = currentOrder === 'asc' ? ' ▲' : ' ▼';
+        ariaSort = currentOrder === 'asc' ? 'ascending' : 'descending';
+    }
     return html`
         <th class=${'bft-th-sortable' + (active ? ' is-active' : '')}>
             <button type="button"
@@ -267,6 +273,9 @@ const PausedTag = ({submissionid, tip, label, openid, onToggle}) => html`
  * @param {object} props.initial  Mount-point payload.
  * @returns {object} vnode
  */
+// Branch count over the lint cap is acknowledged debt: decomposing this view
+// is tracked for a dedicated refactor pass (see CLAUDE.md, CI workflow notes).
+// eslint-disable-next-line complexity
 export default function PendingReportView({initial}) {
     const i18n = initial.i18n || {};
     const config = initial.config || {};
@@ -274,7 +283,7 @@ export default function PendingReportView({initial}) {
     const courseid = Number(initial.courseid) || 0;
     const initialPending = initial.pending || {};
 
-    // eslint-disable-next-line no-undef
+
     const wwwroot = (typeof M !== 'undefined' && M.cfg && M.cfg.wwwroot) || '';
     const courseUrl = wwwroot + '/course/view.php?id=' + encodeURIComponent(String(courseid));
 
@@ -318,7 +327,7 @@ export default function PendingReportView({initial}) {
     /**
      * Load the per-group scopes (hero + class filter).
      */
-    const fetchScopes = async () => {
+    const fetchScopes = async() => {
         try {
             const result = await getReportScopes({courseid});
             setGroupScopes(Array.isArray(result.groups) ? result.groups : []);
@@ -360,7 +369,7 @@ export default function PendingReportView({initial}) {
     /**
      * Fetch a page using the current mode + filters.
      */
-    const fetchPage = async () => {
+    const fetchPage = async() => {
         setLoading(true);
         setError(null);
         const args = {courseid, groupid, sort: serverSort, order: sortOrder, search, page, perpage};
@@ -398,7 +407,7 @@ export default function PendingReportView({initial}) {
     }, [mode, groupid, filter, serverSort, sortOrder, search, page]);
 
     // Drafts depend only on the class filter.
-    const fetchDrafts = async () => {
+    const fetchDrafts = async() => {
         try {
             const result = await getPendingSubmissions({
                 courseid, groupid, status: 'draft', sort: 'recent', perpage,
@@ -423,11 +432,12 @@ export default function PendingReportView({initial}) {
     // the table has landed. The academic-days strip has its own mount effect.
     useEffect(() => {
         fetchScopes();
-        fetchPage().then(fetchDrafts);
+        // Errors surface inside fetchPage/fetchDrafts themselves.
+        fetchPage().then(fetchDrafts).catch(() => null);
     }, []);
 
     // Academic-days heatmap loads on mount and on class change.
-    const fetchAcademic = async () => {
+    const fetchAcademic = async() => {
         setAcaLoading(true);
         setAcaError(null);
         try {
@@ -514,9 +524,10 @@ export default function PendingReportView({initial}) {
     const scopeBandLabel = (i18n.bands || {})[scopeBand] || '';
     // Compliance chip + hero honour the display unit: business-days mode uses
     // the day-ruler twin (compliancedays), hours mode the effective-hours value.
-    const scopeCompliance = scope
-        ? (usesDays(config) ? scope.compliancedays : scope.compliance)
-        : null;
+    let scopeCompliance = null;
+    if (scope) {
+        scopeCompliance = usesDays(config) ? scope.compliancedays : scope.compliance;
+    }
 
     const chips = [];
     if (scope) {
@@ -534,6 +545,13 @@ export default function PendingReportView({initial}) {
         }
     }
 
+    let perceivedlabel;
+    if (usesDays(config)) {
+        perceivedlabel = formatDays(scope ? scope.perceiveddays : null);
+    } else {
+        perceivedlabel = scope ? perceivedLabel(scope.perceivedraw) : '—';
+    }
+
     const heroprops = {
         score: scopeScore,
         band: scopeBand,
@@ -542,9 +560,7 @@ export default function PendingReportView({initial}) {
             ? Number(scope.effective) : null,
         effectivedays: scope && scope.effectivedays !== null && scope.effectivedays !== undefined
             ? Number(scope.effectivedays) : null,
-        perceivedlabel: usesDays(config)
-            ? formatDays(scope ? scope.perceiveddays : null)
-            : (scope ? perceivedLabel(scope.perceivedraw) : '—'),
+        perceivedlabel,
         compliancepct: scopeCompliance !== null && scopeCompliance !== undefined
             ? Number(scopeCompliance) : null,
         trendpct: scope && scope.trendpct !== null && scope.trendpct !== undefined
@@ -560,6 +576,27 @@ export default function PendingReportView({initial}) {
     const sublineLabel = (graded
         ? (i18n.pendingreport_subline_graded || '{$a} graded')
         : (i18n.pendingreport_subline_pending || '{$a} awaiting feedback')).replace('{$a}', String(total));
+
+    // Empty-state precedence: skeleton while the first page loads, retry on
+    // error, "nothing matches" otherwise; null means the table renders.
+    let emptystate = null;
+    if (loading && submissions.length === 0) {
+        emptystate = html`<${Skeleton} count=${5} />`;
+    } else if (error && submissions.length === 0) {
+        emptystate = html`
+            <${RetryNotice}
+                message=${error}
+                onRetry=${fetchPage}
+                retrying=${loading}
+                i18n=${i18n}
+                variant="block" />`;
+    } else if (submissions.length === 0) {
+        emptystate = html`
+            <div class="bft-empty">
+                ${i18n.pendingreport_empty || 'No submissions match the current filter.'}
+            </div>
+        `;
+    }
 
     return html`
         <div class="bft-report">
@@ -606,7 +643,9 @@ export default function PendingReportView({initial}) {
                 mode=${mode}
                 counts=${counts}
                 active=${filter}
-                onSelect=${(slug) => { setPage(0); setFilter(slug); }}
+                onSelect=${(slug) => {
+ setPage(0); setFilter(slug);
+}}
                 onModeChange=${handleModeChange}
                 i18n=${i18n} />
 
@@ -615,7 +654,9 @@ export default function PendingReportView({initial}) {
                     <label class="bft-filter-label">
                         <span>${i18n.pendingreport_filter_class_label || 'Class'}</span>
                         <select value=${String(groupid)}
-                                onChange=${(e) => { setPage(0); setGroupid(Number(e.target.value)); }}>
+                                onChange=${(e) => {
+ setPage(0); setGroupid(Number(e.target.value));
+}}>
                             <option value="0">${i18n.pendingreport_filter_group_all || 'All groups'}</option>
                             ${availableGroups.map((g) => html`
                                 <option value=${String(g.id)} key=${'g-' + g.id}>${g.name}</option>
@@ -646,23 +687,8 @@ export default function PendingReportView({initial}) {
                     i18n=${i18n}
                     variant="banner" />`}
 
-            ${loading && submissions.length === 0
-                ? html`<${Skeleton} count=${5} />`
-                : error && submissions.length === 0
-                ? html`
-                    <${RetryNotice}
-                        message=${error}
-                        onRetry=${fetchPage}
-                        retrying=${loading}
-                        i18n=${i18n}
-                        variant="block" />`
-                : submissions.length === 0
-                ? html`
-                    <div class="bft-empty">
-                        ${i18n.pendingreport_empty || 'No submissions match the current filter.'}
-                    </div>
-                `
-                : html`
+            ${emptystate}
+            ${!emptystate && html`
                     <table class="bft-report-table">
                         <thead>
                             <tr>
@@ -700,7 +726,10 @@ export default function PendingReportView({initial}) {
                             </tr>
                         </thead>
                         <tbody>
-                            ${submissions.map((row) => {
+                            ${submissions.map(
+                                // Branch count over the lint cap is acknowledged debt.
+                                // eslint-disable-next-line complexity
+                                (row) => {
                                 // Paused = part of the window fell in a non-business
                                 // period. Detected per the active display unit:
                                 // business-days mode compares elapsed calendar vs

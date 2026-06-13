@@ -49,15 +49,15 @@ import RetryNotice from 'block_feedback_tracker/components/RetryNotice';
  */
 const reasonLabel = (reason, i18n) => {
     switch (reason) {
-        case 'weekend':      return i18n.pause_reason_weekend || reason;
-        case 'holiday':      return i18n.pause_reason_holiday || reason;
-        case 'recess':       return i18n.pause_reason_recess || reason;
-        case 'closed':       return i18n.pause_reason_closed || reason;
-        case 'outofhours':   return i18n.pause_reason_outofhours || reason;
+        case 'weekend': return i18n.pause_reason_weekend || reason;
+        case 'holiday': return i18n.pause_reason_holiday || reason;
+        case 'recess': return i18n.pause_reason_recess || reason;
+        case 'closed': return i18n.pause_reason_closed || reason;
+        case 'outofhours': return i18n.pause_reason_outofhours || reason;
         case 'coursepaused': return i18n.pause_reason_coursepaused || reason;
-        case 'grouppaused':  return i18n.pause_reason_grouppaused || reason;
-        case 'sitepaused':   return i18n.pause_reason_sitepaused || reason;
-        default:             return reason;
+        case 'grouppaused': return i18n.pause_reason_grouppaused || reason;
+        case 'sitepaused': return i18n.pause_reason_sitepaused || reason;
+        default: return reason;
     }
 };
 
@@ -140,7 +140,7 @@ export default function PauseTimeline({submission, data, i18n}) {
  * @param {object} options.i18n        Localised label map.
  * @returns {Promise<void>}
  */
-export const open = async ({submission, i18n}) => {
+export const open = async({submission, i18n}) => {
     const submissionid = Number(submission && submission.submissionid) || 0;
     if (submissionid <= 0) {
         return;
@@ -166,7 +166,7 @@ export const open = async ({submission, i18n}) => {
     // renders an inline RetryNotice that re-runs this same loader (api.js
     // suppresses the toast for network errors); other failures show the
     // generic message.
-    const load = async () => {
+    const load = async() => {
         const loadingel = bodyElement();
         if (loadingel) {
             render(

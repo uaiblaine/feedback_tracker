@@ -50,6 +50,8 @@ import {classifySpeed} from 'block_feedback_tracker/lib/trend';
  * @param {string} [props.body]               Overrides the default body copy.
  * @returns {object} vnode
  */
+// Branch count over the lint cap is acknowledged debt (refactor pass pending).
+// eslint-disable-next-line complexity
 export default function ResponsivenessHero({score, band, bandlabel, effectivehours, effectivedays,
     perceivedlabel, trendpct, i18n, onCollapse, config, chips, eyebrow, headline, body}) {
     const display = score === null || score === undefined ? '—' : Math.round(Number(score));
@@ -57,7 +59,7 @@ export default function ResponsivenessHero({score, band, bandlabel, effectivehou
     const trendTone = trend.colour;
     const trendArrow = trend.arrow;
     const trendText = trend.magnitude;
-    // eslint-disable-next-line no-undef
+
     const wwwroot = (typeof M !== 'undefined' && M.cfg && M.cfg.wwwroot) || '';
     const simulatorurl = wwwroot + '/blocks/feedback_tracker/pages/score_simulator.php';
     const showsimulator = !!(config && config.enable_teacher_simulator);

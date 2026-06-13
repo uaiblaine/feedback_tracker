@@ -53,9 +53,10 @@ export default function ResponsivenessHeroSlim({score, band, bandlabel, effectiv
     const display = score === null || score === undefined ? '—' : Math.round(Number(score));
     const trend = classifySpeed(trendpct);
     const trendTone = trend.colour;
-    const trendText = trend.n === null
-        ? '—'
-        : (trend.tone === 'stable' ? trend.arrow : trend.arrow + ' ' + trend.magnitude);
+    let trendText = '—';
+    if (trend.n !== null) {
+        trendText = trend.tone === 'stable' ? trend.arrow : trend.arrow + ' ' + trend.magnitude;
+    }
 
     return html`
         <section class=${'bft-rh-slim bft-rh-tone-' + (band || 'pending')}>

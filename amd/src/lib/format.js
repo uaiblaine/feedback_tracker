@@ -113,7 +113,12 @@ export const formatTrend = (value, digits = 0) => {
         return EMPTY;
     }
     const n = Number(value);
-    const arrow = n < 0 ? '▲' : (n > 0 ? '▼' : '→');
+    let arrow = '→';
+    if (n < 0) {
+        arrow = '▲';
+    } else if (n > 0) {
+        arrow = '▼';
+    }
     return arrow + ' ' + Math.abs(n).toFixed(digits) + '%';
 };
 

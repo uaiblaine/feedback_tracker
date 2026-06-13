@@ -31,6 +31,25 @@
 /** Dead-band (in percentage points) within which a change reads as "stable". */
 export const STABLE_BAND = 2;
 
+/** Arrow glyph per tone. */
+const TONEARROWS = {faster: '▲', slower: '▼', stable: '→'};
+
+/** Tone → bft-overall-score-tone-* colour class slug (see styles.css). */
+const TONECOLOURS = {faster: 'excellent', slower: 'critical', stable: 'pending'};
+
+/**
+ * Resolve the speed tone for a normalised trend number.
+ *
+ * @param {number|null} n  Normalised percentage (negative = faster) or null.
+ * @returns {('faster'|'slower'|'stable')}
+ */
+const classifyTone = (n) => {
+    if (n === null || Math.abs(n) < STABLE_BAND) {
+        return 'stable';
+    }
+    return n < 0 ? 'faster' : 'slower';
+};
+
 /**
  * Classify a trend percentage into the speed model.
  *
@@ -40,15 +59,12 @@ export const STABLE_BAND = 2;
  */
 export const classifySpeed = (pct) => {
     const n = (pct === null || pct === undefined || Number.isNaN(Number(pct))) ? null : Number(pct);
-    const tone = (n === null || Math.abs(n) < STABLE_BAND)
-        ? 'stable'
-        : (n < 0 ? 'faster' : 'slower');
+    const tone = classifyTone(n);
     return {
         n,
         tone,
-        arrow: tone === 'faster' ? '▲' : tone === 'slower' ? '▼' : '→',
-        // Maps onto the bft-overall-score-tone-* colour classes in styles.css.
-        colour: tone === 'faster' ? 'excellent' : tone === 'slower' ? 'critical' : 'pending',
+        arrow: TONEARROWS[tone],
+        colour: TONECOLOURS[tone],
         // Unsigned magnitude; '—' when there is no data to compare.
         magnitude: n === null ? '—' : Math.round(Math.abs(n)) + '%',
     };

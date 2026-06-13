@@ -89,6 +89,8 @@ const Slider = ({label, value, min, max, step, unit, disabled, onInput, valuenod
  * @param {object} props.initial  Mount payload: {config, i18n}.
  * @returns {object} vnode
  */
+// Branch count over the lint cap is acknowledged debt (refactor pass pending).
+// eslint-disable-next-line complexity
 export default function SimulatorView({initial}) {
     const i18n = initial.i18n || {};
     const config = initial.config || {};

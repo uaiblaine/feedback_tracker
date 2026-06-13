@@ -44,7 +44,7 @@ import {formatHours} from 'block_feedback_tracker/lib/format';
  * @returns {string}
  */
 const buildGraderUrl = (cmid, userid) => {
-    // eslint-disable-next-line no-undef
+
     const wwwroot = (typeof M !== 'undefined' && M.cfg && M.cfg.wwwroot) || '';
     return wwwroot + '/mod/assign/view.php'
         + '?id=' + encodeURIComponent(String(cmid))
@@ -96,6 +96,20 @@ const PriorityItem = ({submission, i18n}) => {
  */
 export default function GradeNowPanel({data, loading, error, i18n}) {
     const submissions = Array.isArray(data && data.submissions) ? data.submissions : [];
+    let body;
+    if (loading && !submissions.length) {
+        body = html`<div class="bft-empty">${i18n.gradenow_loading || 'Loading…'}</div>`;
+    } else if (submissions.length === 0) {
+        body = html`<div class="bft-empty">${i18n.gradenow_empty || 'Everyone is caught up.'}</div>`;
+    } else {
+        body = html`
+            <ol class="bft-gradenow-list">
+                ${submissions.map((s) => html`
+                    <${PriorityItem} submission=${s} i18n=${i18n} />
+                `)}
+            </ol>
+        `;
+    }
     return html`
         <section class="bft-dashboard-section bft-gradenow"
                  aria-labelledby="bft-gradenow-title">
@@ -108,17 +122,7 @@ export default function GradeNowPanel({data, loading, error, i18n}) {
                 </p>
             </header>
             ${error && html`<div class="bft-error" role="alert">${error}</div>`}
-            ${loading && !submissions.length
-                ? html`<div class="bft-empty">${i18n.gradenow_loading || 'Loading…'}</div>`
-                : submissions.length === 0
-                    ? html`<div class="bft-empty">${i18n.gradenow_empty || 'Everyone is caught up.'}</div>`
-                    : html`
-                        <ol class="bft-gradenow-list">
-                            ${submissions.map((s) => html`
-                                <${PriorityItem} submission=${s} i18n=${i18n} />
-                            `)}
-                        </ol>
-                    `}
+            ${body}
         </section>
     `;
 }

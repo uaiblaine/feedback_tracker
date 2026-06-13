@@ -48,7 +48,7 @@ import {usesDays} from 'block_feedback_tracker/lib/format';
  * @returns {string}
  */
 const buildDrilldownUrl = (courseid, groupid, band) => {
-    // eslint-disable-next-line no-undef
+
     const wwwroot = (typeof M !== 'undefined' && M.cfg && M.cfg.wwwroot) || '';
     const params = ['courseid=' + encodeURIComponent(String(courseid)),
                     'groupid=' + encodeURIComponent(String(groupid))];
@@ -65,7 +65,7 @@ const buildDrilldownUrl = (courseid, groupid, band) => {
  * @returns {string}
  */
 const buildOverridesUrl = (cmid) => {
-    // eslint-disable-next-line no-undef
+
     const wwwroot = (typeof M !== 'undefined' && M.cfg && M.cfg.wwwroot) || '';
     return wwwroot + '/mod/assign/overrides.php?cmid=' + encodeURIComponent(String(cmid)) + '&mode=group';
 };
@@ -77,7 +77,7 @@ const buildOverridesUrl = (cmid) => {
  * @returns {string}
  */
 const buildActivityUrl = (cmid) => {
-    // eslint-disable-next-line no-undef
+
     const wwwroot = (typeof M !== 'undefined' && M.cfg && M.cfg.wwwroot) || '';
     return wwwroot + '/mod/assign/view.php?id=' + encodeURIComponent(String(cmid));
 };
@@ -155,6 +155,8 @@ const fmtPct = (p) => (p === null || p === undefined ? '—' : Math.round(Number
  * @param {object} props.config     Block config (weights, sla_goal_hours, score_thresholds).
  * @returns {object} vnode
  */
+// Branch count over the lint cap is acknowledged debt (refactor pass pending).
+// eslint-disable-next-line complexity
 export default function GroupCard({group, courseid, i18n, config}) {
     const [open, setOpen] = useState(true);
     const score = group.responsiveness_score !== null && group.responsiveness_score !== undefined

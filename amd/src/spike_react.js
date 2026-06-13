@@ -58,10 +58,10 @@ const BAND_LABEL = {
 /** Demo breakdown rows (same shape as classes/output/responsiveness_card.php). */
 const BREAKDOWN_ROWS = [
     {label: 'Compliance', valuestr: '0.78', weightstr: '0.40', ptsstr: '31.2 / 40.0'},
-    {label: 'Median',     valuestr: '0.66', weightstr: '0.25', ptsstr: '16.5 / 25.0'},
-    {label: 'Priority',   valuestr: '0.40', weightstr: '0.15', ptsstr: '6.0 / 15.0'},
-    {label: 'Pending',    valuestr: '0.60', weightstr: '0.10', ptsstr: '6.0 / 10.0'},
-    {label: 'Trend',      valuestr: '0.50', weightstr: '0.10', ptsstr: '5.0 / 10.0'},
+    {label: 'Median', valuestr: '0.66', weightstr: '0.25', ptsstr: '16.5 / 25.0'},
+    {label: 'Priority', valuestr: '0.40', weightstr: '0.15', ptsstr: '6.0 / 15.0'},
+    {label: 'Pending', valuestr: '0.60', weightstr: '0.10', ptsstr: '6.0 / 10.0'},
+    {label: 'Trend', valuestr: '0.50', weightstr: '0.10', ptsstr: '5.0 / 10.0'},
 ];
 
 /**
@@ -72,10 +72,14 @@ const BREAKDOWN_ROWS = [
  */
 const Demo = () => {
     const [score, setScore] = useState(72);
-    const band = score >= 85 ? 'excellent'
-        : score >= 70 ? 'good'
-        : score >= 50 ? 'regular'
-        : 'critical';
+    let band = 'critical';
+    if (score >= 85) {
+        band = 'excellent';
+    } else if (score >= 70) {
+        band = 'good';
+    } else if (score >= 50) {
+        band = 'regular';
+    }
 
     return html`
         <div class="block_feedback_tracker">

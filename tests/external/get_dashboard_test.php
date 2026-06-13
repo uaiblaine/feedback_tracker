@@ -328,6 +328,7 @@ final class get_dashboard_test extends \advanced_testcase {
      * @param int $overgoal
      * @param int $score
      * @param string $band
+     * @param int $groupid
      * @return void
      */
     private function seed_rollup(

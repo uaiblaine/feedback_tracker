@@ -48,7 +48,7 @@ export const DEFAULT_WEIGHTS = {
  * @param {number} v
  * @returns {number}
  */
-const clamp01 = (v) => (v < 0 ? 0 : (v > 1 ? 1 : v));
+const clamp01 = (v) => Math.min(1, Math.max(0, v));
 
 /**
  * Normalise the five weights to sum 1.0 if the stored sum falls outside

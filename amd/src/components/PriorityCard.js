@@ -96,7 +96,7 @@ export default function PriorityCard({idx, submission, i18n, config}) {
     const eff = Number(submission.effectivehours) || 0;
     const cmid = Number(submission.cmid) || 0;
     const userid = Number(submission.userid) || 0;
-    // eslint-disable-next-line no-undef
+
     const wwwroot = (typeof M !== 'undefined' && M.cfg && M.cfg.wwwroot) || '';
     // Deep-link straight to the single-student grader (action=grader&userid),
     // not the generic grading list (action=grading), so the teacher lands on

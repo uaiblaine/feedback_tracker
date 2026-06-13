@@ -184,7 +184,7 @@ const buildSummary = (summary, days, events, i18n) => {
  */
 export default function AcademicDaysStrip({days, summary, events, loading, error, onRetry, i18n, config}) {
     const list = Array.isArray(days) ? days : [];
-    const sum = summary || {total_days: 0, weekend: 0, holiday: 0, recess: 0};
+    const sum = summary || {'total_days': 0, 'weekend': 0, 'holiday': 0, 'recess': 0};
     const evlist = Array.isArray(events) ? events : [];
 
     if (loading) {

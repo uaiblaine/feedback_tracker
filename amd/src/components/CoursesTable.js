@@ -48,8 +48,12 @@ import {formatHours, formatDays, usesDays} from 'block_feedback_tracker/lib/form
  */
 const SortHeader = ({label, sortKey, currentKey, currentOrder, onClick, i18n}) => {
     const active = currentKey === sortKey;
-    const arrow = active ? (currentOrder === 'asc' ? ' ▲' : ' ▼') : '';
-    const ariasort = active ? (currentOrder === 'asc' ? 'ascending' : 'descending') : 'none';
+    let arrow = '';
+    let ariasort = 'none';
+    if (active) {
+        arrow = currentOrder === 'asc' ? ' ▲' : ' ▼';
+        ariasort = currentOrder === 'asc' ? 'ascending' : 'descending';
+    }
     const sortlabel = (i18n.dashboard_sort_by || 'Sort by {$a}').replace('{$a}', label);
     return html`
         <th scope="col" class=${'bft-th-sortable' + (active ? ' is-active' : '')} aria-sort=${ariasort}>
@@ -83,7 +87,7 @@ export default function CoursesTable({rows, i18n, sortKey, sortOrder, onSort, th
             </div>
         `;
     }
-    // eslint-disable-next-line no-undef
+
     const wwwroot = (typeof M !== 'undefined' && M.cfg && M.cfg.wwwroot) || '';
     const reportUrl = (cid) =>
         wwwroot + '/blocks/feedback_tracker/pages/pending_report.php?courseid='

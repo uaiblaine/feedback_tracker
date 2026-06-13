@@ -133,7 +133,7 @@ final class get_graded_submissions_test extends \advanced_testcase {
         );
 
         $this->assertSame(1, (int) $result['total']);
-        // seed_row stores effectivehours = 5.0 ⇒ reclassified to excellent.
+        // The seed_row helper stores effectivehours of 5.0, reclassified to excellent.
         $this->assertSame('excellent', $result['submissions'][0]['slabucket']);
     }
 
@@ -151,7 +151,7 @@ final class get_graded_submissions_test extends \advanced_testcase {
         set_config('display_time_unit', 'business_days', 'block_feedback_tracker');
 
         [$course, $teacher] = $this->seed_course_with_teacher();
-        // seed_row leaves effectivedays NULL and the stored bucket pending.
+        // The seed_row helper leaves effectivedays NULL and the stored bucket pending.
         $this->seed_row($course, 'pending', true);
 
         $this->setUser($teacher);
