@@ -779,6 +779,19 @@ arrays must carry a `key` attribute (Preact's reconciliation rule).
 ESLint caps `amd/src/**` lines at **132** (`max-len`); when an htm element's
 attributes push a line over, break the child/label onto its own line or grunt fails.
 
+CI runs `grunt --max-lint-warnings 0`, so **every ESLint warning fails the
+build** — there is no warning tier. The rules that bite this codebase:
+`no-nested-ternary` (unwind into `if`/`else` or a lookup map — see
+`lib/trend.js` `TONEARROWS`/`TONECOLOURS`; don't nest `? :`),
+`complexity` (max 20 — the large orchestrator views/components carry a
+documented `// eslint-disable-next-line complexity` with a refactor-pending
+note rather than a silent disable), `camelcase` (WS payload keys like
+`overall_score`/`total_pending` must be quoted string literals, not bare
+identifiers), and `promise/always-return` (every `.then()` returns a value;
+non-critical fetches use `.catch(() => null)`). Run
+`npx eslint public/blocks/feedback_tracker/amd/src` from the Moodle root
+before pushing; `--fix` clears the mechanical ones (spacing, `async()`).
+
 ### Component conventions
 
 - Files in `amd/src/components/*.js` are default-exported function
