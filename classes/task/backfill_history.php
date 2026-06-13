@@ -275,7 +275,7 @@ class backfill_history extends \core\task\scheduled_task {
      * the rest of the dispatcher tick — matches the defensive shape used by
      * `drain_queue`.
      *
-     * @param array<int, array<string, int>> $rows
+     * @param array $rows
      * @return void
      */
     private static function enqueue_batch(array $rows): void {

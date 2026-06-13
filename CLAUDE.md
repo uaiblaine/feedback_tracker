@@ -122,8 +122,16 @@ Moodle's `phpdoc --max-warnings 0` enforces:
 - Every class, method, property, and constant has a `/** */` docblock
 - `@param`, `@return`, `@throws` declared explicitly (even when types are
   fully implied by signatures)
-- Type hints in PHPDoc use `int|null`, `?int`, `array<int, string>` —
-  match the actual PHP type
+- Type hints in PHPDoc use `int|null`, `?int` — match the actual PHP type
+- **`@param` array types must be plain `array`** — `local_moodlecheck`
+  (the engine behind `phpdoc`) can't pair the `$var` to its parameter when
+  the type is a generic (`array<int, string>`) or a shape
+  (`array{key: type}`), and reports `<function> has incomplete parameters
+  list (error)`. Put the shape detail in the description prose instead:
+  `@param array $rows Resolved rows keyed by id.` This only bites `@param`
+  (which is matched to the signature); `@return array{...}` / `array<...>`
+  is fine because there is no variable to pair. (The old catalyst phpdoc
+  tolerated generics; the migrated workflow does not.)
 - File-level docblock has `@package`, `@copyright`, `@license`
 - No `@author` tags (Moodle convention)
 

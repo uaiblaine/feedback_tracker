@@ -276,7 +276,7 @@ class responsiveness_payload {
      * max(1, pending).
      *
      * @param string $where WHERE fragment already scoping course + visibility.
-     * @param array<string, mixed> $params Bound params for $where.
+     * @param array $params Bound params for $where.
      * @return float|null Weighted mean, or null when no group carries a score.
      */
     private static function overall_score(string $where, array $params): ?float {
@@ -301,7 +301,7 @@ class responsiveness_payload {
      * Public so the lightweight report-scopes endpoint shows the same
      * composed names as the full payload without rebuilding it.
      *
-     * @param array<int, string> $groupnames Real group names keyed by group id.
+     * @param array $groupnames Real group names keyed by group id.
      * @return array<int, array{title: string, subtitle: string|null}>
      */
     public static function resolve_group_titles(array $groupnames): array {
@@ -362,8 +362,8 @@ class responsiveness_payload {
      * Returns only fields that actually carry a value. Degrades to an empty
      * map (callers fall back to the real group name) on any error.
      *
-     * @param array<int, int> $groupids
-     * @param array<int, string> $shortnames
+     * @param array $groupids
+     * @param array $shortnames
      * @return array<int, array<string, string>>
      */
     private static function group_field_values(array $groupids, array $shortnames): array {
@@ -406,8 +406,8 @@ class responsiveness_payload {
     /**
      * Join the given shortnames' values (in order) with " | ".
      *
-     * @param array<string, string> $valuesbyshort
-     * @param array<int, string> $shortnames
+     * @param array $valuesbyshort
+     * @param array $shortnames
      * @return string
      */
     private static function compose_fields(array $valuesbyshort, array $shortnames): string {
@@ -433,10 +433,10 @@ class responsiveness_payload {
      * @param \stdClass $course Course object.
      * @param \stdClass $row Rollup row.
      * @param array $trendseries Last-30-day median values.
-     * @param array<string, int>|null $pausedaggregate Output of paused_aggregator::for_window().
-     * @param array<string, float|null>|null $peer Output of peer_stats::for_exclusion().
+     * @param array|null $pausedaggregate Output of paused_aggregator::for_window().
+     * @param array|null $peer Output of peer_stats::for_exclusion().
      * @param string|null $groupsubtitle Optional smaller line shown under the title.
-     * @param array<int, array<string, mixed>> $activities Per-group assign schedule rows from activity_schedule::for_group().
+     * @param array $activities Per-group assign schedule rows from activity_schedule::for_group().
      * @return array
      */
     public static function group_payload(

@@ -58,9 +58,8 @@ class submission_browser {
      *
      * @param int $courseid Course id.
      * @param int $userid   Viewing user (for group visibility scoping).
-     * @param array{mode?:string, groupid?:int, search?:string, bucket?:string,
-     *              band?:string, sort?:string, order?:string, page?:int,
-     *              perpage?:int} $opts Filter / sort / page options.
+     * @param array $opts Filter / sort / page options: mode, groupid, search,
+     *              bucket, band, sort, order, page, perpage.
      * @return array{total:int, counts:array<string, int>, rows:array<int, array<string, mixed>>}
      */
     public static function browse(int $courseid, int $userid, array $opts): array {
@@ -245,7 +244,7 @@ class submission_browser {
      * slabucket) filter on top of the base WHERE.
      *
      * @param string $basewhere Base predicate from base_where().
-     * @param array<string, mixed> $baseparams Base params.
+     * @param array $baseparams Base params.
      * @param string $mode Browse mode.
      * @param string $band aguardando|atencao|prioridade (pending/draft only).
      * @param string $bucket excellent|good|regular|critical (slabucket).
@@ -341,7 +340,7 @@ class submission_browser {
      *
      * @param string $from Shared FROM + JOIN clause.
      * @param string $basewhere Base predicate.
-     * @param array<string, mixed> $baseparams Base params.
+     * @param array $baseparams Base params.
      * @param string $mode Browse mode.
      * @return array<string, int>
      */

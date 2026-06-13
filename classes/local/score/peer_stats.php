@@ -136,7 +136,7 @@ class peer_stats {
      * Linear-interpolation percentile (R's "type 7", numpy default). The
      * caller is responsible for filtering nulls; an empty list returns null.
      *
-     * @param array<int, float> $values
+     * @param array $values
      * @param float $p Percentile in [0, 1].
      * @return float|null
      */

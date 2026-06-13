@@ -302,7 +302,7 @@ class paused_aggregator {
      *
      * @param int $ymd
      * @param \DateTimeZone $tz
-     * @param array<int, array{start:int, end:int}> $spans
+     * @param array $spans
      * @return bool
      */
     private static function ymd_in_pause_span(int $ymd, \DateTimeZone $tz, array $spans): bool {

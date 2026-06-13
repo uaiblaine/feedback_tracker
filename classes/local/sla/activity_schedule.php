@@ -124,7 +124,7 @@ class activity_schedule {
     /**
      * Resolve the per-group activity rows from a pre-built catalog.
      *
-     * @param array{items: array<int, \stdClass>, overrides: array<int, array<int, \stdClass>>} $catalog
+     * @param array $catalog Pre-built catalog: items + per-group overrides.
      * @param int $groupid Real group id.
      * @return array<int, array{cmid:int, name:string, opens:?int, closes:?int, action:string, editable:bool}>
      */

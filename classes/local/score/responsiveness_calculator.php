@@ -270,8 +270,8 @@ class responsiveness_calculator {
      * When every term is unavailable, every effective weight is 0 — the
      * caller is responsible for guarding against this degenerate case.
      *
-     * @param array<string, float> $weights    Admin-configured weights (already normalised by load_weights()).
-     * @param array<string, bool>  $available  Per-term availability flags.
+     * @param array $weights Admin-configured weights (already normalised by load_weights()).
+     * @param array $available Per-term availability flags.
      * @return array<string, float>            Renormalised weights, same keys as $weights.
      */
     public static function effective_weights(array $weights, array $available): array {
