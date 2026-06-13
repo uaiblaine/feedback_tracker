@@ -918,6 +918,21 @@ while `MOODLE_XX_STABLE` plugin branches carry a single call with no
 `moodle-core-branch` input (the workflow auto-detects it from the branch
 name) — keep each branch's own when resolving cherry-picks.
 
+### Debugging CI failures
+
+- Read a failed job's raw log with
+  `gh api repos/uaiblaine/feedback_tracker/actions/jobs/<jobid>/logs`
+  (get `<jobid>` from `gh run view <runid> --json jobs`). For the MAH
+  reusable-workflow jobs `gh run view --log-failed` often returns empty —
+  use the API endpoint. Failures cluster in the "Static checks" job
+  (phplint/phpcs/phpdoc/grunt/leftover) since runtime legs rarely break.
+- Pre-push, only the grunt gate runs locally (from the Moodle root):
+  `npx eslint public/blocks/feedback_tracker/amd/src` and
+  `npx stylelint public/blocks/feedback_tracker/styles.css`. phpcs, phpdoc,
+  PHPUnit and Behat have **no local runner** here (no moodle-plugin-ci
+  checkout, no local DB) — they are only verifiable by pushing, so eyeball
+  those at write time against the rules above.
+
 ## When in doubt
 
 Follow the patterns in existing files. The codebase is internally
