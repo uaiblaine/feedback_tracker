@@ -1089,17 +1089,83 @@
 /* ------------------------------------------------------------------------
  * Mobile responsive — narrow viewports.
  *
- * Tables get a horizontal scroll surface (Bootstrap-style) so the columns
- * keep their width but the table doesn't blow out the layout. Hero KPI
- * tiles stack via existing flex-wrap; we just remove the score block's
- * left border when it wraps below the KPI row so it doesn't look orphaned.
+ * Report tables reflow into stacked cards (column captions come from each
+ * cell's data-label), matching the dashboard courses table — see the rules
+ * below. Hero KPI tiles stack via existing flex-wrap; we just remove the
+ * score block's left border when it wraps below the KPI row so it doesn't
+ * look orphaned.
  * ------------------------------------------------------------------------ */
 
 @media (max-width: 640px) {
-    .bft-report-table {
+    /* Report tables (pending / graded / drafts) reflow into stacked cards,
+     * mirroring the dashboard courses table. The native <table> keeps its
+     * semantics: the column headers stay in the accessibility tree (clipped,
+     * not display:none) and each cell shows its column caption from
+     * data-label. */
+    .bft-report-table,
+    .bft-report-table tbody {
         display: block;
-        overflow-x: auto;
+        /* Strip theme-applied table chrome (border, radius, shadow, padding)
+         * so only the per-row cards draw a frame — without this the bare
+         * <table> paints a faint outer box around the cards. The dashboard
+         * courses table makes the same reset in its card mode. */
+        border: 0;
+        border-radius: 0;
+        padding: 0;
+        margin: 0;
+        background: transparent;
+        box-shadow: none;
+    }
+    .bft-report-table thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
         white-space: nowrap;
+        border: 0;
+    }
+    .bft-report-row {
+        display: block;
+        margin-bottom: 0.6rem;
+        border: 1px solid var(--bft-border);
+        border-radius: 10px;
+        background: var(--bft-surface);
+    }
+    .bft-report-table td {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        text-align: right;
+        padding: 0.5rem 0.75rem;
+        border-top: 1px solid var(--bft-border-soft);
+        border-bottom: 0;
+        white-space: normal;
+    }
+    .bft-report-table td[data-label]::before {
+        content: attr(data-label);
+        flex: 0 0 auto;
+        font-size: var(--bft-fs-eyebrow, 0.6875rem);
+        font-weight: 700;
+        letter-spacing: var(--bft-ls-label, 0.05em);
+        text-transform: uppercase;
+        color: var(--bft-text-muted);
+        text-align: left;
+    }
+    /* First cell (student) reads as the card title — full width, no caption. */
+    .bft-report-table td.bft-report-cell-title {
+        justify-content: flex-start;
+        border-top: 0;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--bft-text);
+    }
+    /* Action button right-aligns at the card foot, like the dashboard CTA. */
+    .bft-report-table td.bft-report-col-action {
+        justify-content: flex-end;
     }
 
     .bft-dashboard-score {
@@ -2177,8 +2243,9 @@ a.bft-activity-action:focus {
 
 .bft-dist-bar {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.25rem;
-    height: 48px;
+    min-height: 48px;
 }
 
 .bft-dist-seg {
@@ -2198,6 +2265,9 @@ a.bft-activity-action:focus {
      * instead of clipping (the flex-basis is 0, so without this the label is
      * cropped when a band has no rows). */
     min-width: 5.25rem;
+    /* Hold full height when the bar wraps onto multiple rows on narrow
+     * screens — the bar's flex stretch no longer sets it. */
+    min-height: 48px;
 }
 
 .bft-dist-seg-dim {

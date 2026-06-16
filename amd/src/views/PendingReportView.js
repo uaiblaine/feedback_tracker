@@ -459,6 +459,21 @@ export default function PendingReportView({initial}) {
     const totalPages = Math.max(1, Math.ceil(total / perpage));
     const graded = mode === 'graded';
 
+    // Column captions — each cell repeats its caption through data-label, which
+    // surfaces as the field label when the table reflows into stacked cards on
+    // narrow screens (mirrors the dashboard courses table). Values match the
+    // header strings so the card caption always equals its column header.
+    const cols = {
+        activity: i18n.drilldown_col_activity,
+        'class': i18n.pendingreport_filter_class_label || 'Class',
+        submitted: i18n.drilldown_col_submitted,
+        graded: i18n.pendingreport_col_graded || 'Graded',
+        effective: i18n.pendingreport_col_effective || 'Effective',
+        perceived: i18n.pendingreport_col_perceived || 'Perceived',
+        status: i18n.drilldown_col_status,
+        lastsaved: i18n.drilldown_col_lastsaved || 'Last saved',
+    };
+
     /**
      * Toggle the collapse state, persisting it as a user preference.
      *
@@ -743,21 +758,21 @@ export default function PendingReportView({initial}) {
                                 const rowColor = colourFor(row.slabucket);
                                 return html`
                                     <tr class="bft-report-row" key=${'r-' + row.submissionid}>
-                                        <td>${row.studentname}</td>
-                                        <td>${row.activityname}</td>
-                                        <td>${row.groupname || '-'}</td>
-                                        <td class="bft-mono">${formatDate(row.timesubmitted)}</td>
+                                        <td class="bft-report-cell-title">${row.studentname}</td>
+                                        <td data-label=${cols.activity}>${row.activityname}</td>
+                                        <td data-label=${cols.class}>${row.groupname || '-'}</td>
+                                        <td class="bft-mono" data-label=${cols.submitted}>${formatDate(row.timesubmitted)}</td>
                                         ${graded && html`
-                                            <td class="bft-mono">${formatDate(row.timegraded)}</td>
+                                            <td class="bft-mono" data-label=${cols.graded}>${formatDate(row.timegraded)}</td>
                                         `}
-                                        <td class="bft-report-effective bft-mono"
+                                        <td class="bft-report-effective bft-mono" data-label=${cols.effective}
                                             style=${'color: ' + rowColor + ';'}>
                                             ${usesDays(config)
                                                 ? formatDays(row.effective_days)
                                                 : formatHours(row.effectivehours)}
                                         </td>
                                         ${!graded && html`
-                                            <td class="bft-mono">
+                                            <td class="bft-mono" data-label=${cols.perceived}>
                                                 <span class="bft-report-perceived">
                                                     ${usesDays(config)
                                                         ? formatDays(row.perceived_days)
@@ -771,7 +786,7 @@ export default function PendingReportView({initial}) {
                                                 </span>
                                             </td>
                                         `}
-                                        <td>
+                                        <td data-label=${cols.status}>
                                             ${graded
                                                 ? html`
                                                     <span class="bft-row-result">
@@ -848,11 +863,11 @@ export default function PendingReportView({initial}) {
                             ${drafts.map((row) => html`
                                 <tr class="bft-report-row bft-report-row--draft"
                                     key=${'d-' + row.submissionid}>
-                                    <td>${row.studentname}</td>
-                                    <td>${row.activityname}</td>
-                                    <td>${row.groupname || '-'}</td>
-                                    <td class="bft-mono">${formatDate(row.timesubmitted)}</td>
-                                    <td>
+                                    <td class="bft-report-cell-title">${row.studentname}</td>
+                                    <td data-label=${cols.activity}>${row.activityname}</td>
+                                    <td data-label=${cols.class}>${row.groupname || '-'}</td>
+                                    <td class="bft-mono" data-label=${cols.lastsaved}>${formatDate(row.timesubmitted)}</td>
+                                    <td data-label=${cols.status}>
                                         <span class="bft-badge bft-badge-draft">
                                             ${i18n.status_draft || 'Draft'}
                                         </span>
