@@ -262,6 +262,14 @@ for ($dow = 0; $dow <= 6; $dow++) {
     ];
 }
 
+// Log this admin page view to the standard site log; user, IP and origin
+// are captured automatically. Fired once per render, after any POST redirect.
+$event = \block_feedback_tracker\event\tool_page_viewed::create([
+    'context' => $context,
+    'other' => ['page' => 'calendar'],
+]);
+$event->trigger();
+
 // Render.
 echo $OUTPUT->header();
 echo $OUTPUT->render_from_template('block_feedback_tracker/calendar_editor', [

@@ -110,6 +110,15 @@ foreach ($draftresult['submissions'] as $s) {
 
 $PAGE->requires->js_call_amd('block_feedback_tracker/pending_table', 'init');
 
+// Log this page view to the standard site log; user, IP and origin are
+// captured automatically. Fired once per navigation, not in the web services.
+$event = \block_feedback_tracker\event\report_viewed::create([
+    'context' => $context,
+    'courseid' => (int) $courseid,
+    'other' => ['report' => 'drilldown', 'groupid' => (int) $groupid],
+]);
+$event->trigger();
+
 echo $OUTPUT->header();
 echo $OUTPUT->render_from_template('block_feedback_tracker/drilldown', [
     'heading'   => get_string('drilldown_title', 'block_feedback_tracker'),

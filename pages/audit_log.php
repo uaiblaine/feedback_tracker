@@ -79,6 +79,14 @@ foreach ($dbrows as $r) {
     ];
 }
 
+// Log this admin page view to the standard site log; user, IP and origin
+// are captured automatically. Fired once per render.
+$event = \block_feedback_tracker\event\tool_page_viewed::create([
+    'context' => $context,
+    'other' => ['page' => 'audit'],
+]);
+$event->trigger();
+
 echo $OUTPUT->header();
 echo $OUTPUT->render_from_template('block_feedback_tracker/audit_log', [
     'heading'   => get_string('audit_title', 'block_feedback_tracker'),

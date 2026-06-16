@@ -452,6 +452,33 @@ Pair: `objectid` + `objecttable` must both be present or both absent in
 `::create()` data. If you set one without the other, Moodle throws a
 `coding_exception`.
 
+### View / access-logging events
+
+User access to the pages is logged with two read events (`crud = 'r'`):
+`event\report_viewed` (`LEVEL_PARTICIPATING`, the teacher-facing data
+surfaces — `other['report']` = `dashboard`/`pending`/`drilldown`) and
+`event\tool_page_viewed` (`LEVEL_OTHER`, the admin tool pages —
+`other['page']` = `manage`/`calendar`/`audit`/`reset`). They exist as two
+classes only because `edulevel` is fixed in `init()` and can't vary per
+instance. Conventions when adding/extending view logging:
+
+- **Fire server-side at page render, immediately before
+  `$OUTPUT->header()`** — once per navigation. Placing it after any
+  POST-process `redirect()` means form submits/cancels don't double-log.
+- **Never fire from a web service `execute()`.** The full-page surfaces ship
+  a null bootstrap and fetch via WS on mount + on every refresh / filter /
+  sort / page — logging there would multiply rows per view and grow the log
+  table non-linearly. The page-view event is the single access signal.
+- **No `db/events.php` observer is needed.** `logstore_standard` subscribes
+  to every event, so `->trigger()` is all that's required for the access to
+  appear in *Reports → Logs*. (The `cal_*` events have observers only because
+  they drive plugin side-effects — calver bump + rollup recompute — not for
+  logging.) Origin (userid/IP/origin/timecreated) is captured automatically;
+  we only supply `context`, `courseid` and `other`.
+- **No plugin privacy-provider change.** The rows live in
+  `logstore_standard_log`, whose own privacy provider handles GDPR
+  export/delete; the plugin that *fires* the event declares nothing extra.
+
 ## Processing scope (course_access gate)
 
 Since v1.0.0 the plugin is **strict opt-in**: nothing happens for a

@@ -127,6 +127,14 @@ $PAGE->requires->js(
 );
 $PAGE->requires->js_call_amd('block_feedback_tracker/dashboard_app', 'init');
 
+// Log this page view to the standard site log; user, IP and origin are
+// captured automatically. Fired once per navigation, not in the web services.
+$event = \block_feedback_tracker\event\report_viewed::create([
+    'context' => $sysctx,
+    'other' => ['report' => 'dashboard'],
+]);
+$event->trigger();
+
 echo $OUTPUT->header();
 echo '<div data-bft-dashboard-root>';
 echo '<script type="application/json" data-bft-init>' . $initialjson . '</script>';

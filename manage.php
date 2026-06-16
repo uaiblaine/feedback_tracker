@@ -54,6 +54,14 @@ if (has_capability('block/feedback_tracker:resetdata', $context)) {
     ];
 }
 
+// Log this admin page view to the standard site log; user, IP and origin
+// are captured automatically. Fired once per render.
+$event = \block_feedback_tracker\event\tool_page_viewed::create([
+    'context' => $context,
+    'other' => ['page' => 'manage'],
+]);
+$event->trigger();
+
 echo $OUTPUT->header();
 echo $OUTPUT->render_from_template('block_feedback_tracker/manage', [
     'heading' => get_string('manage_title', 'block_feedback_tracker'),

@@ -51,6 +51,14 @@ foreach ($counts as $name => $count) {
     $countrows[] = ['table' => $name, 'count' => (int) $count];
 }
 
+// Log this admin page view to the standard site log; user, IP and origin
+// are captured automatically. Fired once per render, after any POST redirect.
+$event = \block_feedback_tracker\event\tool_page_viewed::create([
+    'context' => $context,
+    'other' => ['page' => 'reset'],
+]);
+$event->trigger();
+
 echo $OUTPUT->header();
 echo $OUTPUT->render_from_template('block_feedback_tracker/reset', [
     'heading'       => get_string('reset_title', 'block_feedback_tracker'),
