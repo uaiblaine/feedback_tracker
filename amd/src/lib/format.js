@@ -45,6 +45,47 @@ export const formatNumber = (value, digits = 0) => {
 };
 
 /**
+ * Module-level thousands separator for integer counts. Set once per page from
+ * the active Moodle language (langconfig 'thousandssep') via the config
+ * bundle; defaults to a comma so a surface that never configures it still
+ * groups sensibly.
+ */
+let groupingSeparator = ',';
+
+/**
+ * Set the thousands separator used by formatCount. Each entrypoint calls this
+ * once at mount from initial.config.thousandssep so the JS surfaces group
+ * counts exactly like the PHP server card does
+ * (\block_feedback_tracker\local\output\numfmt::count). A non-string or empty
+ * value is ignored, keeping the current separator.
+ *
+ * @param {string} sep  The separator, e.g. "," (English) or "." (pt_br).
+ * @returns {void}
+ */
+export const setGroupingSeparator = (sep) => {
+    if (typeof sep === 'string' && sep.length > 0) {
+        groupingSeparator = sep;
+    }
+};
+
+/**
+ * Format an integer submission count with the active language's thousands
+ * separator, e.g. 1232123 → "1,232,123". Null / undefined / NaN coerce to 0
+ * (matching the bare `Number(x) || 0` the count surfaces used before), so a
+ * missing count renders "0" rather than the em-dash.
+ *
+ * @param {number|string|null|undefined} value  The count to format.
+ * @returns {string}
+ */
+export const formatCount = (value) => {
+    const n = Math.trunc(Number(value) || 0);
+    const negative = n < 0;
+    const digits = String(Math.abs(n));
+    const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, groupingSeparator);
+    return negative ? '-' + grouped : grouped;
+};
+
+/**
  * Hours suffix (matches the PHP "12.3 h" shape).
  *
  * @param {number|null|undefined} value

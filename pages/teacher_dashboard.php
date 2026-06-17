@@ -29,8 +29,9 @@ $sysctx = \context_system::instance();
 
 // Access gate, centralised in dashboard_scope: a user may open the
 // dashboard if they hold an active enrolment with a teacher-or-higher role
-// in at least one course — or are a site admin with enable_admin_view_all
-// on (then visible_course_ids() returns null, "the whole site"). A
+// in at least one course — or hold a full-site grant (the viewalldata
+// capability at system context, or a site admin with enable_admin_view_all
+// on; then visible_course_ids() returns null, "the whole site"). A
 // non-admin with zero visible courses is locked out. The same helper feeds
 // the web services so page and data agree on scope.
 global $USER;

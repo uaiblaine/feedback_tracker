@@ -26,6 +26,7 @@ declare(strict_types=1);
 
 namespace block_feedback_tracker\output;
 
+use block_feedback_tracker\local\output\numfmt;
 
 /**
  * One responsiveness card per (course, group). Composes the score gauge,
@@ -86,9 +87,9 @@ class responsiveness_card implements \renderable, \templatable {
         $overgoal = (int) $p['overgoal'];
         $waiting = max(0, (int) $p['pending'] - $overgoal - $critical);
         $counts = [
-            ['label' => get_string('card_pending', 'block_feedback_tracker'), 'value' => $waiting],
-            ['label' => get_string('card_overgoal', 'block_feedback_tracker'), 'value' => $overgoal],
-            ['label' => get_string('card_critical', 'block_feedback_tracker'), 'value' => $critical],
+            ['label' => get_string('card_pending', 'block_feedback_tracker'), 'value' => numfmt::count($waiting)],
+            ['label' => get_string('card_overgoal', 'block_feedback_tracker'), 'value' => numfmt::count($overgoal)],
+            ['label' => get_string('card_critical', 'block_feedback_tracker'), 'value' => numfmt::count($critical)],
         ];
 
         $metrics = $this->build_metrics($p, $showperceived);

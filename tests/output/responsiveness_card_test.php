@@ -203,4 +203,26 @@ final class responsiveness_card_test extends \advanced_testcase {
 
         $this->assertSame('55%', $ctx['metrics'][1]['value']);
     }
+
+    /**
+     * Large pending tallies render with the active language's thousands
+     * separator (a comma under the English test language) so the counts row
+     * reads "22,000" instead of a wall of digits. Waiting is derived as
+     * pending - overgoal - critical.
+     *
+     * @return void
+     */
+    public function test_counts_group_thousands_separator(): void {
+        $this->resetAfterTest();
+
+        $ctx = $this->export($this->sample_payload([
+            'pending'  => 25000,
+            'overgoal' => 2000,
+            'critical' => 1000,
+        ]));
+
+        $this->assertSame('22,000', $ctx['counts'][0]['value']);
+        $this->assertSame('2,000', $ctx['counts'][1]['value']);
+        $this->assertSame('1,000', $ctx['counts'][2]['value']);
+    }
 }

@@ -214,6 +214,7 @@ $string['feedback_tracker:managecalendar'] = 'Gerenciar o calendário acadêmico
 $string['feedback_tracker:managepausewindows'] = 'Gerenciar janelas de pausa do SLA';
 $string['feedback_tracker:myaddinstance'] = 'Adicionar um novo bloco de rastreamento de feedback ao Painel';
 $string['feedback_tracker:resetdata'] = 'Redefinir todos os dados do rastreador de feedback';
+$string['feedback_tracker:viewalldata'] = 'Visualizar todos os cursos e grupos no painel do professor';
 $string['feedback_tracker:viewaudit'] = 'Visualizar log de auditoria de recálculo do rastreador de feedback';
 $string['feedback_tracker:viewdashboard'] = 'Visualizar o painel do rastreador de feedback a nível de site';
 $string['feedback_tracker:viewresponsiveness'] = 'Visualizar a responsividade acadêmica em um curso';

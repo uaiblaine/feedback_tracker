@@ -149,6 +149,11 @@ class bootstrap {
             'display_time_unit' =>
                 (string) (get_config('block_feedback_tracker', 'display_time_unit') ?: 'hours'),
             'show_peer_context' => $showpeer,
+            // Active-language thousands separator (langconfig) so the React
+            // surfaces group large submission counts exactly like the PHP
+            // server card does — a comma in English, a dot in pt_br. Mirrors
+            // \block_feedback_tracker\local\output\numfmt::count().
+            'thousandssep' => get_string('thousandssep', 'langconfig'),
         ];
     }
 

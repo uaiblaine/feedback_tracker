@@ -32,7 +32,7 @@ import {html} from 'block_feedback_tracker/lib/preact';
 import ScoreRing from 'block_feedback_tracker/components/ScoreRing';
 import Sparkline from 'block_feedback_tracker/components/Sparkline';
 import {bandForScore, colourFor} from 'block_feedback_tracker/lib/bands';
-import {formatHours, formatDays, usesDays} from 'block_feedback_tracker/lib/format';
+import {formatHours, formatDays, usesDays, formatCount} from 'block_feedback_tracker/lib/format';
 
 /**
  * Header cell that toggles sort when clicked.
@@ -165,12 +165,12 @@ export default function CoursesTable({rows, i18n, sortKey, sortOrder, onSort, th
                                     `}
                             </td>
                             <td class="bft-mono bft-courses-num" data-label=${cols.pending}>
-                                ${Number(row.pending) || 0}
+                                ${formatCount(row.pending)}
                             </td>
                             <td class=${'bft-mono bft-courses-num'
                                 + (Number(row.critical) > 0 ? ' bft-courses-num-alert' : '')}
                                 data-label=${cols.critical}>
-                                ${Number(row.critical) || 0}
+                                ${formatCount(row.critical)}
                             </td>
                             <td class=${'bft-mono bft-courses-num bft-overall-score-tone-' + band}
                                 data-label=${cols.effective}>

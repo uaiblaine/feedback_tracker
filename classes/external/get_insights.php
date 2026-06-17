@@ -27,6 +27,7 @@ declare(strict_types=1);
 namespace block_feedback_tracker\external;
 
 use block_feedback_tracker\local\calendar\calendar;
+use block_feedback_tracker\local\output\numfmt;
 use core_external\external_api;
 use core_external\external_function_parameters;
 use core_external\external_single_structure;
@@ -47,7 +48,7 @@ class get_insights extends external_api {
     public const CACHE_TTL = 900;
 
     /** Cache-key version. Bump when the result shape changes. */
-    public const CACHE_KEY_VERSION = 3;
+    public const CACHE_KEY_VERSION = 4;
 
     /**
      * Parameters — no inputs.
@@ -288,7 +289,7 @@ class get_insights extends external_api {
             'coursename'   => (string) $top->coursename,
             'groupid'      => (int) $top->groupid,
             'groupname'    => (string) ($top->groupname ?? ''),
-            'metric_value' => (string) $n,
+            'metric_value' => numfmt::count($n),
             'metric_suffix' => get_string('insight_criticalpending', 'block_feedback_tracker'),
         ];
     }

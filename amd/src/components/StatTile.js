@@ -27,6 +27,7 @@
  */
 
 import {html} from 'block_feedback_tracker/lib/preact';
+import {formatCount} from 'block_feedback_tracker/lib/format';
 
 /**
  * @param {object} props
@@ -42,7 +43,7 @@ export default function StatTile({label, value, tone, href, onClick}) {
     const cls = 'bft-stat-tile bft-stat-tile-tone-' + effectivetone;
     const contents = html`
         <span class="bft-stat-tile-label">${label}</span>
-        <span class="bft-stat-tile-value bft-mono">${Number(value) || 0}</span>
+        <span class="bft-stat-tile-value bft-mono">${formatCount(value)}</span>
     `;
     if (href) {
         return html`<a class=${cls} href=${href} onClick=${onClick}>${contents}</a>`;

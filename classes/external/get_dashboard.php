@@ -78,8 +78,9 @@ class get_dashboard extends external_api {
         self::validate_context($sysctx);
 
         // Authorisation + result scope are centralised in dashboard_scope:
-        // active enrolment with a teacher-or-higher role, unless the user is
-        // a site admin with enable_admin_view_all on (then the whole site).
+        // active enrolment with a teacher-or-higher role, unless the user holds
+        // a full-site grant — the viewalldata capability at system context, or a
+        // site admin with enable_admin_view_all on (then the whole site).
         // A non-admin with zero visible courses has no dashboard access.
         $userid = (int) $USER->id;
         $scope = \block_feedback_tracker\local\sla\dashboard_scope::visible_course_ids($userid);
@@ -92,8 +93,8 @@ class get_dashboard extends external_api {
             );
         }
         // Cache key includes the user (so per-user filtering doesn't leak
-        // across teachers), the band, and whether the user is in admin
-        // view-all mode (so flipping enable_admin_view_all re-keys at once).
+        // across teachers), the band, and whether the user is in full-site
+        // view-all mode (so gaining or losing that grant re-keys at once).
         $cache = \cache::make('block_feedback_tracker', 'dashboard_payload');
         $key = 'v' . self::CACHE_KEY_VERSION
             . '_' . calendar::current_version()

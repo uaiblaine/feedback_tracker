@@ -44,7 +44,7 @@ import RetryNotice from 'block_feedback_tracker/components/RetryNotice';
 import {getDashboard, getGraderPriorityList, getInsights}
     from 'block_feedback_tracker/lib/api';
 import {bandForScore} from 'block_feedback_tracker/lib/bands';
-import {usesDays, formatDays} from 'block_feedback_tracker/lib/format';
+import {usesDays, formatDays, formatCount} from 'block_feedback_tracker/lib/format';
 import {setUserPreference} from 'core_user/repository';
 import Notification from 'core/notification';
 
@@ -472,11 +472,11 @@ export default function DashboardView({initial}) {
                         <span class="bft-dashboard-wave"><${WaveMark} size=${26} /></span>
                     </h1>
                     <div class="bft-dashboard-subline">
-                        <strong>${totals.pending}</strong>
+                        <strong>${formatCount(totals.pending)}</strong>
                         <span>${i18n.dashboard_subline_waiting || 'waiting'}</span>
                         <span class="bft-dashboard-dot">·</span>
                         <strong class=${totals.critical > 0 ? 'bft-overall-score-tone-critical' : ''}>
-                            ${totals.critical}
+                            ${formatCount(totals.critical)}
                         </strong>
                         <span>${i18n.dashboard_subline_critical || 'critical'}</span>
                         <span class="bft-dashboard-dot">·</span>

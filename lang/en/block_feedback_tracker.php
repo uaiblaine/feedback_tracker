@@ -214,6 +214,7 @@ $string['feedback_tracker:managecalendar'] = 'Manage the academic calendar';
 $string['feedback_tracker:managepausewindows'] = 'Manage SLA pause windows';
 $string['feedback_tracker:myaddinstance'] = 'Add a new Feedback Flow block to Dashboard';
 $string['feedback_tracker:resetdata'] = 'Reset all Feedback Flow data';
+$string['feedback_tracker:viewalldata'] = 'View all courses and groups on the teacher dashboard';
 $string['feedback_tracker:viewaudit'] = 'View Feedback Flow recompute audit log';
 $string['feedback_tracker:viewdashboard'] = 'View the site-level Feedback Flow dashboard';
 $string['feedback_tracker:viewresponsiveness'] = 'View Academic Responsiveness in a course';

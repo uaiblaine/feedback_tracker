@@ -33,6 +33,7 @@
  */
 
 import {html} from 'block_feedback_tracker/lib/preact';
+import {formatCount} from 'block_feedback_tracker/lib/format';
 
 /**
  * Segment descriptors per mode. `slug` is the filter value sent to the table
@@ -97,9 +98,9 @@ export default function StatusDistributionBar({mode, counts, active, onSelect, o
                                 class=${'bft-dist-seg bft-dist-seg-' + seg.tone + (dim ? ' bft-dist-seg-dim' : '')}
                                 style=${'flex: ' + Math.max(pct, 1).toFixed(2) + ' 1 0;'}
                                 aria-pressed=${active === seg.slug}
-                                aria-label=${seg.label + ' — ' + n}
+                                aria-label=${seg.label + ' — ' + formatCount(n)}
                                 onClick=${() => onSelect(active === seg.slug ? '' : seg.slug)}>
-                            <span class="bft-dist-seg-n bft-mono">${n}</span>
+                            <span class="bft-dist-seg-n bft-mono">${formatCount(n)}</span>
                             <span class="bft-dist-seg-l">${seg.label}</span>
                         </button>
                     `;

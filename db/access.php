@@ -75,6 +75,19 @@ $capabilities = [
         ],
     ],
 
+    'block/feedback_tracker:viewalldata' => [
+        // Full-site dashboard view: holders see every course and group on the
+        // teacher dashboard regardless of their own enrolments — the same scope
+        // a site admin gets through the enable_admin_view_all setting. Granted
+        // at SYSTEM context with no archetype so it is strictly opt-in: assign
+        // it to the role (coordinator, head of department, …) that should see
+        // everything. dashboard_scope checks it with doanything suppressed, so
+        // it never auto-applies to a plain site admin.
+        'captype' => 'read',
+        'contextlevel' => CONTEXT_SYSTEM,
+        'archetypes' => [],
+    ],
+
     'block/feedback_tracker:viewschoolcomparison' => [
         'captype' => 'read',
         'contextlevel' => CONTEXT_SYSTEM,

@@ -48,7 +48,7 @@ import RetryNotice from 'block_feedback_tracker/components/RetryNotice';
 import {bandForScore, colourFor} from 'block_feedback_tracker/lib/bands';
 import {getPendingSubmissions, getGradedSubmissions, getAcademicDays, getReportScopes}
     from 'block_feedback_tracker/lib/api';
-import {formatHours, formatDays, formatDate, usesDays} from 'block_feedback_tracker/lib/format';
+import {formatHours, formatDays, formatDate, usesDays, formatCount} from 'block_feedback_tracker/lib/format';
 import {setUserPreference} from 'core_user/repository';
 import Notification from 'core/notification';
 
@@ -553,10 +553,10 @@ export default function PendingReportView({initial}) {
             });
         }
         if (scope.total_overgoal > 0) {
-            chips.push({label: scope.total_overgoal + ' ' + (i18n.hero_sla_atrisk || 'at risk'), tone: 'regular'});
+            chips.push({label: formatCount(scope.total_overgoal) + ' ' + (i18n.hero_sla_atrisk || 'at risk'), tone: 'regular'});
         }
         if (scope.total_critical > 0) {
-            chips.push({label: scope.total_critical + ' ' + (i18n.hero_sla_critical || 'critical'), tone: 'critical'});
+            chips.push({label: formatCount(scope.total_critical) + ' ' + (i18n.hero_sla_critical || 'critical'), tone: 'critical'});
         }
     }
 
@@ -590,7 +590,7 @@ export default function PendingReportView({initial}) {
 
     const sublineLabel = (graded
         ? (i18n.pendingreport_subline_graded || '{$a} graded')
-        : (i18n.pendingreport_subline_pending || '{$a} awaiting feedback')).replace('{$a}', String(total));
+        : (i18n.pendingreport_subline_pending || '{$a} awaiting feedback')).replace('{$a}', formatCount(total));
 
     // Empty-state precedence: skeleton while the first page loads, retry on
     // error, "nothing matches" otherwise; null means the table renders.
