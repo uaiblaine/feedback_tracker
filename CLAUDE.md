@@ -763,6 +763,22 @@ Two vocabularies share these slugs: the **score** gauge shows the `band_*` strin
 to a `card_*` string in that component (e.g. `PriorityCard::priorityLabel`) — never
 relabel `band_*` globally, which would change the score gauge too.
 
+**Count formatting (thousands separator):** every integer submission count is
+grouped with the active language's separator — `numfmt::count()`
+([`classes/local/output/numfmt.php`](classes/local/output/numfmt.php)) in PHP,
+`formatCount()` in [`amd/src/lib/format.js`](amd/src/lib/format.js) in JS. The
+separator is `langconfig`'s `thousandssep` (comma in en, dot in pt_br): the PHP
+helper reads it directly; the JS helper is fed it via
+`bootstrap::config_bundle()` → `config.thousandssep`, pinned once per page by
+`setGroupingSeparator()` in each `*_app.js` entrypoint (never read it inside a
+component). The **renders-twice** rule applies — a new count on the block formats
+in both `responsiveness_card.php` and its Preact component. Both helpers coerce
+non-numeric input to `0`, so they take **integer counts only**: never feed them
+an already-formatted string or an hours/%/score value (those keep `formatHours` /
+`formatPercent`). `Counts.js` stays **generic** (its `value` may be a
+pre-formatted metric string like `"8.4 h"`), so the caller formats, not the
+component. Hours/percent/score/dates are deliberately left ungrouped.
+
 ## React conventions (Phase 2A foundation)
 
 Moodle 5.1 doesn't ship React. The plugin vendors **Preact + htm**
