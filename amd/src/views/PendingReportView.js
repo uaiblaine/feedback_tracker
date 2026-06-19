@@ -93,6 +93,24 @@ const pendingBadge = (pendingband, i18n) => {
 };
 
 /**
+ * Map a graded row's slabucket to its result Badge {band, label}. Graded
+ * submissions use the three-band result set (Excellent / Good / Regular) from
+ * the academic-days strip; critical results fold into Regular. The server
+ * already folds them, so the default arm only guards the display.
+ *
+ * @param {string} slabucket  excellent | good | regular (critical pre-folded).
+ * @param {object} i18n
+ * @returns {{band: string, label: string}}
+ */
+const gradedBadge = (slabucket, i18n) => {
+    switch (slabucket) {
+        case 'excellent': return {band: 'excellent', label: i18n.acaday_legend_ongoal || 'On goal'};
+        case 'good': return {band: 'good', label: i18n.acaday_legend_good || 'Good'};
+        default: return {band: 'regular', label: i18n.acaday_legend_regular || 'Regular'};
+    }
+};
+
+/**
  * Compute the hero scope for the active class filter. Single group → that
  * group's metrics; "all" → pending-weighted score, mean of the include-pending
  * medians, summed counts. Mirrors the server's old build_pending_report_scope
@@ -470,7 +488,9 @@ export default function PendingReportView({initial}) {
         graded: i18n.pendingreport_col_graded || 'Graded',
         effective: i18n.pendingreport_col_effective || 'Effective',
         perceived: i18n.pendingreport_col_perceived || 'Perceived',
-        status: i18n.drilldown_col_status,
+        status: graded
+            ? (i18n.pendingreport_col_result || 'Result')
+            : i18n.drilldown_col_status,
         lastsaved: i18n.drilldown_col_lastsaved || 'Last saved',
     };
 
@@ -732,7 +752,7 @@ export default function PendingReportView({initial}) {
                                         sortKey="perceived" currentKey=${serverSort}
                                         currentOrder=${sortOrder} onClick=${handleSort} />
                                 `}
-                                <${SortableHeader} label=${i18n.drilldown_col_status}
+                                <${SortableHeader} label=${cols.status}
                                     sortKey="status" currentKey=${serverSort}
                                     currentOrder=${sortOrder} onClick=${handleSort} />
                                 <th class="bft-report-col-action">
@@ -756,6 +776,7 @@ export default function PendingReportView({initial}) {
                                     : Number(row.waitinghours || 0)
                                         - Number(row.effectivehours || 0) > PAUSED_TAG_EPSILON;
                                 const rowColor = colourFor(row.slabucket);
+                                const resultbadge = graded ? gradedBadge(row.slabucket, i18n) : null;
                                 return html`
                                     <tr class="bft-report-row" key=${'r-' + row.submissionid}>
                                         <td class="bft-report-cell-title">${row.studentname}</td>
@@ -790,9 +811,8 @@ export default function PendingReportView({initial}) {
                                             ${graded
                                                 ? html`
                                                     <span class="bft-row-result">
-                                                        <${Badge} band=${row.slabucket}
-                                                            label=${(i18n.bands || {})[row.slabucket]
-                                                                || row.slabucket} />
+                                                        <${Badge} band=${resultbadge.band}
+                                                            label=${resultbadge.label} />
                                                         ${paused && html`<${PausedTag}
                                                             submissionid=${row.submissionid}
                                                             tip=${i18n.pendingreport_row_paused_graded_tip || ''}

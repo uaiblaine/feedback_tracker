@@ -306,6 +306,7 @@ class bootstrap {
             // Phase 3D additions — hero metrics, paused callout, status distribution, segmented filter.
             'distribution_hint' => get_string('distribution_hint', 'block_feedback_tracker'),
             'distribution_title' => get_string('distribution_title', 'block_feedback_tracker'),
+            'distribution_title_result' => get_string('distribution_title_result', 'block_feedback_tracker'),
             'hero_effective_eyebrow' => get_string('hero_effective_eyebrow', 'block_feedback_tracker'),
             'hero_effective_tip' => $daysmode
                 ? get_string('hero_effective_tip_days', 'block_feedback_tracker')
@@ -380,6 +381,7 @@ class bootstrap {
             'pendingreport_action_timeline' => get_string('pendingreport_action_timeline', 'block_feedback_tracker'),
             'pendingreport_col_action' => get_string('pendingreport_col_action', 'block_feedback_tracker'),
             'pendingreport_col_graded' => get_string('pendingreport_col_graded', 'block_feedback_tracker'),
+            'pendingreport_col_result' => get_string('pendingreport_col_result', 'block_feedback_tracker'),
             'pendingreport_mode_graded' => get_string('pendingreport_mode_graded', 'block_feedback_tracker'),
             'pendingreport_mode_pending' => get_string('pendingreport_mode_pending', 'block_feedback_tracker'),
             'pendingreport_subline_graded' => get_string('pendingreport_subline_graded', 'block_feedback_tracker'),

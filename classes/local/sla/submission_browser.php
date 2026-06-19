@@ -108,6 +108,15 @@ class submission_browser {
         // Distribution counts over the base set (band/bucket filter excluded).
         $counts = self::counts($from, $basewhere, $baseparams, $mode);
 
+        // Graded results use a three-band set (Excellent / Good / Regular):
+        // critical results are rare and fold into Regular, mirroring the
+        // academic-days strip. The critical band is kept (as zero) so the WS
+        // return shape is unchanged.
+        if ($mode === self::MODE_GRADED) {
+            $counts[bucket::REGULAR] += $counts[bucket::CRITICAL];
+            $counts[bucket::CRITICAL] = 0;
+        }
+
         // Layer the band/bucket filter for the displayed rows + their total.
         [$rowswhere, $rowsparams] = self::apply_band_filter($basewhere, $baseparams, $mode, $band, $bucket);
 
@@ -154,6 +163,11 @@ class submission_browser {
                 $slabucket = $usedays
                     ? bucket::for_effective_days((float) $days['business'])
                     : bucket::for_effective($eff);
+            }
+            // Critical graded results fold into Regular — the three-band result
+            // set (Excellent / Good / Regular) the academic-days strip uses.
+            if ($mode === self::MODE_GRADED && $slabucket === bucket::CRITICAL) {
+                $slabucket = bucket::REGULAR;
             }
             $out[] = [
                 'submissionid'     => (int) $r->id,
@@ -269,7 +283,7 @@ class submission_browser {
             // bucket::for_effective_days).
             if ($bucket !== '') {
                 if ($usedays) {
-                    [$d1, $d2, $d3] = bucket::parse_thresholds_days();
+                    [$d1, $d2] = bucket::parse_thresholds_days();
                     if ($bucket === bucket::EXCELLENT) {
                         $where .= ' AND sub.effectivedays <= :bktda';
                         $params['bktda'] = $d1;
@@ -277,14 +291,16 @@ class submission_browser {
                         $where .= ' AND sub.effectivedays > :bktda AND sub.effectivedays <= :bktdb';
                         $params['bktda'] = $d1;
                         $params['bktdb'] = $d2;
-                    } else if ($bucket === bucket::REGULAR) {
-                        $where .= ' AND sub.effectivedays > :bktda AND sub.effectivedays <= :bktdb';
-                        $params['bktda'] = $d2;
-                        $params['bktdb'] = $d3;
-                    } else if ($bucket === bucket::CRITICAL) {
+                    } else if ($bucket === bucket::REGULAR || $bucket === bucket::CRITICAL) {
+                        // Regular folds in critical: everything past the Good ceiling.
                         $where .= ' AND sub.effectivedays > :bktda';
-                        $params['bktda'] = $d3;
+                        $params['bktda'] = $d2;
                     }
+                } else if ($bucket === bucket::REGULAR || $bucket === bucket::CRITICAL) {
+                    // Regular folds in critical (three-band graded result).
+                    $where .= ' AND sub.slabucket IN (:bucketr, :bucketc)';
+                    $params['bucketr'] = bucket::REGULAR;
+                    $params['bucketc'] = bucket::CRITICAL;
                 } else {
                     $where .= ' AND sub.slabucket = :bucket';
                     $params['bucket'] = $bucket;

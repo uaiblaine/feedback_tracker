@@ -62,7 +62,10 @@ final class get_graded_submissions_test extends \advanced_testcase {
     }
 
     /**
-     * Counts partition the graded set by result band (slabucket).
+     * Counts partition the graded set into the three result bands
+     * (excellent / good / regular). Critical graded results fold into Regular —
+     * the same three-band set the academic-days strip shows — so the critical
+     * count is always zero.
      *
      * @return void
      */
@@ -83,8 +86,43 @@ final class get_graded_submissions_test extends \advanced_testcase {
 
         $this->assertSame(1, (int) $result['counts']['excellent']);
         $this->assertSame(2, (int) $result['counts']['good']);
-        $this->assertSame(0, (int) $result['counts']['regular']);
-        $this->assertSame(1, (int) $result['counts']['critical']);
+        // The lone critical row folds into Regular; the critical band stays empty.
+        $this->assertSame(1, (int) $result['counts']['regular']);
+        $this->assertSame(0, (int) $result['counts']['critical']);
+    }
+
+    /**
+     * Critical graded results fold into Regular across the whole graded view:
+     * each row reports a "regular" slabucket (never "critical"), the counts roll
+     * critical into regular, and filtering by Regular returns the folded rows.
+     *
+     * @return void
+     */
+    public function test_critical_folds_into_regular(): void {
+        $this->resetAfterTest();
+
+        [$course, $teacher] = $this->seed_course_with_teacher();
+        $this->seed_row($course, 'regular', true);
+        $this->seed_row($course, 'critical', true);
+
+        $this->setUser($teacher);
+
+        $all = external_api::clean_returnvalue(
+            get_graded_submissions::execute_returns(),
+            get_graded_submissions::execute((int) $course->id)
+        );
+        $this->assertSame(2, (int) $all['counts']['regular']);
+        $this->assertSame(0, (int) $all['counts']['critical']);
+        foreach ($all['submissions'] as $row) {
+            $this->assertSame('regular', $row['slabucket']);
+        }
+
+        // Filtering by Regular includes the folded critical row.
+        $filtered = external_api::clean_returnvalue(
+            get_graded_submissions::execute_returns(),
+            get_graded_submissions::execute((int) $course->id, 0, 'regular')
+        );
+        $this->assertSame(2, (int) $filtered['total']);
     }
 
     /**
