@@ -156,8 +156,8 @@ class upcoming_pauses {
      * @return string
      */
     private static function format_date(int $ts, \DateTimeZone $tz): string {
-        // fixday=false keeps the day zero-padded ("09/06/2026"), matching the
-        // plugin's existing JS date rendering.
+        // Passing fixday off keeps the day zero-padded ("09/06/2026"), to
+        // match the plugin's existing JS date rendering.
         return userdate($ts, get_string('pause_date_format', 'block_feedback_tracker'), $tz->getName(), false);
     }
 
