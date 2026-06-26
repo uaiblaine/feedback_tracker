@@ -83,6 +83,17 @@ try {
     debugging('block_feedback_tracker: dashboard events fetch failed: ' . $e->getMessage());
 }
 
+// Scheduled-pause notice ("Pausa prevista") — up to 3 pauses visible now
+// (3 days before → day after), site scope so a single pass reaches every
+// platform-wide calendar pause an admin has configured. Same lazy-tolerant
+// pattern as the events sidecar above.
+$upcoming = [];
+try {
+    $upcoming = \block_feedback_tracker\local\calendar\upcoming_pauses::for_display(0, 0, time());
+} catch (\Throwable $e) {
+    debugging('block_feedback_tracker: dashboard upcoming-pauses fetch failed: ' . $e->getMessage());
+}
+
 // Whether to expose the comparison overlay — gated by its own capability so
 // teachers with viewdashboard but not viewschoolcomparison only see the
 // per-course aggregate, not the site-wide benchmarks.
@@ -105,6 +116,7 @@ $initial = [
     'gradenow' => $gradenow,
     'insights' => $insights,
     'events' => $events,
+    'upcoming' => $upcoming,
     'cancompare' => $cancompare,
     'dashboard_collapsed' => $dashboardcollapsed,
     'i18n' => array_merge(

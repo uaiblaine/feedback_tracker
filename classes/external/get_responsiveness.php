@@ -174,6 +174,19 @@ class get_responsiveness extends external_api {
             'nextpause_note'       => new external_value(PARAM_TEXT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
             'lastpause_endts'      => new external_value(PARAM_INT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
             'lastpause_reason'     => new external_value(PARAM_TEXT, '', VALUE_DEFAULT, null, NULL_ALLOWED),
+            /* Scheduled-pause notice ("Pausa prevista"): up to 3 upcoming pauses. */
+            'upcoming_pauses' => new external_multiple_structure(
+                new external_single_structure([
+                    'start'     => new external_value(PARAM_INT, 'Pause start unix ts (sort key)'),
+                    'type'      => new external_value(PARAM_ALPHA, 'Pause type / reason slug'),
+                    'label'     => new external_value(PARAM_RAW, 'Pre-sanitised pause label'),
+                    'when'      => new external_value(PARAM_TEXT, 'Localised date / time window'),
+                    'typelabel' => new external_value(PARAM_TEXT, 'Localised pause-type label'),
+                ]),
+                '',
+                VALUE_DEFAULT,
+                []
+            ),
             'paused_days_30d'      => new external_value(PARAM_INT, '', VALUE_DEFAULT, 0),
             'paused_breakdown_30d' => new external_single_structure([
                 'weekend' => new external_value(PARAM_INT, ''),

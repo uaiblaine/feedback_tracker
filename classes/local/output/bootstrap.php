@@ -90,7 +90,8 @@ class bootstrap {
             'card_sla' => get_string('card_sla', 'block_feedback_tracker'),
             'card_sla_sub' => get_string('card_sla_sub', 'block_feedback_tracker'),
             'overall_eyebrow' => get_string('overall_eyebrow', 'block_feedback_tracker'),
-            'paused_today_label' => get_string('paused_today_label', 'block_feedback_tracker'),
+            'pause_type_label' => get_string('pause_type_label', 'block_feedback_tracker'),
+            'pause_upcoming_label' => get_string('pause_upcoming_label', 'block_feedback_tracker'),
             'peer_department' => get_string('peer_department', 'block_feedback_tracker'),
             'peer_title' => get_string('peer_title', 'block_feedback_tracker'),
             'peer_top10' => get_string('peer_top10', 'block_feedback_tracker'),
@@ -127,6 +128,9 @@ class bootstrap {
         // mis-handle the off case because '0' is falsy in PHP.
         $peercfg = get_config('block_feedback_tracker', 'show_peer_context');
         $showpeer = ($peercfg === false || $peercfg === null) ? true : ((string) $peercfg !== '0');
+        // Scheduled-pause notice toggle — same default-ON read as above.
+        $pausecfg = get_config('block_feedback_tracker', 'show_paused_today_indicator');
+        $showpause = ($pausecfg === false || $pausecfg === null) ? true : ((string) $pausecfg !== '0');
         return [
             'weights' => [
                 'compliance' => (float) (get_config('block_feedback_tracker', 'weight_compliance') ?: 0.40),
@@ -149,6 +153,7 @@ class bootstrap {
             'display_time_unit' =>
                 (string) (get_config('block_feedback_tracker', 'display_time_unit') ?: 'hours'),
             'show_peer_context' => $showpeer,
+            'show_scheduled_pauses' => $showpause,
             // Active-language thousands separator (langconfig) so the React
             // surfaces group large submission counts exactly like the PHP
             // server card does — a comma in English, a dot in pt_br. Mirrors

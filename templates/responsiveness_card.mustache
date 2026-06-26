@@ -19,7 +19,7 @@
     One responsiveness card per (course, group) — the no-JS fallback. Collapsible
     via native <details>: a gray header (title + optional subtitle + band badge)
     toggles the body — score gauge, the three pending-band counts, metrics row,
-    optional paused-today strip, optional 14-day sparkline, and a drilldown link.
+    optional scheduled-pause notice, optional 14-day sparkline, and a drilldown link.
 
     Context variables required:
     * title          Group or course title (string)
@@ -30,8 +30,10 @@
     * gauge          Sub-context for score_gauge.mustache
     * counts         Array of {label, value} for the band counts row
     * metrics        Array of {label, value} for the metrics row
-    * haspause       Truthy if the pause strip should render
-    * pausestrip     Already-formatted pause-strip text (string)
+    * hasupcoming    Truthy if the scheduled-pause notice should render
+    * upcoming_eyebrow  Localised "Upcoming pause" eyebrow (string)
+    * upcoming_typelabel  Localised "Type" prefix word (string)
+    * upcoming       Array of {haslabel, label, when, hastypelabel, typelabel}
     * hassparkline   Truthy if the 14-day sparkline should render
     * sparkline      Sub-context for sparkline.mustache
     * courseid       Course id
@@ -59,7 +61,16 @@
             {"label": "Within SLA", "value": "80%"},
             {"label": "Trend 7d", "value": "▲ 18%"}
         ],
-        "haspause": false, "pausestrip": "",
+        "hasupcoming": true,
+        "upcoming_eyebrow": "Upcoming pause",
+        "upcoming_typelabel": "Type",
+        "upcoming": [
+            {
+                "haslabel": true, "label": "World Cup | Brazil x Japan",
+                "when": "06/29/2026, 16:00-17:00",
+                "hastypelabel": true, "typelabel": "Optional"
+            }
+        ],
         "hassparkline": false, "sparkline": {},
         "courseid": 2,
         "drilldownurl": "/blocks/feedback_tracker/pages/group_drilldown.php?courseid=2&groupid=0",
@@ -100,9 +111,26 @@
                     {{#sparkline}}{{> block_feedback_tracker/sparkline }}{{/sparkline}}
                 </div>
             {{/hassparkline}}
-            {{#haspause}}
-                <div class="bft-pause-strip">{{pausestrip}}</div>
-            {{/haspause}}
+            {{#hasupcoming}}
+                <section class="bft-scheduled bft-rh-tone-regular bft-scheduled-compact"
+                         aria-label="{{upcoming_eyebrow}}">
+                    <span class="bft-scheduled-swatch" aria-hidden="true"></span>
+                    <div class="bft-scheduled-body">
+                        <div class="bft-scheduled-eyebrow">{{upcoming_eyebrow}}:</div>
+                        <ul class="bft-scheduled-list">
+                            {{#upcoming}}
+                                <li class="bft-scheduled-item">
+                                    {{#haslabel}}<span class="bft-scheduled-label">{{label}}</span>{{/haslabel}}
+                                    <span class="bft-scheduled-when">{{when}}</span>
+                                    {{#hastypelabel}}
+                                        <span class="bft-scheduled-type">{{upcoming_typelabel}}: {{typelabel}}</span>
+                                    {{/hastypelabel}}
+                                </li>
+                            {{/upcoming}}
+                        </ul>
+                    </div>
+                </section>
+            {{/hasupcoming}}
             <div class="bft-card-foot">
                 <a class="bft-drilldown" href="{{drilldownurl}}">{{drilldowntext}}</a>
             </div>

@@ -41,6 +41,7 @@ import PriorityCard from 'block_feedback_tracker/components/PriorityCard';
 import CoursesTable from 'block_feedback_tracker/components/CoursesTable';
 import WaveMark from 'block_feedback_tracker/components/WaveMark';
 import RetryNotice from 'block_feedback_tracker/components/RetryNotice';
+import ScheduledPauses from 'block_feedback_tracker/components/ScheduledPauses';
 import {getDashboard, getGraderPriorityList, getInsights}
     from 'block_feedback_tracker/lib/api';
 import {bandForScore} from 'block_feedback_tracker/lib/bands';
@@ -278,6 +279,10 @@ export default function DashboardView({initial}) {
     // teacher_dashboard.php so the dashboard subline can show the most
     // recent named optional event (e.g. "⚽ Brasil vs França · 21/05 16:00-18:00").
     const [events] = useState(Array.isArray(initial.events) ? initial.events : []);
+    // Scheduled-pause notice — preloaded site-scope by teacher_dashboard.php,
+    // already decorated + visibility-filtered server-side. Gated by the admin
+    // toggle (default ON).
+    const [upcoming] = useState(Array.isArray(initial.upcoming) ? initial.upcoming : []);
     /*
      * V1.0.8 — collapsed state for the combined Responsiveness hero +
      * Insights block. Initial value comes from the user preference
@@ -526,6 +531,10 @@ export default function DashboardView({initial}) {
                 collapsed=${collapsed}
                 onToggle=${handleToggleCollapsed}
                 heroprops=${heroprops} />
+
+            ${config.show_scheduled_pauses !== false && html`
+                <${ScheduledPauses} pauses=${upcoming} i18n=${i18n} />
+            `}
 
             ${!collapsed
                 && insights

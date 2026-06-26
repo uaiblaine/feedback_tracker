@@ -95,6 +95,20 @@ $reportcollapsed = (bool) get_user_preferences(
     (int) $USER->id
 );
 
+// Scheduled-pause notice ("Pausa prevista") — up to 3 pauses visible now
+// (3 days before → day after), course scope. Cheap calendar read; ships in
+// the bootstrap like the dashboard so the notice paints with the shell.
+$upcoming = [];
+try {
+    $upcoming = \block_feedback_tracker\local\calendar\upcoming_pauses::for_display(
+        (int) $courseid,
+        0,
+        time()
+    );
+} catch (\Throwable $e) {
+    debugging('block_feedback_tracker: report upcoming-pauses fetch failed: ' . $e->getMessage());
+}
+
 $initial = [
     'courseid' => (int) $courseid,
     'coursename' => format_string($course->fullname),
@@ -111,6 +125,7 @@ $initial = [
     'drafts' => null,
     'groups' => null,
     'groupscopes' => null,
+    'upcoming' => $upcoming,
     'report_collapsed' => $reportcollapsed,
     'i18n' => $i18n,
     'config' => \block_feedback_tracker\local\output\bootstrap::config_bundle(),

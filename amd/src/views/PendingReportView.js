@@ -45,6 +45,7 @@ import AcademicDaysStrip from 'block_feedback_tracker/components/AcademicDaysStr
 import StatusDistributionBar from 'block_feedback_tracker/components/StatusDistributionBar';
 import Skeleton from 'block_feedback_tracker/components/Skeleton';
 import RetryNotice from 'block_feedback_tracker/components/RetryNotice';
+import ScheduledPauses from 'block_feedback_tracker/components/ScheduledPauses';
 import {bandForScore, colourFor} from 'block_feedback_tracker/lib/bands';
 import {getPendingSubmissions, getGradedSubmissions, getAcademicDays, getReportScopes}
     from 'block_feedback_tracker/lib/api';
@@ -356,6 +357,10 @@ export default function PendingReportView({initial}) {
 
     // Collapse state for the hero + heatmap container (Moodle user preference).
     const [collapsed, setCollapsed] = useState(Boolean(initial.report_collapsed));
+    // Scheduled-pause notice — preloaded course-scope by pending_report.php,
+    // already decorated + visibility-filtered server-side. Gated by the admin
+    // toggle (default ON).
+    const [upcoming] = useState(Array.isArray(initial.upcoming) ? initial.upcoming : []);
 
     // Which row's paused-info popover is open (submissionid, or null). The
     // info icon keeps its hover title; click pins the explanation for
@@ -660,6 +665,10 @@ export default function PendingReportView({initial}) {
                     collapsed=${collapsed}
                     onToggle=${handleToggleCollapsed}
                     heroprops=${heroprops} />
+            `}
+
+            ${config.show_scheduled_pauses !== false && html`
+                <${ScheduledPauses} pauses=${upcoming} i18n=${i18n} />
             `}
 
             ${!collapsed && html`

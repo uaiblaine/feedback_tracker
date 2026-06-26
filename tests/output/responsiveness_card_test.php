@@ -82,6 +82,7 @@ final class responsiveness_card_test extends \advanced_testcase {
             'paused_days_30d'        => 0,
             'paused_breakdown_30d'   => ['weekend' => 0, 'holiday' => 0, 'recess' => 0],
             'paused_events_30d'      => [],
+            'upcoming_pauses'        => [],
             'peer_department_score'  => null,
             'peer_department_hours'  => null,
             'peer_top10_score'       => null,
@@ -134,38 +135,53 @@ final class responsiveness_card_test extends \advanced_testcase {
     }
 
     /**
-     * With show_paused_today_indicator off, the pause strip must be suppressed
-     * even when the payload carries pause data.
+     * With show_paused_today_indicator off, the scheduled-pause notice must be
+     * suppressed even when the payload carries upcoming pauses.
      *
      * @return void
      */
-    public function test_pause_strip_hidden_when_disabled(): void {
+    public function test_scheduled_notice_hidden_when_disabled(): void {
         $this->resetAfterTest();
         set_config('show_paused_today_indicator', '0', 'block_feedback_tracker');
 
         $ctx = $this->export($this->sample_payload([
-            'lastpause_endts'  => 1700000000,
-            'lastpause_reason' => 'weekend',
+            'upcoming_pauses' => [
+                [
+                    'start' => 1700000000, 'type' => 'holiday', 'label' => '',
+                    'when' => '01/01/2026', 'typelabel' => 'Holiday',
+                ],
+            ],
         ]));
 
-        $this->assertFalse($ctx['haspause']);
+        $this->assertFalse($ctx['hasupcoming']);
+        $this->assertSame([], $ctx['upcoming']);
     }
 
     /**
-     * With show_paused_today_indicator on, pause data produces a visible strip.
+     * With show_paused_today_indicator on, upcoming pauses produce a visible
+     * notice carrying the decorated when / typelabel strings.
      *
      * @return void
      */
-    public function test_pause_strip_shown_when_enabled(): void {
+    public function test_scheduled_notice_shown_when_enabled(): void {
         $this->resetAfterTest();
         set_config('show_paused_today_indicator', '1', 'block_feedback_tracker');
 
         $ctx = $this->export($this->sample_payload([
-            'lastpause_endts'  => 1700000000,
-            'lastpause_reason' => 'weekend',
+            'upcoming_pauses' => [
+                [
+                    'start' => 1700000000, 'type' => 'optional',
+                    'label' => 'World Cup', 'when' => '29/06/2026 das 16h as 17h',
+                    'typelabel' => 'Optional',
+                ],
+            ],
         ]));
 
-        $this->assertTrue($ctx['haspause']);
+        $this->assertTrue($ctx['hasupcoming']);
+        $this->assertCount(1, $ctx['upcoming']);
+        $this->assertSame('World Cup', $ctx['upcoming'][0]['label']);
+        $this->assertTrue($ctx['upcoming'][0]['haslabel']);
+        $this->assertSame('29/06/2026 das 16h as 17h', $ctx['upcoming'][0]['when']);
     }
 
     /**

@@ -30,7 +30,7 @@ use block_feedback_tracker\local\output\numfmt;
 
 /**
  * One responsiveness card per (course, group). Composes the score gauge,
- * counts row, metrics row, paused-today strip, and an optional score
+ * counts row, metrics row, scheduled-pause notice, and an optional score
  * breakdown. Rendered via Mustache; see templates/responsiveness_card.mustache.
  */
 class responsiveness_card implements \renderable, \templatable {
@@ -93,7 +93,7 @@ class responsiveness_card implements \renderable, \templatable {
         ];
 
         $metrics = $this->build_metrics($p, $showperceived);
-        $pausestrip = $showpause ? $this->build_pause_strip($p) : '';
+        $upcoming = $showpause ? $this->build_upcoming($p) : [];
 
         $sparklinectx = $this->build_sparkline($p, $output);
 
@@ -111,8 +111,10 @@ class responsiveness_card implements \renderable, \templatable {
             'gauge'         => $gauge->export_for_template($output),
             'counts'        => $counts,
             'metrics'       => $metrics,
-            'haspause'      => $pausestrip !== '',
-            'pausestrip'    => $pausestrip,
+            'hasupcoming'        => !empty($upcoming),
+            'upcoming'           => $upcoming,
+            'upcoming_eyebrow'   => get_string('pause_upcoming_label', 'block_feedback_tracker'),
+            'upcoming_typelabel' => get_string('pause_type_label', 'block_feedback_tracker'),
             'hassparkline'  => $sparklinectx !== null,
             'sparkline'     => $sparklinectx ?? [],
             'courseid'      => $this->courseid,
@@ -177,29 +179,29 @@ class responsiveness_card implements \renderable, \templatable {
     }
 
     /**
-     * Build the paused-today / next-pause indicator strip.
+     * Build the scheduled-pause notice rows ("Pausa prevista") from the
+     * payload's upcoming_pauses list. The list is already decorated with
+     * localised when/typelabel strings by upcoming_pauses::for_display(), so
+     * the no-JS card and the Preact block render identical text.
      *
      * @param array $p
-     * @return string
+     * @return array
      */
-    private function build_pause_strip(array $p): string {
-        $parts = [];
-        if ($p['lastpause_endts'] !== null && (int) $p['lastpause_endts'] > 0) {
-            $when = userdate((int) $p['lastpause_endts'], get_string('strftimedate', 'core_langconfig'));
-            $reason = (string) ($p['lastpause_reason'] ?? '');
-            $parts[] = get_string('card_lastpause', 'block_feedback_tracker', (object) [
-                'when' => $when, 'reason' => $reason,
-            ]);
+    private function build_upcoming(array $p): array {
+        $rows = [];
+        $entries = is_array($p['upcoming_pauses'] ?? null) ? $p['upcoming_pauses'] : [];
+        foreach ($entries as $u) {
+            $label = (string) ($u['label'] ?? '');
+            $typelabel = (string) ($u['typelabel'] ?? '');
+            $rows[] = [
+                'haslabel'     => $label !== '',
+                'label'        => $label,
+                'when'         => (string) ($u['when'] ?? ''),
+                'hastypelabel' => $typelabel !== '',
+                'typelabel'    => $typelabel,
+            ];
         }
-        if ($p['nextpause_ts'] !== null && (int) $p['nextpause_ts'] > 0) {
-            $when = userdate((int) $p['nextpause_ts'], get_string('strftimedate', 'core_langconfig'));
-            $reason = (string) ($p['nextpause_reason'] ?? '');
-            $note = (string) ($p['nextpause_note'] ?? '');
-            $parts[] = get_string('card_nextpause', 'block_feedback_tracker', (object) [
-                'when' => $when, 'reason' => $reason, 'note' => $note,
-            ]);
-        }
-        return empty($parts) ? '' : implode(' · ', $parts);
+        return $rows;
     }
 
     /**

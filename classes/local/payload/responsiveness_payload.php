@@ -28,6 +28,7 @@ namespace block_feedback_tracker\local\payload;
 
 use block_feedback_tracker\local\calendar\calendar;
 use block_feedback_tracker\local\calendar\paused_aggregator;
+use block_feedback_tracker\local\calendar\upcoming_pauses;
 use block_feedback_tracker\local\score\peer_stats;
 use block_feedback_tracker\local\sla\activity_schedule;
 use block_feedback_tracker\local\sla\bucket;
@@ -191,6 +192,13 @@ class responsiveness_payload {
         $pausedwindowstart = $now - 30 * 86400;
         $pausedaggregate = paused_aggregator::for_window($courseid, $pausedwindowstart, $now);
 
+        // Scheduled-pause notice ("Pausa prevista"): the upcoming pauses
+        // visible now (3 days before → day after), course scope, decorated
+        // with localised when/typelabel strings. Platform-wide, so it is
+        // attached identically to every group payload and the block renders
+        // it once above the cards.
+        $upcoming = upcoming_pauses::for_display($courseid, 0, $now);
+
         // Course-level assign catalog (global dates, group mode, manage
         // capability, group overrides), built once and resolved per group
         // below. Activities surface only on real-group cards.
@@ -222,7 +230,8 @@ class responsiveness_payload {
                 $pausedaggregate,
                 $peer,
                 $subtitle,
-                $activities
+                $activities,
+                $upcoming
             );
         }
 
@@ -437,6 +446,7 @@ class responsiveness_payload {
      * @param array|null $peer Output of peer_stats::for_exclusion().
      * @param string|null $groupsubtitle Optional smaller line shown under the title.
      * @param array $activities Per-group assign schedule rows from activity_schedule::for_group().
+     * @param array $upcoming Visible scheduled pauses from upcoming_pauses::for_course_group().
      * @return array
      */
     public static function group_payload(
@@ -448,7 +458,8 @@ class responsiveness_payload {
         ?array $pausedaggregate = null,
         ?array $peer = null,
         ?string $groupsubtitle = null,
-        array $activities = []
+        array $activities = [],
+        array $upcoming = []
     ): array {
         $pausedaggregate = $pausedaggregate ?? ['total_days' => 0, 'weekend' => 0, 'holiday' => 0, 'recess' => 0, 'events' => []];
         $peer = $peer ?? ['department_score' => null, 'department_hours' => null,
@@ -517,6 +528,16 @@ class responsiveness_payload {
             'nextpause_note'       => $row->nextpause_note !== null ? (string) $row->nextpause_note : null,
             'lastpause_endts'      => $row->lastpause_endts !== null ? (int) $row->lastpause_endts : null,
             'lastpause_reason'     => $row->lastpause_reason !== null ? (string) $row->lastpause_reason : null,
+            /* Scheduled-pause notice ("Pausa prevista"): up to 3 upcoming
+             * pauses visible now. Each entry carries the localised display
+             * strings (when / typelabel); label is format_string()-sanitised. */
+            'upcoming_pauses' => array_map(static fn ($u) => [
+                'start' => (int) $u['start'],
+                'type' => (string) $u['type'],
+                'label' => (string) $u['label'],
+                'when' => (string) $u['when'],
+                'typelabel' => (string) $u['typelabel'],
+            ], $upcoming),
             // Phase 3C — paused-window transparency aggregate (course scope).
             'paused_days_30d'      => (int) $pausedaggregate['total_days'],
             'paused_breakdown_30d' => [
